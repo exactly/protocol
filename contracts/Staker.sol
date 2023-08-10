@@ -36,6 +36,15 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
   /// @notice Velodrome's voter.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IVoter public immutable voter;
+  /// @notice Velodrome's fees.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IReward public immutable fees;
+  /// @notice Velodrome's bribes.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IReward public immutable bribes;
+  /// @notice Velodrome's minter.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IMinter public immutable minter;
   /// @notice exactly's auditor.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
@@ -48,6 +57,9 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
   /// @notice The rewards controller.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   RewardsController public immutable rewardsController;
+  /// @notice Velodrome's rebase distributor.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IRewardsDistributor public immutable distributor;
 
   uint256 public lockId;
 
@@ -70,6 +82,10 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     rewardsController = rewardsController_;
     velo = votingEscrow_.token();
     gauge = voter_.gauges(factory_.getPool(exa_, weth_, false));
+    fees = gauge.feesVotingReward();
+    bribes = voter.gaugeToBribe(gauge);
+    minter = voter.minter();
+    distributor = minter.rewardsDistributor();
 
     _disableInitializers();
   }
@@ -120,12 +136,13 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
 
     uint256 id = lockId;
     if (id != 0) {
+      if (distributor.timeCursorOf(id) != minter.activePeriod()) distributor.claim(id);
+
       ERC20[] memory assets = new ERC20[](2);
       assets[0] = exa;
       assets[1] = weth;
-      gauge.feesVotingReward().getReward(id, assets);
+      fees.getReward(id, assets);
 
-      IReward bribes = voter.gaugeToBribe(gauge);
       {
         uint256 count = 0;
         ERC20[] memory a = new ERC20[](bribes.rewardsListLength());
@@ -136,8 +153,10 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
         assets = new ERC20[](count);
         for (uint256 i = 0; i < assets.length; ++i) assets[i] = a[i];
       }
-      bribes.getReward(id, assets);
-      for (uint256 i = 0; i < assets.length; ++i) handleReward(assets[i]);
+      if (assets.length != 0) {
+        bribes.getReward(id, assets);
+        for (uint256 i = 0; i < assets.length; ++i) handleReward(assets[i]);
+      }
     }
 
     Market[] memory markets = auditor.allMarkets();
@@ -153,7 +172,11 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     }
 
     uint256 balanceVELO = velo.balanceOf(address(this));
-    if (balanceVELO != 0) {
+    if (
+      balanceVELO != 0 &&
+      block.timestamp > block.timestamp - (block.timestamp % 1 weeks) + 1 hours &&
+      block.timestamp <= block.timestamp - (block.timestamp % 1 weeks) + 1 weeks - 1 hours
+    ) {
       if (id == 0) {
         IPool[] memory pools = new IPool[](1);
         uint256[] memory weights = new uint256[](1);
@@ -250,10 +273,14 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     stake(account, 0, minEXA, keepETH);
   }
 
+  function stakeBalance(address payable account, uint256 inEXA, uint256 minEXA, uint256 keepETH) public payable {
+    exa.safeTransferFrom(account, address(this), inEXA);
+    stake(account, inEXA, minEXA, keepETH);
+  }
+
   function stakeBalance(Permit calldata p, uint256 minEXA, uint256 keepETH) external payable {
     IERC20Permit(address(exa)).safePermit(p.owner, address(this), p.value, p.deadline, p.v, p.r, p.s);
-    exa.safeTransferFrom(p.owner, address(this), p.value);
-    stake(p.owner, p.value, minEXA, keepETH);
+    stakeBalance(p.owner, p.value, minEXA, keepETH);
   }
 
   function stakeRewards(ClaimPermit calldata p, uint256 minEXA, uint256 keepETH) external payable {
@@ -327,6 +354,8 @@ interface IGauge is IERC20, IERC20Permit {
 }
 
 interface IVoter {
+  function minter() external view returns (IMinter);
+
   function gauges(IPool pool) external view returns (IGauge);
 
   function poke(uint256 tokenId) external;
@@ -334,6 +363,8 @@ interface IVoter {
   function vote(uint256 tokenId, IPool[] calldata poolVote, uint256[] calldata weights) external;
 
   function weights(IPool pool) external view returns (uint256);
+
+  function distribute(IGauge[] memory gauges) external;
 
   function usedWeights(uint256 tokenId) external view returns (uint256);
 
@@ -370,6 +401,20 @@ interface IReward {
   function notifyRewardAmount(ERC20 token, uint256 amount) external;
 
   function tokenRewardsPerEpoch(ERC20 token, uint256 epochStart) external view returns (uint256);
+}
+
+interface IMinter {
+  function activePeriod() external returns (uint256);
+
+  function rewardsDistributor() external view returns (IRewardsDistributor);
+}
+
+interface IRewardsDistributor {
+  function claim(uint256 tokenId) external returns (uint256);
+
+  function claimable(uint256 tokenId) external view returns (uint256);
+
+  function timeCursorOf(uint256 tokenId) external view returns (uint256);
 }
 
 struct LockedBalance {

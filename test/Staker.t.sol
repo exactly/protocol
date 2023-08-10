@@ -43,7 +43,7 @@ contract StakerTest is ForkTest {
   RewardsController internal rewardsController;
 
   function setUp() external {
-    vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 107_618_399);
+    vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 107_709_211);
 
     op = ERC20(deployment("OP"));
     exa = ERC20(deployment("EXA"));
@@ -76,13 +76,15 @@ contract StakerTest is ForkTest {
 
     bob = payable(vm.addr(BOB_KEY));
     vm.label(bob, "bob");
-    deal(address(exa), bob, 500e18);
+    deal(address(exa), bob, 2_000_000e18);
     deal(address(velo), bob, 500e18);
     deal(address(marketUSDC.asset()), address(this), 100_000e6);
     marketUSDC.asset().approve(address(marketUSDC), type(uint256).max);
     marketUSDC.deposit(100_000e6, bob);
     bob.transfer(500 ether);
 
+    vm.label(address(voter.minter()), "VELOMinter");
+    vm.label(address(voter.minter().rewardsDistributor()), "VELODistributor");
     vm.label(address(factory.getPool(op, weth, false)), "OPPool");
     vm.label(factory.getPool(op, weth, false).poolFees(), "OPPoolFees");
     vm.label(factory.getPool(exa, weth, false).poolFees(), "EXAPoolFees");
@@ -98,6 +100,49 @@ contract StakerTest is ForkTest {
       vm.label(address(markets[i]), string.concat("Market", markets[i].asset().symbol()));
       vm.prank(markets[i].treasury());
       markets[i].approve(address(staker), type(uint256).max);
+    }
+  }
+
+  function testStakerProtoSimulator() external {
+    {
+      address treasury = marketUSDC.treasury();
+      vm.startPrank(treasury);
+      gauge.withdraw(gauge.balanceOf(treasury));
+      pool.approve(address(staker), type(uint256).max);
+      staker.deposit(pool.balanceOf(treasury), treasury);
+    }
+    {
+      address beefy = 0x5aaC0A5039c8D0CA985829A8a4De3d1020B36298;
+      vm.startPrank(beefy);
+      gauge.withdraw(gauge.balanceOf(beefy));
+      pool.approve(address(staker), type(uint256).max);
+      staker.deposit(pool.balanceOf(beefy), address(this));
+    }
+    vm.startPrank(deployment("TimelockController"));
+    exa.transfer(address(staker), 1_000_000e18);
+    deal(address(velo), address(staker), 1e18);
+    staker.harvest();
+
+    vm.startPrank(bob);
+    exa.approve(address(staker), type(uint256).max);
+    for (uint256 i = 0; i < uint256(365 days) / 1 weeks; ++i) {
+      skip(1 hours + 1 minutes);
+      {
+        IGauge[] memory gauges = new IGauge[](1);
+        gauges[0] = gauge;
+        voter.distribute(gauges);
+      }
+      rewind(1 hours + 1 minutes);
+      for (uint256 j = 0; j < 10; ++j) {
+        skip(1 weeks / 10);
+        uint256 reserveEXA;
+        uint256 reserveWETH;
+        {
+          (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
+          (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
+        }
+        staker.stakeBalance{ value: 0.1 ether }(bob, uint256(0.1 ether).mulDivDown(reserveEXA, reserveWETH), 0, 0);
+      }
     }
   }
 
@@ -121,8 +166,14 @@ contract StakerTest is ForkTest {
     assertEq(locked.end, 0, "not locked yet");
     assertEq(locked.isPermanent, false, "not locked yet");
     check();
+    staker.harvest();
 
     skip(1 days);
+    {
+      IGauge[] memory gauges = new IGauge[](1);
+      gauges[0] = gauge;
+      voter.distribute(gauges);
+    }
     uint256 earnedVELO = gauge.earned(staker);
     assertGt(earnedVELO, 0, "earned velo");
     staker.stakeETH{ value: amountETH }(bob, 0, 0);
@@ -156,6 +207,11 @@ contract StakerTest is ForkTest {
 
     skip(1 weeks);
     assertEq(block.timestamp - (block.timestamp % 1 weeks), epoch + 1 weeks, "next epoch");
+    {
+      IGauge[] memory gauges = new IGauge[](1);
+      gauges[0] = gauge;
+      voter.distribute(gauges);
+    }
     staker.harvest();
     assertEq(weth.balanceOf(address(staker)), 0, "no weth");
     assertEq(velo.balanceOf(address(staker)), 0, "no velo");
@@ -190,6 +246,8 @@ contract StakerTest is ForkTest {
     assertEq(pool.balanceOf(address(staker)), 0, "0 staker lp");
     assertEq(weth.balanceOf(address(staker)), 0, "0 staker weth");
     assertEq(velo.balanceOf(address(staker)), 0, "0 staker velo");
+    assertEq(gauge.earned(staker), 0, "0 staker emission");
+    assertEq(staker.distributor().claimable(staker.lockId()), 0, "0 staker rebase");
 
     Market[] memory markets = auditor.allMarkets();
     for (uint256 i = 0; i < markets.length; ++i) assertEq(markets[i].balanceOf(markets[i].treasury()), 0, "0 treasury");
@@ -252,4 +310,39 @@ contract StakerTest is ForkTest {
 
   // solhint-disable-next-line no-empty-blocks
   receive() external payable {}
+
+  event Deposit(address indexed from, uint256 indexed tokenId, uint256 amount);
+  event Withdraw(address indexed from, uint256 indexed tokenId, uint256 amount);
+  event LockPermanent(address indexed owner, uint256 indexed tokenId, uint256 amount, uint256 ts);
+  event Abstained(
+    address indexed voter,
+    address indexed pool,
+    uint256 indexed tokenId,
+    uint256 weight,
+    uint256 totalWeight,
+    uint256 timestamp
+  );
+  event Voted(
+    address indexed voter,
+    address indexed pool,
+    uint256 indexed tokenId,
+    uint256 weight,
+    uint256 totalWeight,
+    uint256 timestamp
+  );
+  event Deposit(
+    address indexed provider,
+    uint256 indexed tokenId,
+    DepositType indexed depositType,
+    uint256 value,
+    uint256 locktime,
+    uint256 ts
+  );
+}
+
+enum DepositType {
+  DEPOSIT_FOR_TYPE,
+  CREATE_LOCK_TYPE,
+  INCREASE_LOCK_AMOUNT,
+  INCREASE_UNLOCK_TIME
 }
