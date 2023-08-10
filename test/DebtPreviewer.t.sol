@@ -1018,6 +1018,7 @@ contract DebtPreviewerTest is ForkTest {
       10_000e6,
       3e18,
       depositRate,
+      0,
       0
     );
 
@@ -1048,6 +1049,7 @@ contract DebtPreviewerTest is ForkTest {
       0,
       leverage.ratio,
       depositRate,
+      0,
       0
     );
     assertEq(rates.deposit, depositRate.mulWadDown(leverage.ratio));
@@ -1075,6 +1077,7 @@ contract DebtPreviewerTest is ForkTest {
       10_000e6,
       2.5e18,
       depositRate,
+      0,
       0
     );
 
@@ -1092,7 +1095,7 @@ contract DebtPreviewerTest is ForkTest {
   function testDeleverageRatesCrossAsset() external {
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 2.5e18, MIN_SQRT_RATIO + 1);
     uint256 depositRate = 1.91e16;
-    Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketWETH, address(this), 0, 1e18, depositRate, 0);
+    Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketWETH, address(this), 0, 1e18, depositRate, 0, 0);
 
     assertEq(rates.deposit, depositRate);
     assertEq(rates.borrow, 0);
@@ -1121,6 +1124,7 @@ contract DebtPreviewerTest is ForkTest {
       -5_000e6,
       1e18,
       depositRate,
+      0,
       0
     );
 
@@ -1144,7 +1148,7 @@ contract DebtPreviewerTest is ForkTest {
   function testDeleverageRatesSameAsset() external {
     debtManager.leverage(marketUSDC, 10_000e6, 3e18);
     uint256 depositRate = 1.91e16;
-    Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketUSDC, address(this), 0, 2e18, depositRate, 0);
+    Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketUSDC, address(this), 0, 2e18, depositRate, 0, 0);
 
     assertEq(rates.deposit, depositRate.mulWadDown(2e18));
     assertEq(rates.borrow, 33873354732054336);
@@ -1160,7 +1164,7 @@ contract DebtPreviewerTest is ForkTest {
 
   function testLeverageRatesZeroPrincipalCrossAsset() external {
     uint256 depositRate = 1.91e16;
-    Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketWETH, address(this), 0, 2e18, depositRate, 0);
+    Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketWETH, address(this), 0, 2e18, depositRate, 0, 0);
 
     assertEq(rates.deposit, depositRate.mulWadDown(2e18));
     assertEq(rates.borrow, 35699727952228352);
@@ -1181,7 +1185,7 @@ contract DebtPreviewerTest is ForkTest {
 
   function testLeverageRatesZeroPrincipalSameAsset() external {
     uint256 depositRate = 1.91e16;
-    Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketUSDC, address(this), 0, 2e18, depositRate, 0);
+    Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketUSDC, address(this), 0, 2e18, depositRate, 0, 0);
 
     assertEq(rates.deposit, depositRate.mulWadDown(2e18));
     assertEq(rates.borrow, 33875696070336447);
@@ -1198,7 +1202,7 @@ contract DebtPreviewerTest is ForkTest {
   function testLeverageRatesNegativePrincipalCrossAsset() external {
     uint256 depositRate = 1.91e16;
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 2.5e18, MIN_SQRT_RATIO + 1);
-    Rates memory rates = debtPreviewer.leverageRates(marketWETH, marketUSDC, address(this), 0, 2e18, depositRate, 0);
+    Rates memory rates = debtPreviewer.leverageRates(marketWETH, marketUSDC, address(this), 0, 2e18, depositRate, 0, 0);
 
     assertEq(rates.deposit, depositRate.mulWadDown(2e18));
     assertEq(rates.native, 0);
@@ -1220,7 +1224,7 @@ contract DebtPreviewerTest is ForkTest {
   function testLeverageRatesNegativePrincipalSameAsset() external {
     uint256 depositRate = 1.91e16;
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 2.5e18, MIN_SQRT_RATIO + 1);
-    Rates memory rates = debtPreviewer.leverageRates(marketWETH, marketWETH, address(this), 0, 2e18, depositRate, 0);
+    Rates memory rates = debtPreviewer.leverageRates(marketWETH, marketWETH, address(this), 0, 2e18, depositRate, 0, 0);
 
     assertEq(rates.deposit, depositRate.mulWadDown(2e18));
     assertEq(rates.native, 0);
@@ -1232,6 +1236,50 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(rates.rewards[0].assetName, "Optimism");
     assertEq(rates.rewards[0].deposit, 52419109814457360);
     assertEq(rates.rewards[0].borrow, 18477140497615080);
+  }
+
+  function testLeverageRatesWithNativeBorrow() external {
+    uint256 nativeRateBorrow = 3.9e18;
+    uint256 depositRate = 1.9e18;
+    uint256 nativeRate = 3.9e18;
+    uint256 ratio = 3e18;
+    Rates memory rates = debtPreviewer.leverageRates(
+      marketWETH,
+      marketWETH,
+      address(this),
+      0,
+      ratio,
+      depositRate,
+      nativeRate,
+      nativeRateBorrow
+    );
+
+    assertEq(rates.deposit, depositRate.mulWadDown(ratio), "deposit");
+    assertEq(rates.native, int256(nativeRate.mulWadDown(ratio) - nativeRateBorrow.mulWadDown(ratio - 1e18)), "native");
+  }
+
+  function testLeverageRatesWithNegativeNativeResult() external {
+    uint256 nativeRateBorrow = 3.9e18;
+    uint256 depositRate = 1.9e18;
+    uint256 nativeRate = 0;
+    uint256 ratio = 3e18;
+    Rates memory rates = debtPreviewer.leverageRates(
+      marketWETH,
+      marketWETH,
+      address(this),
+      0,
+      ratio,
+      depositRate,
+      nativeRate,
+      nativeRateBorrow
+    );
+
+    assertEq(rates.deposit, depositRate.mulWadDown(ratio), "deposit");
+    assertEq(
+      rates.native,
+      int256(nativeRate.mulWadDown(ratio)) - int256(nativeRateBorrow.mulWadDown(ratio - 1e18)),
+      "native"
+    );
   }
 
   function crossPrincipal(Market marketDeposit, Market marketBorrow, address account) internal view returns (int256) {

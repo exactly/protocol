@@ -491,6 +491,7 @@ contract DebtPreviewer is Initializable {
   /// @param targetRatio The target ratio to preview.
   /// @param depositRate The current deposit rate of the deposit market.
   /// @param nativeRate The current native rate of the deposit market.
+  /// @param nativeRateBorrow The current native rate of the borrow market.
   function leverageRates(
     Market marketDeposit,
     Market marketBorrow,
@@ -498,30 +499,36 @@ contract DebtPreviewer is Initializable {
     int256 assets,
     uint256 targetRatio,
     uint256 depositRate,
-    uint256 nativeRate
+    uint256 nativeRate,
+    uint256 nativeRateBorrow
   ) external view returns (Rates memory rates) {
-    (int256 principal, uint256 currentRatio, ) = previewRatio(marketDeposit, marketBorrow, account, assets, 1e18);
+    RateVars memory vars;
+    (vars.principal, vars.ratio, ) = previewRatio(marketDeposit, marketBorrow, account, assets, 1e18);
+    vars.sameMarket = marketDeposit == marketBorrow;
 
-    uint256 diff;
-    uint256 utilization;
-    if (principal <= 0) {
-      utilization = marketBorrow.totalFloatingBorrowAssets().divWadUp(marketBorrow.totalAssets());
-    } else if (targetRatio < currentRatio) {
-      diff = uint256(principal).mulWadDown(currentRatio - targetRatio);
-      utilization = (marketBorrow.totalFloatingBorrowAssets() - previewAssetsOut(marketDeposit, marketBorrow, diff))
-        .divWadUp(marketBorrow.totalAssets() - (marketDeposit == marketBorrow ? diff : 0));
+    if (vars.principal <= 0) {
+      vars.utilization = marketBorrow.totalFloatingBorrowAssets().divWadUp(marketBorrow.totalAssets());
+    } else if (targetRatio < vars.ratio) {
+      vars.diff = uint256(vars.principal).mulWadDown(vars.ratio - targetRatio);
+      vars.utilization = (marketBorrow.totalFloatingBorrowAssets() -
+        previewAssetsOut(marketDeposit, marketBorrow, vars.diff)).divWadUp(
+          marketBorrow.totalAssets() - (vars.sameMarket ? vars.diff : 0)
+        );
     } else {
-      diff = uint256(principal).mulWadDown(targetRatio - currentRatio);
-      utilization = (marketBorrow.totalFloatingBorrowAssets() + previewAssetsOut(marketDeposit, marketBorrow, diff))
-        .divWadUp(marketBorrow.totalAssets() + (marketDeposit == marketBorrow ? diff : 0));
+      vars.diff = uint256(vars.principal).mulWadDown(targetRatio - vars.ratio);
+      vars.utilization = (marketBorrow.totalFloatingBorrowAssets() +
+        previewAssetsOut(marketDeposit, marketBorrow, vars.diff)).divWadUp(
+          marketBorrow.totalAssets() + (vars.sameMarket ? vars.diff : 0)
+        );
     }
-    rates.borrow = marketBorrow.interestRateModel().floatingRate(utilization).mulWadDown(targetRatio - 1e18);
+
+    rates.borrow = marketBorrow.interestRateModel().floatingRate(vars.utilization).mulWadDown(targetRatio - 1e18);
     rates.deposit = depositRate.mulWadDown(targetRatio);
-    rates.native = nativeRate.mulWadDown(targetRatio);
+    rates.native = int256(nativeRate.mulWadDown(targetRatio)) - int256(nativeRateBorrow.mulWadDown(targetRatio - 1e18));
     rates.rewards = calculateRewards(
       rewardRates(marketDeposit),
-      marketDeposit == marketBorrow ? new RewardRate[](0) : rewardRates(marketBorrow),
-      marketDeposit == marketBorrow,
+      vars.sameMarket ? new RewardRate[](0) : rewardRates(marketBorrow),
+      vars.sameMarket,
       targetRatio
     );
   }
@@ -720,7 +727,7 @@ struct MinDepositVars {
 }
 
 struct Rates {
-  uint256 native;
+  int256 native;
   uint256 borrow;
   uint256 deposit;
   RewardRate[] rewards;
@@ -732,6 +739,14 @@ struct RewardRate {
   string assetSymbol;
   uint256 borrow;
   uint256 deposit;
+}
+
+struct RateVars {
+  uint256 diff;
+  uint256 ratio;
+  bool sameMarket;
+  int256 principal;
+  uint256 utilization;
 }
 
 interface IUniswapQuoter {
