@@ -95,6 +95,11 @@
       "address": "0xB09f133D40244bc904f57aC1eCBFd0E3e4036DA5",
       "txHash": "0xd426b2d27f30878b647ff81bafbc8805ec88056e85bb6d2e6eb77ef0b86874f2",
       "kind": "transparent"
+    },
+    {
+      "address": "0x636914e486118C3C08f717e7BabAf23af4403432",
+      "txHash": "0x119c094c7cd0065be6109909b12cde7208e841ebb71670d605467f0f412b13b2",
+      "kind": "transparent"
     }
   ],
   "impls": {
@@ -29268,6 +29273,65 @@
     },
     "0x3F38F4d59D324682ef4832cD2735769b72CC57A4": {
       "address": "0x3F38F4d59D324682ef4832cD2735769b72CC57A4",
+      "layout": {
+        "solcVersion": "0.8.17",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "poolFees",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint24))",
+            "contract": "DebtPreviewer",
+            "src": "contracts/periphery/DebtPreviewer.sol:36"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint24))": {
+            "label": "mapping(address => mapping(address => uint24))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint24)": {
+            "label": "mapping(address => uint24)",
+            "numberOfBytes": "32"
+          },
+          "t_uint24": {
+            "label": "uint24",
+            "numberOfBytes": "3"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "0x2073C7B72565670aF6D75e7DDd022c92cb90612e": {
+      "address": "0x2073C7B72565670aF6D75e7DDd022c92cb90612e",
       "layout": {
         "solcVersion": "0.8.17",
         "storage": [
