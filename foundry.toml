@@ -12,7 +12,13 @@ cache_path = "cache/.foundry"
 fs_permissions = [{ access = "read", path = "./deployments" }]
 verbosity = 3
 
+[profile.default.invariant]
+fail_on_revert = true
+
 [profile.production.fuzz]
+runs = 66_666
+
+[profile.production.invariant]
 runs = 66_666
 
 [profile.overkill.fuzz]

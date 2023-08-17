@@ -367,6 +367,8 @@ interface IVoter {
 
   function vote(uint256 tokenId, IPool[] calldata poolVote, uint256[] calldata weights) external;
 
+  function votes(uint256 tokenId, IPool poolVote) external view returns (uint256);
+
   function weights(IPool pool) external view returns (uint256);
 
   function distribute(IGauge[] memory gauges) external;

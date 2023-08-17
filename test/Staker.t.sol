@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { ForkTest } from "./Fork.t.sol";
+import { ForkTest, stdError } from "./Fork.t.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ITransparentUpgradeableProxy, ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import { RewardsController, Auditor, Market, ClaimPermit } from "../contracts/RewardsController.sol";
@@ -24,9 +25,13 @@ import {
 // solhint-disable reentrancy
 contract StakerTest is ForkTest {
   using FixedPointMathLib for uint256;
+  using FixedPointMathLib for uint80;
 
   uint256 internal constant BOB_KEY = 0xb0b;
   address payable internal bob;
+  uint256 internal shareValue;
+  uint256 internal votes;
+  Balances internal b;
 
   WETH internal weth;
   ERC20 internal op;
@@ -41,8 +46,9 @@ contract StakerTest is ForkTest {
   IPoolFactory internal factory;
   IVotingEscrow internal votingEscrow;
   RewardsController internal rewardsController;
+  IRouter internal constant router = IRouter(0xa062aE8A9c5e11aaA026fc2670B0D65cCc8B2858);
 
-  function setUp() external {
+  function setUp() external _setUp {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 107_709_211);
 
     op = ERC20(deployment("OP"));
@@ -78,9 +84,14 @@ contract StakerTest is ForkTest {
     vm.label(bob, "bob");
     deal(address(exa), bob, 2_000_000e18);
     deal(address(velo), bob, 500e18);
-    deal(address(marketUSDC.asset()), address(this), 100_000e6);
+    deal(address(marketUSDC.asset()), address(this), 5_000_000e6);
+    deal(address(exa), address(this), type(uint128).max);
+    pool.approve(address(staker), type(uint256).max);
+    exa.approve(address(staker), type(uint256).max);
+    exa.approve(address(router), type(uint256).max);
+    weth.approve(address(router), type(uint256).max);
     marketUSDC.asset().approve(address(marketUSDC), type(uint256).max);
-    marketUSDC.deposit(100_000e6, bob);
+    marketUSDC.deposit(5_000_000e6, bob);
     bob.transfer(500 ether);
 
     vm.label(address(voter.minter()), "VELOMinter");
@@ -101,6 +112,54 @@ contract StakerTest is ForkTest {
       vm.prank(markets[i].treasury());
       markets[i].approve(address(staker), type(uint256).max);
     }
+
+    targetSender(address(this));
+    targetContract(address(this));
+    bytes4[] memory selectors = new bytes4[](10);
+    selectors[0] = this.stakeETH.selector;
+    selectors[1] = this.stakeBalance.selector;
+    selectors[2] = this.stakeRewards.selector;
+    selectors[3] = this.mint.selector;
+    selectors[4] = this.deposit.selector;
+    selectors[5] = this.unstake.selector;
+    selectors[6] = this.redeem.selector;
+    selectors[7] = this.withdraw.selector;
+    selectors[8] = this.harvest.selector;
+    selectors[9] = this.distribute.selector;
+    targetSelector(FuzzSelector(address(this), selectors));
+  }
+
+  function invariantShareValue() external {
+    uint256 currentShareValue = staker.previewMint(1e18);
+    assertGe(currentShareValue, shareValue);
+    shareValue = currentShareValue;
+  }
+
+  function invariantVotes() external {
+    uint256 id = staker.lockId();
+    if (id != 0) {
+      uint256 currentVotes = voter.votes(id, pool);
+      assertGe(currentVotes, votes);
+      votes = currentVotes;
+    }
+  }
+
+  function invariantStakerAssets() external {
+    (uint256 reserveEXA, uint256 reserveWETH, ) = pool.getReserves();
+    Market[] memory markets = auditor.allMarkets();
+
+    for (uint256 i = 0; i < markets.length; ++i) {
+      assertEq(markets[i].balanceOf(address(staker)), 0, "0 staker market");
+      assertEq(markets[i].asset().balanceOf(address(staker)), 0, "0 staker asset");
+      if (staker.lockId() != 0) assertEq(markets[i].balanceOf(markets[i].treasury()), 0, "0 treasury");
+    }
+    assertEq(address(staker).balance, 0, "0 staker eth");
+    assertEq(gauge.earned(staker), 0, "0 staker emission");
+    assertEq(staker.distributor().claimable(staker.lockId()), 0, "0 staker rebase");
+    assertEq(pool.balanceOf(address(staker)), 0, "0 staker lp");
+    assertEq(velo.balanceOf(address(staker)), 0, "0 staker velo");
+    assertEq(exa.balanceOf(address(pool)), reserveEXA, "pool exa");
+    assertEq(weth.balanceOf(address(pool)), reserveWETH, "pool weth");
   }
 
   function testStakerProtoSimulator() external {
@@ -234,6 +293,231 @@ contract StakerTest is ForkTest {
     assertEq(velo.balanceOf(bob), balanceVELO - 100e18, "velo balance");
   }
 
+  function testStakeRedeemWithdrawDepositMint() external {
+    staker.stakeETH{ value: 1 ether }(payable(address(this)), 0, 0);
+    skip(1 minutes);
+
+    uint256 shares = staker.balanceOf(address(this)) / 2;
+    uint256 previewRedeem = staker.previewRedeem(shares);
+    assertEq(previewRedeem, staker.redeem(shares, address(this), address(this)));
+    assertEq(previewRedeem, pool.balanceOf(address(this)));
+
+    uint256 assets = staker.convertToAssets(staker.balanceOf(address(this)));
+    staker.withdraw(assets, address(this), address(this));
+    assertEq(staker.balanceOf(address(this)), 0);
+    assertEq(assets + previewRedeem, pool.balanceOf(address(this)));
+
+    pool.approve(address(staker), type(uint256).max);
+    staker.deposit(pool.balanceOf(address(this)) / 2, address(this));
+    staker.mint(staker.convertToShares(pool.balanceOf(address(this))), address(this));
+    assertApproxEqAbs(pool.balanceOf(address(this)), 0, 1e10);
+  }
+
+  function balances() internal {
+    b.eth = address(this).balance;
+    b.exa = exa.balanceOf(address(this));
+    b.pool = pool.balanceOf(address(this));
+    b.staker = staker.balanceOf(address(this));
+    b.poolGauge = pool.balanceOf(address(gauge));
+  }
+
+  function stakeBalance(uint256 eth, uint80 inEXA, uint80 minEXA, uint72 keepETH) external context {
+    eth = _bound(eth, 1e5, type(uint72).max);
+    if (keepETH >= eth || eth - keepETH > 1e5) {
+      uint256 swapWETH;
+      uint256 outEXA;
+      uint256 previewShares;
+
+      (uint256 reserveEXA, uint256 reserveWETH, ) = pool.getReserves();
+      uint256 previewETH = inEXA.mulDivDown(reserveWETH, reserveEXA);
+      if (eth > keepETH && eth >= previewETH && inEXA < uint256(eth - keepETH).mulDivDown(reserveEXA, reserveWETH)) {
+        swapWETH = uint256((eth - keepETH - inEXA.mulDivDown(reserveWETH, reserveEXA)) / 2).mulDivDown(
+          1e4 - factory.getFee(pool, false),
+          1e4
+        );
+        outEXA = swapWETH.mulDivDown(reserveEXA, swapWETH + reserveWETH).mulDivDown(
+          1e4 - factory.getFee(pool, false),
+          1e4
+        );
+
+        if (outEXA + inEXA >= minEXA && (eth - keepETH) < 4) {
+          vm.expectRevert(InsufficientOutputAmount.selector);
+        } else {
+          previewShares = Math.min(
+            ((outEXA + inEXA) * pool.totalSupply()) / (reserveEXA - outEXA),
+            ((eth - keepETH - swapWETH) * pool.totalSupply()) / (reserveWETH + swapWETH.mulWadDown(0.99e18))
+          );
+          previewShares = staker.previewDeposit(previewShares);
+        }
+      }
+      staker.stakeBalance{ value: eth }(payable(address(this)), inEXA, minEXA, keepETH);
+      if (keepETH >= eth || eth - keepETH < previewETH || outEXA + inEXA < minEXA || eth - keepETH < 50) {
+        if (eth >= keepETH && eth - keepETH > 50) {
+          assertEq(address(this).balance, b.eth);
+          assertEq(staker.balanceOf(address(this)), b.staker);
+          assertEq(pool.balanceOf(address(gauge)), b.poolGauge);
+          assertEq(exa.balanceOf(address(this)), b.exa);
+        }
+      } else {
+        assertEq(address(this).balance, b.eth + keepETH - eth);
+        assertApproxEqAbs(staker.balanceOf(address(this)), b.staker + previewShares, 1_000);
+        assertEq(exa.balanceOf(address(this)), b.exa - inEXA);
+      }
+      assertEq(pool.balanceOf(address(this)), b.pool);
+    }
+  }
+
+  function stakeRewards(uint256 eth, uint80 minEXA, uint72 keepETH) external context {
+    eth = _bound(eth, 1e5, type(uint72).max);
+    ERC20[] memory assets = new ERC20[](1);
+    assets[0] = exa;
+
+    staker.stakeRewards{ value: eth }(claimPermit(assets), minEXA, keepETH);
+  }
+
+  function stakeETH(uint256 eth, uint80 minEXA, uint72 keepETH) external context {
+    eth = _bound(eth, 1e5, type(uint72).max);
+    uint256 swapWETH;
+    uint256 outEXA;
+    uint256 previewShares;
+
+    if (eth > keepETH) {
+      (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
+      {
+        (uint256 reserveEXA, uint256 reserveWETH) = address(exa) < address(weth)
+          ? (reserve0, reserve1)
+          : (reserve1, reserve0);
+        swapWETH = uint256((eth - keepETH) / 2).mulDivDown(1e4 - factory.getFee(pool, false), 1e4);
+        outEXA = swapWETH.mulDivDown(reserveEXA, swapWETH + reserveWETH).mulDivDown(
+          1e4 - factory.getFee(pool, false),
+          1e4
+        );
+      }
+
+      if (outEXA >= minEXA && (eth - keepETH) < 4) {
+        vm.expectRevert(InsufficientOutputAmount.selector);
+      } else {
+        previewShares = Math.min(
+          (outEXA * pool.totalSupply()) / (reserve0 - outEXA),
+          ((eth - keepETH - swapWETH) * pool.totalSupply()) / (reserve1 + swapWETH.mulWadDown(0.99e18))
+        );
+        previewShares = staker.previewDeposit(previewShares);
+      }
+    }
+    staker.stakeETH{ value: eth }(payable(address(this)), minEXA, keepETH);
+    if (keepETH >= eth || (minEXA > outEXA) || (outEXA >= minEXA && (eth - keepETH) < 4)) {
+      assertEq(address(this).balance, b.eth);
+      assertEq(staker.balanceOf(address(this)), b.staker);
+      assertEq(pool.balanceOf(address(gauge)), b.poolGauge);
+    } else {
+      assertEq(address(this).balance, b.eth + keepETH - eth);
+      assertApproxEqAbs(staker.balanceOf(address(this)), b.staker + previewShares, 35);
+    }
+    assertEq(exa.balanceOf(address(this)), b.exa);
+    assertEq(pool.balanceOf(address(this)), b.pool);
+  }
+
+  function unstake(uint64 percentage) external context {
+    uint256 shares = staker.balanceOf(address(this));
+    uint256 assets;
+    if (percentage == 0) vm.expectRevert(stdError.assertionError);
+    else if (
+      (staker.previewRedeem(shares.mulWadDown(percentage) * exa.balanceOf(address(pool))) / pool.totalSupply()) == 0 ||
+      (staker.previewRedeem(shares.mulWadDown(percentage) * weth.balanceOf(address(pool))) / pool.totalSupply()) == 0
+    ) {
+      vm.expectRevert(InsufficientLiquidityBurned.selector);
+    } else if (percentage > 1e18 && shares.mulWadDown(percentage) != shares) vm.expectRevert(bytes(""));
+    else {
+      assets = staker.previewRedeem(shares.mulWadDown(Math.min(1e18, percentage)));
+    }
+    staker.unstake(address(this), percentage);
+    if (assets > 0) assertEq(pool.balanceOf(address(this)), b.pool + assets);
+  }
+
+  function mint(uint256 eth) external context {
+    eth = _bound(eth, 1e10, type(uint64).max);
+    weth.deposit{ value: eth }();
+    (, , uint256 liquidity) = router.addLiquidity(
+      exa,
+      weth,
+      false,
+      exa.balanceOf(address(this)),
+      eth,
+      0,
+      0,
+      address(this),
+      block.timestamp + 1 days
+    );
+    uint256 assets = staker.convertToShares(liquidity);
+    if (assets == 0) vm.expectRevert(ZeroAmount.selector);
+    staker.mint(assets, address(this));
+  }
+
+  function deposit(uint256 eth) external context {
+    eth = _bound(eth, 1e10, type(uint64).max);
+    weth.deposit{ value: eth }();
+    (, , uint256 liquidity) = router.addLiquidity(
+      exa,
+      weth,
+      false,
+      exa.balanceOf(address(this)),
+      eth,
+      0,
+      0,
+      address(this),
+      block.timestamp + 1 days
+    );
+    staker.deposit(liquidity, address(this));
+  }
+
+  function redeem(uint96 shares) external context {
+    uint256 previewAssets = staker.previewRedeem(shares);
+    if (shares > staker.balanceOf(address(this))) vm.expectRevert(bytes(""));
+    uint256 assets = staker.redeem(shares, address(this), address(this));
+    if (assets > 0) {
+      assertEq(assets, previewAssets);
+      assertEq(pool.balanceOf(address(this)), b.pool + assets);
+    }
+  }
+
+  function withdraw(uint96 assets) external context {
+    uint256 previewShares = staker.previewWithdraw(assets);
+    if (assets > staker.convertToAssets(staker.balanceOf(address(this)))) vm.expectRevert(bytes(""));
+    uint256 shares = staker.withdraw(assets, address(this), address(this));
+    if (shares > 0) {
+      assertEq(shares, previewShares);
+      assertEq(pool.balanceOf(address(this)), b.pool + assets);
+    }
+  }
+
+  function harvest() external context {
+    staker.harvest();
+  }
+
+  function distribute() external context {
+    IGauge[] memory gauges = new IGauge[](1);
+    gauges[0] = gauge;
+    voter.distribute(gauges);
+  }
+
+  function warp(uint32 time) external {
+    skip(_bound(time, 1, type(uint32).max));
+    _lastTimestamp = block.timestamp;
+  }
+
+  uint256 internal _lastTimestamp;
+  modifier context() {
+    vm.warp(_lastTimestamp);
+    balances();
+    _;
+    _lastTimestamp = block.timestamp;
+  }
+
+  modifier _setUp() {
+    _;
+    _lastTimestamp = block.timestamp;
+  }
+
   modifier checks() {
     Market[] memory markets = auditor.allMarkets(); // force market updates
     for (uint256 i = 0; i < markets.length; ++i) markets[i].borrow(0, address(420), address(69));
@@ -338,6 +622,32 @@ contract StakerTest is ForkTest {
     uint256 locktime,
     uint256 ts
   );
+}
+
+error ZeroAmount();
+error InsufficientOutputAmount();
+error InsufficientLiquidityBurned();
+
+struct Balances {
+  uint256 eth;
+  uint256 exa;
+  uint256 pool;
+  uint256 staker;
+  uint256 poolGauge;
+}
+
+interface IRouter {
+  function addLiquidity(
+    ERC20 tokenA,
+    ERC20 tokenB,
+    bool stable,
+    uint256 amountADesired,
+    uint256 amountBDesired,
+    uint256 amountAMin,
+    uint256 amountBMin,
+    address to,
+    uint256 deadline
+  ) external returns (uint256 amountA, uint256 amountB, uint256 liquidity);
 }
 
 enum DepositType {
