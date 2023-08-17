@@ -76,27 +76,27 @@ export default {
         overrides: {
           goerli: {
             rewards: {
-              OP: { total: 150_000, debt: 16_000, start: "2023-03-09", period: 20 * 7 * 86_400 },
-              EXA: { total: 7_200, debt: 16_000, start: "2023-07-20", period: 4 * 7 * 86_400 },
+              OP: { total: 165_000, debt: 16_000, start: "2023-03-09", period: 24 * 7 * 86_400 },
+              EXA: { total: 21_600, debt: 16_000, start: "2023-07-20", period: 8 * 7 * 86_400 },
             },
           },
           optimism: {
             rewards: {
               OP: {
-                total: 150_000,
+                total: 165_000,
                 debt: 1_666,
                 start: "2023-04-03T14:00Z",
-                period: 20 * 7 * 86_400,
+                period: 24 * 7 * 86_400,
                 undistributedFactor: 0.3,
                 compensationFactor: 0.7,
                 transitionFactor: 0.7056,
                 depositAllocationWeightAddend: 0.03,
               },
               EXA: {
-                total: 7_200,
+                total: 21_600,
                 debt: 1_666,
                 start: "2023-07-24T14:00Z",
-                period: 4 * 7 * 86_400,
+                period: 8 * 7 * 86_400,
                 undistributedFactor: 0.3,
                 compensationFactor: 0.7,
                 transitionFactor: 0.7056,
@@ -119,14 +119,14 @@ export default {
         overrides: {
           goerli: {
             rewards: {
-              OP: { total: 350_000, debt: 25_000_000, start: "2023-03-09", period: 20 * 7 * 86_400 },
-              EXA: { total: 14_400, debt: 25_000_000, start: "2023-07-20", period: 4 * 7 * 86_400 },
+              OP: { total: 385_000, debt: 25_000_000, start: "2023-03-09", period: 24 * 7 * 86_400 },
+              EXA: { total: 43_200, debt: 25_000_000, start: "2023-07-20", period: 8 * 7 * 86_400 },
             },
           },
           optimism: {
             rewards: {
-              OP: { total: 350_000, debt: 7_500_000, start: "2023-04-03T14:00Z", period: 20 * 7 * 86_400 },
-              EXA: { total: 14_400, debt: 7_500_000, start: "2023-07-24T14:00Z", period: 4 * 7 * 86_400 },
+              OP: { total: 385_000, debt: 7_500_000, start: "2023-04-03T14:00Z", period: 24 * 7 * 86_400 },
+              EXA: { total: 43_200, debt: 7_500_000, start: "2023-07-24T14:00Z", period: 8 * 7 * 86_400 },
             },
           },
         },
@@ -150,19 +150,19 @@ export default {
           goerli: {
             rewards: {
               OP: {
-                total: 14,
+                total: 21,
                 debt: 1,
                 start: "2023-06-13",
-                period: 8 * 7 * 86_400,
+                period: 12 * 7 * 86_400,
                 compensationFactor: 0,
                 transitionFactor: 0.64,
                 depositAllocationWeightAddend: 0.03,
               },
               EXA: {
-                total: 7,
+                total: 14,
                 debt: 1,
                 start: "2023-07-20",
-                period: 4 * 7 * 86_400,
+                period: 8 * 7 * 86_400,
                 compensationFactor: 0,
                 transitionFactor: 0.64,
                 depositAllocationWeightAddend: 0.03,
@@ -173,19 +173,19 @@ export default {
             priceFeed: undefined,
             rewards: {
               OP: {
-                total: 10_000,
+                total: 12_500,
                 debt: 1,
                 start: "2023-06-26T14:00Z",
-                period: 8 * 7 * 86_400,
+                period: 12 * 7 * 86_400,
                 compensationFactor: 0,
                 transitionFactor: 0.64,
                 depositAllocationWeightAddend: 0.03,
               },
               EXA: {
-                total: 2_400,
+                total: 7_200,
                 debt: 1,
                 start: "2023-07-24T14:00Z",
-                period: 4 * 7 * 86_400,
+                period: 8 * 7 * 86_400,
                 compensationFactor: 0,
                 transitionFactor: 0.64,
                 depositAllocationWeightAddend: 0.03,
@@ -203,10 +203,10 @@ export default {
           optimism: {
             rewards: {
               EXA: {
-                total: 1_000,
+                total: 3_000,
                 debt: 100_000,
                 start: "2023-07-24T14:00Z",
-                period: 4 * 7 * 86_400,
+                period: 8 * 7 * 86_400,
                 undistributedFactor: 0.3,
                 compensationFactor: 0.7,
                 transitionFactor: 0.7056,
