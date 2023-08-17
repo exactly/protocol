@@ -135,6 +135,11 @@
       "address": "0xf05385BC0b38E941f65D3031e1695bfBF8d60c90",
       "txHash": "0x9c5f1275a1b06203511372e75fa3d8f0a94bca01e8f30bcdbfa113f9748ca1e8",
       "kind": "transparent"
+    },
+    {
+      "address": "0xEb054e3390fDBaA7a510F601BE8F149095b91411",
+      "txHash": "0x9b0f2f1c87323ccf5a488c16e38768a4971d41b4f5be64ad30718d3d1a6129c4",
+      "kind": "transparent"
     }
   ],
   "impls": {
@@ -9102,6 +9107,65 @@
           "t_bool": {
             "label": "bool",
             "numberOfBytes": "1"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "0x3b44F6dA5958ccB16B30f3DC433920F151a51C50": {
+      "address": "0x3b44F6dA5958ccB16B30f3DC433920F151a51C50",
+      "layout": {
+        "solcVersion": "0.8.17",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "poolFees",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint24))",
+            "contract": "DebtPreviewer",
+            "src": "contracts/periphery/DebtPreviewer.sol:36"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint24))": {
+            "label": "mapping(address => mapping(address => uint24))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint24)": {
+            "label": "mapping(address => uint24)",
+            "numberOfBytes": "32"
+          },
+          "t_uint24": {
+            "label": "uint24",
+            "numberOfBytes": "3"
           },
           "t_uint8": {
             "label": "uint8",
