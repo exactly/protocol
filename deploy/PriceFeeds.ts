@@ -43,13 +43,13 @@ const func: DeployFunction = async ({ network, deployments: { deploy, get, getOr
     }
   }
 
-  const [exaPool, ethFeed, exa, weth] = await Promise.all([
+  const [exaPool, exa, ethFeed, weth] = await Promise.all([
     getOrNull("EXAPool"),
+    getOrNull("EXA"),
     get("PriceFeedWETH"),
-    get("EXA"),
     get("WETH"),
   ]);
-  if (!exaPool) return;
+  if (!exaPool || !exa) return;
 
   await tenderlify(
     "PriceFeedPool",
