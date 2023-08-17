@@ -80,6 +80,11 @@
       "address": "0xa6FCa9d9F2c2DaA0C16F09ec33Ad0B064a6160Ae",
       "txHash": "0x4e4299e3d2af4a26f745a5ddac6e2faa464fd26e6e4986aa70944ff5688f0510",
       "kind": "transparent"
+    },
+    {
+      "address": "0x9A9baa66bd7239e14F900aED6124446626ACCfc5",
+      "txHash": "0x0f95cbd7a97143a7e13fcaacd2f34f64a578547e97674b12c0574e0d15352599",
+      "kind": "transparent"
     }
   ],
   "impls": {
@@ -15178,6 +15183,65 @@
             "type": "t_bool",
             "contract": "Initializable",
             "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:67"
+          },
+          {
+            "label": "poolFees",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint24))",
+            "contract": "DebtPreviewer",
+            "src": "contracts/periphery/DebtPreviewer.sol:36"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint24))": {
+            "label": "mapping(address => mapping(address => uint24))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint24)": {
+            "label": "mapping(address => uint24)",
+            "numberOfBytes": "32"
+          },
+          "t_uint24": {
+            "label": "uint24",
+            "numberOfBytes": "3"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "0x1E5eFdf50e47176E062770d5c0EAB5a2f196C012": {
+      "address": "0x1E5eFdf50e47176E062770d5c0EAB5a2f196C012",
+      "layout": {
+        "solcVersion": "0.8.17",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
           },
           {
             "label": "poolFees",
