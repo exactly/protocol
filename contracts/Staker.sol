@@ -136,7 +136,12 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
 
     uint256 id = lockId;
     if (id != 0) {
-      if (distributor.timeCursorOf(id) != minter.activePeriod()) distributor.claim(id);
+      {
+        uint256 period = minter.activePeriod();
+        if (distributor.timeCursorOf(id) != period && period >= block.timestamp - (block.timestamp % 1 weeks)) {
+          distributor.claim(id);
+        }
+      }
 
       ERC20[] memory assets = new ERC20[](2);
       assets[0] = exa;
@@ -255,7 +260,7 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     uint256 assets,
     uint256 shares
   ) internal override {
-    gauge.withdraw(assets);
+    if (assets > 0) gauge.withdraw(assets);
     super._withdraw(caller, receiver, owner, assets, shares);
     harvest();
   }
