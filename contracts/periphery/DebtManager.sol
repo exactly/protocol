@@ -127,6 +127,7 @@ contract DebtManager is Initializable {
   /// @param deposit The amount of assets to deposit.
   /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
   function noTransferLeverage(Market market, uint256 deposit, uint256 ratio) internal {
+    checkMarket(market);
     uint256[] memory amounts = new uint256[](1);
     ERC20[] memory tokens = new ERC20[](1);
     tokens[0] = market.asset();
@@ -182,6 +183,7 @@ contract DebtManager is Initializable {
   /// @param withdraw The amount of assets that will be withdrawn to `_msgSender`.
   /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
   function deleverage(Market market, uint256 withdraw, uint256 ratio) public msgSender {
+    checkMarket(market);
     RollVars memory r;
     r.amounts = new uint256[](1);
     r.tokens = new ERC20[](1);
@@ -300,14 +302,17 @@ contract DebtManager is Initializable {
     uint256 ratio,
     uint160 sqrtPriceLimitX96
   ) internal {
+    checkMarket(marketIn);
+    checkMarket(marketOut);
     LeverageVars memory v;
     v.assetIn = address(marketIn.asset());
     v.assetOut = address(marketOut.asset());
     v.sender = _msgSender;
-
+    v.marketIn = marketIn;
+    v.marketOut = marketOut;
     v.amount =
-      crossPrincipal(marketIn, marketOut, deposit, v.sender).mulWadDown(ratio) -
-      marketIn.maxWithdraw(v.sender) -
+      crossPrincipal(v.marketIn, v.marketOut, deposit, v.sender).mulWadDown(ratio) -
+      v.marketIn.maxWithdraw(v.sender) -
       deposit;
     if (v.amount > 0) {
       PoolKey memory poolKey = PoolAddress.getPoolKey(v.assetIn, v.assetOut, fee);
@@ -318,8 +323,8 @@ contract DebtManager is Initializable {
         sqrtPriceLimitX96,
         abi.encode(
           SwapCallbackData({
-            marketIn: marketIn,
-            marketOut: marketOut,
+            marketIn: v.marketIn,
+            marketOut: v.marketOut,
             assetIn: v.assetIn,
             assetOut: v.assetOut,
             principal: deposit,
@@ -330,7 +335,7 @@ contract DebtManager is Initializable {
         )
       );
     } else {
-      marketIn.deposit(deposit, v.sender);
+      v.marketIn.deposit(deposit, v.sender);
     }
   }
 
@@ -349,33 +354,36 @@ contract DebtManager is Initializable {
     uint256 ratio,
     uint160 sqrtPriceLimitX96
   ) public msgSender {
+    checkMarket(marketIn);
+    checkMarket(marketOut);
     LeverageVars memory v;
     v.assetIn = address(marketIn.asset());
     v.assetOut = address(marketOut.asset());
     v.sender = _msgSender;
-
+    v.marketIn = marketIn;
+    v.marketOut = marketOut;
     v.amount =
-      floatingBorrowAssets(marketOut) -
+      floatingBorrowAssets(v.marketOut) -
       (
         ratio > 1e18
           ? previewAssetsOut(
-            marketIn,
-            marketOut,
-            (crossPrincipal(marketIn, marketOut, 0, v.sender) - withdraw).mulWadDown(ratio - 1e18)
+            v.marketIn,
+            v.marketOut,
+            (crossPrincipal(v.marketIn, v.marketOut, 0, v.sender) - withdraw).mulWadDown(ratio - 1e18)
           )
           : 0
       );
 
-    PoolKey memory poolKey = PoolAddress.getPoolKey(v.assetIn, v.assetOut, fee);
-    IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, poolKey)).swap(
+    v.poolKey = PoolAddress.getPoolKey(v.assetIn, v.assetOut, fee);
+    IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, v.poolKey)).swap(
       address(this),
-      v.assetIn == poolKey.token0,
+      v.assetIn == v.poolKey.token0,
       -int256(v.amount),
       sqrtPriceLimitX96,
       abi.encode(
         SwapCallbackData({
-          marketIn: marketIn,
-          marketOut: marketOut,
+          marketIn: v.marketIn,
+          marketOut: v.marketOut,
           assetIn: v.assetIn,
           assetOut: v.assetOut,
           principal: withdraw,
@@ -425,6 +433,7 @@ contract DebtManager is Initializable {
     uint256 maxBorrowAssets,
     uint256 percentage
   ) public msgSender {
+    checkMarket(market);
     RollVars memory r;
     r.amounts = new uint256[](1);
     r.tokens = new ERC20[](1);
@@ -509,6 +518,7 @@ contract DebtManager is Initializable {
     uint256 maxRepayAssets,
     uint256 percentage
   ) public msgSender {
+    checkMarket(market);
     RollVars memory r;
     r.amounts = new uint256[](1);
     r.tokens = new ERC20[](1);
@@ -568,6 +578,7 @@ contract DebtManager is Initializable {
     uint256 maxBorrowAssets,
     uint256 percentage
   ) public msgSender {
+    checkMarket(market);
     RollVars memory r;
     r.amounts = new uint256[](1);
     r.tokens = new ERC20[](1);
@@ -711,6 +722,7 @@ contract DebtManager is Initializable {
     callHash = bytes32(0);
 
     (Market market, bytes[] memory calls) = abi.decode(userData, (Market, bytes[]));
+    checkMarket(market);
     for (uint256 i = 0; i < calls.length; ) {
       address(market).functionCall(calls[i], "");
       unchecked {
@@ -728,6 +740,9 @@ contract DebtManager is Initializable {
   /// @param data Any data passed through by the caller via the IUniswapV3PoolActions#swap call
   function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
     SwapCallbackData memory s = abi.decode(data, (SwapCallbackData));
+    checkMarket(s.marketIn);
+    checkMarket(s.marketOut);
+
     PoolKey memory poolKey = PoolAddress.getPoolKey(s.assetIn, s.assetOut, s.fee);
     assert(msg.sender == PoolAddress.computeAddress(uniswapV3Factory, poolKey));
 
@@ -750,6 +765,11 @@ contract DebtManager is Initializable {
     if (_msgSender == address(0)) _msgSender = msg.sender;
     _;
     delete _msgSender;
+  }
+
+  function checkMarket(Market market) internal view {
+    (, , , bool listed, ) = auditor.markets(market);
+    if (!listed) revert MarketNotListed();
   }
 
   /// @notice Calls `token.permit` on behalf of `permit.account`.
@@ -800,9 +820,7 @@ contract DebtManager is Initializable {
   /// @dev The Market must be listed by the Auditor in order to be valid for approval.
   /// @param market The Market to spend the contract's balance.
   function approve(Market market) public {
-    (, , , bool isListed, ) = auditor.markets(market);
-    if (!isListed) revert MarketNotListed();
-
+    checkMarket(market);
     market.asset().safeApprove(address(market), type(uint256).max);
   }
 
@@ -860,6 +878,9 @@ struct LeverageVars {
   address assetIn;
   address assetOut;
   uint256 amount;
+  PoolKey poolKey;
+  Market marketIn;
+  Market marketOut;
 }
 
 interface IBalancerVault {

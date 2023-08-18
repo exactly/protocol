@@ -272,7 +272,9 @@ extendConfig((hardhatConfig, { finance }) => {
   for (const [networkName, networkConfig] of Object.entries(hardhatConfig.networks)) {
     const live = !["hardhat", "localhost"].includes(networkName);
     if (live) {
-      networkConfig.safeTxService = `https://safe-transaction-${networkName}.safe.global`;
+      networkConfig.safeTxService = `https://safe-transaction-${
+        { ethereum: "mainnet" }[networkName] ?? networkName
+      }.safe.global`;
       if (env.MNEMONIC) networkConfig.accounts = { ...defaultHdAccountsConfigParams, mnemonic: env.MNEMONIC };
     } else Object.assign(networkConfig, { priceDecimals: 8, allowUnlimitedContractSize: true });
     networkConfig.finance = {

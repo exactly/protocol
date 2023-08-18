@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 import { ForkTest, stdJson, stdError } from "./Fork.t.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ERC4626 } from "solmate/src/mixins/ERC4626.sol";
 import {
   ERC20,
   Permit,
@@ -1523,6 +1524,65 @@ contract DebtManagerTest is ForkTest {
     assertApproxEqAbs(marketOP.previewRefund(floatingBorrowShares), principal.mulWadDown(1.5e18 - 1e18), 1);
   }
 
+  function testFakeMarketCrossDeleverage() external {
+    auditor.enterMarket(marketUSDC);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 2e18, MIN_SQRT_RATIO + 1);
+
+    Market fakeMarketWETH = Market(address(new MockMarket(auditor, weth)));
+
+    vm.expectRevert(MarketNotListed.selector);
+    debtManager.crossDeleverage(marketUSDC, fakeMarketWETH, 500, 1_000e6, 1e18, MAX_SQRT_RATIO - 1);
+
+    vm.expectRevert(MarketNotListed.selector);
+    debtManager.crossDeleverage(fakeMarketWETH, marketUSDC, 500, 1_000e6, 1e18, MAX_SQRT_RATIO - 1);
+  }
+
+  function testFakeMarketCrossLeverage() external {
+    auditor.enterMarket(marketUSDC);
+    Market fakeMarketWETH = Market(address(new MockMarket(auditor, weth)));
+
+    vm.expectRevert(MarketNotListed.selector);
+    debtManager.crossLeverage(marketUSDC, fakeMarketWETH, 500, 10_000e6, 2e18, MIN_SQRT_RATIO + 1);
+
+    weth.approve(address(debtManager), type(uint256).max);
+    vm.expectRevert(MarketNotListed.selector);
+    debtManager.crossLeverage(fakeMarketWETH, marketUSDC, 500, 10_000e6, 2e18, MIN_SQRT_RATIO + 1);
+  }
+
+  function testFakeMarketLeverage() external {
+    weth.approve(address(debtManager), type(uint256).max);
+    Market fakeMarketWETH = Market(address(new MockMarket(auditor, weth)));
+
+    vm.expectRevert(MarketNotListed.selector);
+    debtManager.leverage(fakeMarketWETH, 10_000e6, 4e18);
+  }
+
+  function testFakeMarketDeleverage() external {
+    weth.approve(address(debtManager), type(uint256).max);
+    Market fakeMarketWETH = Market(address(new MockMarket(auditor, weth)));
+
+    vm.expectRevert(MarketNotListed.selector);
+    debtManager.deleverage(fakeMarketWETH, 0, 1e18);
+  }
+
+  function testFakeMarketRollFixed() external {
+    Market fakeMarketUSDC = Market(address(new MockMarket(auditor, usdc)));
+
+    marketUSDC.deposit(100_000e6, address(this));
+    marketUSDC.borrowAtMaturity(maturity, 50_000e6, type(uint256).max, address(this), address(this));
+
+    vm.expectRevert(MarketNotListed.selector);
+    debtManager.rollFixed(
+      fakeMarketUSDC,
+      maturity,
+      targetMaturity,
+      type(uint256).max,
+      type(uint256).max,
+      1e18,
+      Permit(bob, 0, 0, 0, 0)
+    );
+  }
+
   function crossPrincipal(Market marketIn, Market marketOut, address sender) internal view returns (uint256) {
     (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
     (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
@@ -1585,4 +1645,34 @@ enum Operation {
 
 interface ProtocolFeesCollector {
   function setFlashLoanFeePercentage(uint256) external;
+}
+
+contract MockMarket is ERC4626 {
+  Auditor public auditor;
+  mapping(address => Account) public accounts;
+  mapping(uint256 => mapping(address => FixedLib.Position)) public fixedBorrowPositions;
+  mapping(uint256 => FixedLib.Pool) public fixedPools;
+
+  constructor(Auditor auditor_, ERC20 asset_) ERC4626(asset_, "", "") {
+    auditor = auditor_;
+  }
+
+  // solhint-disable-next-line no-empty-blocks
+  function repay(uint256 assets, address borrower) external returns (uint256 actualRepay, uint256 borrowShares) {}
+
+  // solhint-disable-next-line no-empty-blocks
+  function previewRefund(uint256 shares) public view returns (uint256) {}
+
+  // solhint-disable-next-line no-empty-blocks
+  function totalAssets() public view override returns (uint256) {}
+
+  function permit(address owner, address, uint256, uint256, uint8, bytes32, bytes32) public override {
+    nonces[owner]++;
+  }
+
+  struct Account {
+    uint256 fixedDeposits;
+    uint256 fixedBorrows;
+    uint256 floatingBorrowShares;
+  }
 }
