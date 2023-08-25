@@ -5,80 +5,20 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { Previewer, FixedLib } from "./Previewer.sol";
-import {
-  ERC20,
-  Market,
-  Auditor,
-  PoolKey,
-  IPriceFeed,
-  DebtManager,
-  PoolAddress,
-  IUniswapV3Pool
-} from "./DebtManager.sol";
+import { ERC20, Market, Auditor, IPriceFeed, DebtManager } from "./DebtManager.sol";
 
 /// @title DebtPreviewer
 /// @notice Contract to be consumed by Exactly's front-end dApp as a helper for `DebtManager`.
 contract DebtPreviewer is Initializable {
   using FixedPointMathLib for uint256;
 
-  /// @dev The minimum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MIN_TICK)
-  uint160 internal constant MIN_SQRT_RATIO = 4295128739;
-  /// @dev The maximum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MAX_TICK)
-  uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
-
-  /// @notice DebtManager contract to be used to get Auditor, BalancerVault and UniswapV3Factory addresses.
+  /// @notice DebtManager contract to be used to get Auditor and BalancerVault addresses.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   DebtManager public immutable debtManager;
-  /// @notice Quoter contract to be used to preview the amount of assets to be swapped.
-  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-  IUniswapQuoter public immutable uniswapV3Quoter;
-  /// @notice Mapping of Uniswap pools to their respective pool fee.
-  mapping(address => mapping(address => uint24)) public poolFees;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(DebtManager debtManager_, IUniswapQuoter uniswapV3Quoter_) {
+  constructor(DebtManager debtManager_) {
     debtManager = debtManager_;
-    uniswapV3Quoter = uniswapV3Quoter_;
-  }
-
-  /// @notice Initializes the contract.
-  /// @dev can only be called once.
-  function initialize(Pool[] memory pools, uint24[] memory fees) external initializer {
-    assert(pools.length == fees.length);
-    for (uint256 i = 0; i < pools.length; ) {
-      PoolKey memory poolKey = PoolAddress.getPoolKey(pools[i].tokenA, pools[i].tokenB, fees[i]);
-      poolFees[poolKey.token0][poolKey.token1] = poolKey.fee;
-
-      unchecked {
-        ++i;
-      }
-    }
-  }
-
-  /// @notice Returns the input for an exact amount out of a single pool swap.
-  /// @param marketIn The Market of the underlying asset to be swapped.
-  /// @param marketOut The Market of the underlying asset to receive.
-  /// @param amountOut The exact amount of `amountOut` to be swapped.
-  /// @param fee The fee of the pool that will be used to swap the assets.
-  /// @return amountIn The amount of `amountIn` received.
-  function previewOutputSwap(
-    Market marketIn,
-    Market marketOut,
-    uint256 amountOut,
-    uint24 fee
-  ) internal returns (uint256) {
-    address assetIn = address(marketIn.asset());
-    address assetOut = address(marketOut.asset());
-    return
-      amountOut > 0
-        ? uniswapV3Quoter.quoteExactOutputSingle(
-          assetIn,
-          assetOut,
-          fee,
-          amountOut,
-          assetIn == PoolAddress.getPoolKey(assetIn, assetOut, fee).token0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
-        )
-        : 0;
   }
 
   /// @notice Returns extended data useful to leverage or deleverage an account principal position.
@@ -92,18 +32,12 @@ contract DebtPreviewer is Initializable {
     Market marketBorrow,
     address account,
     uint256 minHealthFactor
-  ) external returns (Leverage memory) {
+  ) external view returns (Leverage memory) {
+    assert(marketDeposit == marketBorrow);
     (, , uint256 floatingBorrowShares) = marketBorrow.accounts(account);
     uint256 deposit = marketDeposit.maxWithdraw(account);
     uint256 memMinDeposit = minDeposit(marketDeposit, marketBorrow, account, minHealthFactor);
     int256 principal = crossPrincipal(marketDeposit, marketBorrow, account);
-    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
-    poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
-    uint256 sqrtPriceX96;
-    if (marketDeposit != marketBorrow) {
-      (sqrtPriceX96, , , , , , ) = IUniswapV3Pool(PoolAddress.computeAddress(debtManager.uniswapV3Factory(), poolKey))
-        .slot0();
-    }
     uint256 ratio = principal > 0 ? deposit.divWadDown(uint256(principal)) : 0;
 
     return
@@ -115,8 +49,6 @@ contract DebtPreviewer is Initializable {
         maxRatio: maxRatio(marketDeposit, marketBorrow, account, principal, minHealthFactor),
         minDeposit: deposit >= memMinDeposit ? 0 : memMinDeposit - deposit,
         maxWithdraw: maxWithdraw(marketDeposit, marketBorrow, account, ratio, minHealthFactor),
-        pool: poolKey,
-        sqrtPriceX96: sqrtPriceX96,
         availableAssets: balancerAvailableLiquidity()
       });
   }
@@ -159,7 +91,8 @@ contract DebtPreviewer is Initializable {
     uint256 deposit,
     uint256 ratio,
     uint256 minHealthFactor
-  ) external returns (Limit memory limit) {
+  ) external view returns (Limit memory limit) {
+    assert(marketDeposit == marketBorrow);
     uint256 currentRatio;
     (limit.principal, currentRatio, limit.maxRatio) = previewRatio(
       marketDeposit,
@@ -170,8 +103,6 @@ contract DebtPreviewer is Initializable {
     );
 
     limit.ratio = (ratio < currentRatio || ratio > limit.maxRatio) ? currentRatio : ratio;
-    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
-    poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
     if (limit.principal <= 0) {
       limit.borrow = floatingBorrowAssets(marketBorrow, account);
       limit.deposit = marketDeposit.maxWithdraw(account) + deposit;
@@ -181,20 +112,7 @@ contract DebtPreviewer is Initializable {
 
     limit.maxWithdraw = maxWithdraw(marketDeposit, marketBorrow, account, ratio, minHealthFactor);
 
-    if (marketDeposit == marketBorrow) {
-      limit.borrow = uint256(limit.principal).mulWadDown(limit.ratio - 1e18);
-      limit.swapRatio = 1e18;
-      return limit;
-    }
-    uint256 assetsSwap = limit.deposit - marketDeposit.maxWithdraw(account) - deposit;
-    limit.borrow =
-      floatingBorrowAssets(marketBorrow, account) +
-      previewOutputSwap(marketBorrow, marketDeposit, assetsSwap, poolKey.fee);
-    limit.swapRatio = assetsSwap > 0 && previewAssetsOut(marketDeposit, marketBorrow, assetsSwap) > 0
-      ? previewOutputSwap(marketBorrow, marketDeposit, assetsSwap, poolKey.fee).divWadDown(
-        previewAssetsOut(marketDeposit, marketBorrow, assetsSwap)
-      )
-      : 1e18;
+    limit.borrow = uint256(limit.principal).mulWadDown(limit.ratio - 1e18);
   }
 
   /// @notice Returns the maximum ratio that an account can deleverage its principal minus `assets` amount.
@@ -211,7 +129,8 @@ contract DebtPreviewer is Initializable {
     uint256 withdraw,
     uint256 ratio,
     uint256 minHealthFactor
-  ) external returns (Limit memory limit) {
+  ) external view returns (Limit memory limit) {
+    assert(marketDeposit == marketBorrow);
     if ((limit.principal = crossPrincipal(marketDeposit, marketBorrow, account)) < 0) revert InvalidPreview();
     uint256 memMaxWithdraw = maxWithdraw(marketDeposit, marketBorrow, account, ratio, minHealthFactor);
     if (withdraw <= uint256(limit.principal)) {
@@ -230,24 +149,8 @@ contract DebtPreviewer is Initializable {
     uint256 borrowRepay = floatingBorrowAssets(marketBorrow, account) -
       previewAssetsOut(marketDeposit, marketBorrow, uint256(limit.principal).mulWadDown(limit.ratio - 1e18));
 
-    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
-    poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
     limit.borrow = floatingBorrowAssets(marketBorrow, account) - borrowRepay;
-    if (marketDeposit == marketBorrow) {
-      limit.deposit = marketDeposit.maxWithdraw(account) - withdraw - borrowRepay;
-      limit.swapRatio = 1e18;
-      return limit;
-    }
-
-    limit.deposit =
-      marketDeposit.maxWithdraw(account) -
-      withdraw -
-      previewOutputSwap(marketDeposit, marketBorrow, borrowRepay, poolKey.fee);
-    limit.swapRatio = previewAssetsOut(marketBorrow, marketDeposit, borrowRepay) > 0
-      ? previewOutputSwap(marketDeposit, marketBorrow, borrowRepay, poolKey.fee).divWadDown(
-        previewAssetsOut(marketBorrow, marketDeposit, borrowRepay)
-      )
-      : 1e18;
+    limit.deposit = marketDeposit.maxWithdraw(account) - withdraw - borrowRepay;
   }
 
   /// @notice Returns principal, current ratio and max ratio, considering assets to add or substract.
@@ -367,7 +270,7 @@ contract DebtPreviewer is Initializable {
     address account,
     uint256 ratio,
     uint256 minHealthFactor
-  ) internal returns (uint256) {
+  ) internal view returns (uint256) {
     MaxWithdrawVars memory mw;
     mw.principal = crossPrincipal(marketDeposit, marketBorrow, account);
     if (mw.principal <= 0) return 0;
@@ -398,11 +301,7 @@ contract DebtPreviewer is Initializable {
           if (marketDeposit != mw.market) {
             mw.otherCollateral += mw.memAdjColl;
           } else {
-            mw.adjPrincipalForRepay = (
-              mw.borrowAssets > 0 && marketBorrow != marketDeposit
-                ? previewOutputSwap(marketDeposit, marketBorrow, mw.borrowAssets, 500)
-                : mw.borrowAssets
-            ).mulDivDown(vars.price, baseUnit).mulWadDown(md.adjustFactor);
+            mw.adjPrincipalForRepay = mw.borrowAssets.mulDivDown(vars.price, baseUnit).mulWadDown(md.adjustFactor);
             mw.adjustedPrincipal =
               (mw.market.maxWithdraw(account)).mulDivDown(vars.price, baseUnit).mulWadDown(md.adjustFactor) -
               mw.adjPrincipalForRepay;
@@ -656,8 +555,6 @@ struct Leverage {
   uint256 maxRatio;
   uint256 minDeposit;
   uint256 maxWithdraw;
-  PoolKey pool;
-  uint256 sqrtPriceX96;
   AvailableAsset[] availableAssets;
 }
 
@@ -677,7 +574,6 @@ struct Limit {
   uint256 deposit;
   int256 principal;
   uint256 maxRatio;
-  uint256 swapRatio;
   uint256 maxWithdraw;
 }
 
@@ -747,22 +643,4 @@ struct RateVars {
   bool sameMarket;
   int256 principal;
   uint256 utilization;
-}
-
-interface IUniswapQuoter {
-  function quoteExactInputSingle(
-    address tokenIn,
-    address tokenOut,
-    uint24 fee,
-    uint256 amountIn,
-    uint160 sqrtPriceLimitX96
-  ) external returns (uint256 amountOut);
-
-  function quoteExactOutputSingle(
-    address tokenIn,
-    address tokenOut,
-    uint24 fee,
-    uint256 amountOut,
-    uint160 sqrtPriceLimitX96
-  ) external returns (uint256 amountIn);
 }
