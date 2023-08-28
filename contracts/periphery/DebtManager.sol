@@ -22,6 +22,9 @@ contract DebtManager is Initializable {
   using FixedLib for FixedLib.Pool;
   using Address for address;
 
+  /// @notice Maximum excess of allowance accepted, in percentage using 18 decimals.
+  uint256 public constant MAX_ALLOWANCE_SURPLUS = 0.01e18;
+
   /// @notice Auditor contract that lists the markets that can be leveraged.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
@@ -155,12 +158,7 @@ contract DebtManager is Initializable {
   /// @param ratio The ratio of the borrow that will be repaid, represented with 18 decimals.
   /// @param p Arguments for the permit call to `market` on behalf of `permit.account`.
   /// Permit `value` should be `permitAssets`.
-  function deleverage(
-    Market market,
-    uint256 withdraw,
-    uint256 ratio,
-    Permit calldata p
-  ) external permit(market, p) {
+  function deleverage(Market market, uint256 withdraw, uint256 ratio, Permit calldata p) external permit(market, p) {
     deleverage(market, withdraw, ratio);
   }
 
@@ -499,6 +497,9 @@ contract DebtManager is Initializable {
     }
     _;
     assert(_msgSender == address(0));
+    if (token.allowance(p.account, address(this)) > p.value.mulWadDown(MAX_ALLOWANCE_SURPLUS)) {
+      revert AllowanceSurplus();
+    }
   }
 
   /// @notice Calls `permit2.permitTransferFrom` to transfer `_msgSender` assets.
@@ -544,6 +545,7 @@ contract DebtManager is Initializable {
   }
 }
 
+error AllowanceSurplus();
 error InvalidOperation();
 
 struct Permit {

@@ -12,7 +12,8 @@ import {
   IPermit2,
   DebtManager,
   IBalancerVault,
-  InvalidOperation
+  InvalidOperation,
+  AllowanceSurplus
 } from "../contracts/periphery/DebtManager.sol";
 import { Auditor, InsufficientAccountLiquidity, MarketNotListed, IPriceFeed } from "../contracts/Auditor.sol";
 import { FixedLib, UnmatchedPoolState } from "../contracts/utils/FixedLib.sol";
@@ -791,7 +792,7 @@ contract DebtManagerTest is ForkTest {
     vm.prank(bob);
     marketUSDC.borrow(50_000e6, bob, bob);
 
-    uint256 shares = marketUSDC.previewWithdraw(51_000e6);
+    uint256 shares = marketUSDC.previewWithdraw(50_100e6);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
       BOB_KEY,
       keccak256(
@@ -881,6 +882,37 @@ contract DebtManagerTest is ForkTest {
     );
     debtManager.leverage(marketUSDC, amount, 2e18, Permit(bob, shares, block.timestamp, v, r, s));
     assertApproxEqAbs(marketUSDC.maxWithdraw(bob), amount.mulWadDown(2e18), 1);
+  }
+
+  function testAllowanceSurplus() external {
+    uint256 amount = 10_000e6;
+    deal(address(usdc), bob, amount);
+
+    vm.prank(bob);
+    usdc.approve(address(debtManager), 10_000e6);
+
+    uint256 shares = marketUSDC.previewWithdraw(amount) + 101e6;
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          marketUSDC.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              bob,
+              debtManager,
+              shares,
+              marketUSDC.nonces(bob),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
+    vm.expectRevert(AllowanceSurplus.selector);
+    debtManager.leverage(marketUSDC, amount, 2e18, Permit(bob, shares, block.timestamp, v, r, s));
   }
 
   function testPermit2AndLeverage() external {
