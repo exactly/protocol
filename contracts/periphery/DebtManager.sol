@@ -63,7 +63,6 @@ contract DebtManager is Initializable {
   /// @param market The Market to leverage the position in.
   /// @param deposit The amount of assets to deposit.
   /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
-  /// @param borrowAssets The amount of assets to allow this contract to borrow on behalf of `_msgSender`.
   /// @param marketPermit Arguments for the permit call to `market` on behalf of `_msgSender`.
   /// @param assetPermit Arguments for the permit2 asset call.
   /// Permit `value` should be `borrowAssets`.
@@ -71,31 +70,26 @@ contract DebtManager is Initializable {
     Market market,
     uint256 deposit,
     uint256 ratio,
-    uint256 borrowAssets,
     Permit calldata marketPermit,
     Permit2 calldata assetPermit
-  ) external permit(market, borrowAssets, marketPermit) permitTransfer(market.asset(), deposit, assetPermit) msgSender {
+  ) external permit(market, marketPermit) permitTransfer(market.asset(), deposit, assetPermit) msgSender {
     noTransferLeverage(market, deposit, ratio);
   }
 
   /// @notice Leverages the floating position of `_msgSender` a certain `ratio` by taking a flash loan
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
-  /// @param deposit The amount of assets to deposit.
   /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
-  /// @param borrowAssets The amount of assets to allow this contract to borrow on behalf of `_msgSender`.
   /// @param marketPermit Arguments for the permit call to `market` on behalf of `_msgSender`.
-  /// @param assetPermit Arguments for the permit2 asset call.
+  /// @param assetPermit Arguments for the permit call to the market underlying asset.
   /// Permit `value` should be `borrowAssets`.
   function leverage(
     Market market,
-    uint256 deposit,
     uint256 ratio,
-    uint256 borrowAssets,
     Permit calldata marketPermit,
     Permit calldata assetPermit
-  ) external permit(market, borrowAssets, marketPermit) permit(market.asset(), deposit, assetPermit) {
-    leverage(market, deposit, ratio);
+  ) external permit(market, marketPermit) permit(market.asset(), assetPermit) {
+    leverage(market, assetPermit.value, ratio);
   }
 
   /// @notice Leverages the floating position of `_msgSender` a certain `ratio` by taking a flash loan
@@ -103,16 +97,14 @@ contract DebtManager is Initializable {
   /// @param market The Market to leverage the position in.
   /// @param deposit The amount of assets to deposit.
   /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
-  /// @param borrowAssets The amount of assets to allow this contract to borrow on behalf of `_msgSender`.
   /// @param marketPermit Arguments for the permit call to `market` on behalf of `_msgSender`.
   /// Permit `value` should be `borrowAssets`.
   function leverage(
     Market market,
     uint256 deposit,
     uint256 ratio,
-    uint256 borrowAssets,
     Permit calldata marketPermit
-  ) external permit(market, borrowAssets, marketPermit) msgSender {
+  ) external permit(market, marketPermit) msgSender {
     market.asset().safeTransferFrom(msg.sender, address(this), deposit);
     noTransferLeverage(market, deposit, ratio);
   }
@@ -161,16 +153,14 @@ contract DebtManager is Initializable {
   /// @param market The Market to deleverage the position out.
   /// @param withdraw The amount of assets that will be withdrawn to `_msgSender`.
   /// @param ratio The ratio of the borrow that will be repaid, represented with 18 decimals.
-  /// @param permitAssets The amount of assets to allow this contract to withdraw on behalf of `_msgSender`.
   /// @param p Arguments for the permit call to `market` on behalf of `permit.account`.
   /// Permit `value` should be `permitAssets`.
   function deleverage(
     Market market,
     uint256 withdraw,
     uint256 ratio,
-    uint256 permitAssets,
     Permit calldata p
-  ) external permit(market, permitAssets, p) {
+  ) external permit(market, p) {
     deleverage(market, withdraw, ratio);
   }
 
@@ -293,7 +283,7 @@ contract DebtManager is Initializable {
     uint256 maxBorrowAssets,
     uint256 percentage,
     Permit calldata p
-  ) external permit(market, maxBorrowAssets, p) {
+  ) external permit(market, p) {
     rollFixed(market, repayMaturity, borrowMaturity, maxRepayAssets, maxBorrowAssets, percentage);
   }
 
@@ -353,7 +343,7 @@ contract DebtManager is Initializable {
     uint256 maxRepayAssets,
     uint256 percentage,
     Permit calldata p
-  ) external permit(market, maxRepayAssets, p) {
+  ) external permit(market, p) {
     rollFixedToFloating(market, repayMaturity, maxRepayAssets, percentage);
   }
 
@@ -418,7 +408,7 @@ contract DebtManager is Initializable {
     uint256 maxBorrowAssets,
     uint256 percentage,
     Permit calldata p
-  ) external permit(market, maxBorrowAssets, p) {
+  ) external permit(market, p) {
     rollFloatingToFixed(market, borrowMaturity, maxBorrowAssets, percentage);
   }
 
@@ -499,14 +489,9 @@ contract DebtManager is Initializable {
 
   /// @notice Calls `token.permit` on behalf of `permit.account`.
   /// @param token The `ERC20` to call `permit`.
-  /// @param assets The amount of assets to allow.
   /// @param p Arguments for the permit call.
-  modifier permit(
-    ERC20 token,
-    uint256 assets,
-    Permit calldata p
-  ) {
-    IERC20PermitUpgradeable(address(token)).safePermit(p.account, address(this), assets, p.deadline, p.v, p.r, p.s);
+  modifier permit(ERC20 token, Permit calldata p) {
+    IERC20PermitUpgradeable(address(token)).safePermit(p.account, address(this), p.value, p.deadline, p.v, p.r, p.s);
     {
       address sender = _msgSender;
       if (sender == address(0)) _msgSender = p.account;
@@ -563,6 +548,7 @@ error InvalidOperation();
 
 struct Permit {
   address account;
+  uint256 value;
   uint256 deadline;
   uint8 v;
   bytes32 r;

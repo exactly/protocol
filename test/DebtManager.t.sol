@@ -32,6 +32,7 @@ contract DebtManagerTest is ForkTest {
   Auditor internal auditor;
   IPermit2 internal permit2;
   DebtManager internal debtManager;
+  Market internal marketOP;
   Market internal marketUSDC;
   Market internal marketWETH;
   Market internal marketwstETH;
@@ -49,6 +50,7 @@ contract DebtManagerTest is ForkTest {
     weth = ERC20(deployment("WETH"));
     usdc = ERC20(deployment("USDC"));
     wstETH = ERC20(deployment("wstETH"));
+    marketOP = Market(deployment("MarketOP"));
     marketUSDC = Market(deployment("MarketUSDC"));
     marketWETH = Market(deployment("MarketWETH"));
     marketwstETH = Market(deployment("MarketwstETH"));
@@ -789,6 +791,7 @@ contract DebtManagerTest is ForkTest {
     vm.prank(bob);
     marketUSDC.borrow(50_000e6, bob, bob);
 
+    uint256 shares = marketUSDC.previewWithdraw(51_000e6);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
       BOB_KEY,
       keccak256(
@@ -800,7 +803,7 @@ contract DebtManagerTest is ForkTest {
               keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
               bob,
               debtManager,
-              66_666e6,
+              shares,
               marketUSDC.nonces(bob),
               block.timestamp
             )
@@ -809,7 +812,13 @@ contract DebtManagerTest is ForkTest {
       )
     );
     vm.prank(bob);
-    debtManager.rollFloatingToFixed(marketUSDC, maturity, 66_666e6, 1e18, Permit(bob, block.timestamp, v, r, s));
+    debtManager.rollFloatingToFixed(
+      marketUSDC,
+      maturity,
+      marketUSDC.previewRedeem(shares),
+      1e18,
+      Permit(bob, shares, block.timestamp, v, r, s)
+    );
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, bob);
     assertEq(principal, 50_000e6 + 1);
   }
@@ -819,6 +828,7 @@ contract DebtManagerTest is ForkTest {
     vm.prank(bob);
     marketUSDC.borrow(50_000e6, bob, bob);
 
+    uint256 shares = marketUSDC.previewWithdraw(60_001e6);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
       BOB_KEY,
       keccak256(
@@ -830,7 +840,7 @@ contract DebtManagerTest is ForkTest {
               keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
               bob,
               debtManager,
-              60_000e6,
+              shares,
               marketUSDC.nonces(bob),
               block.timestamp
             )
@@ -839,7 +849,7 @@ contract DebtManagerTest is ForkTest {
       )
     );
     vm.prank(bob);
-    debtManager.deleverage(marketUSDC, 10_000e6, 1e18, 60_000e6, Permit(bob, block.timestamp, v, r, s));
+    debtManager.deleverage(marketUSDC, 10_000e6, 1e18, Permit(bob, shares, block.timestamp, v, r, s));
   }
 
   function testPermitAndTransferLeverage() external {
@@ -849,6 +859,7 @@ contract DebtManagerTest is ForkTest {
     vm.prank(bob);
     usdc.approve(address(debtManager), 10_000e6);
 
+    uint256 shares = marketUSDC.previewWithdraw(amount);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
       BOB_KEY,
       keccak256(
@@ -860,7 +871,7 @@ contract DebtManagerTest is ForkTest {
               keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
               bob,
               debtManager,
-              amount * 2,
+              shares,
               marketUSDC.nonces(bob),
               block.timestamp
             )
@@ -868,7 +879,7 @@ contract DebtManagerTest is ForkTest {
         )
       )
     );
-    debtManager.leverage(marketUSDC, amount, 2e18, amount * 2, Permit(bob, block.timestamp, v, r, s));
+    debtManager.leverage(marketUSDC, amount, 2e18, Permit(bob, shares, block.timestamp, v, r, s));
     assertApproxEqAbs(marketUSDC.maxWithdraw(bob), amount.mulWadDown(2e18), 1);
   }
 
@@ -895,6 +906,10 @@ contract DebtManagerTest is ForkTest {
       )
     );
     bytes memory sigAsset = abi.encodePacked(r, s, v);
+
+    uint256 principal = 10_000e6;
+    uint256 ratio = 4.1015354134e18;
+    uint256 shares = marketUSDC.previewWithdraw(principal.mulWadDown(ratio - 1e18));
     (v, r, s) = vm.sign(
       BOB_KEY,
       keccak256(
@@ -906,7 +921,7 @@ contract DebtManagerTest is ForkTest {
               keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
               bob,
               debtManager,
-              50_000e6,
+              shares,
               marketUSDC.nonces(bob),
               block.timestamp
             )
@@ -915,15 +930,12 @@ contract DebtManagerTest is ForkTest {
       )
     );
 
-    uint256 principal = 10_000e6;
-    uint256 ratio = 4.1015354134e18;
     vm.prank(bob);
     debtManager.leverage(
       marketUSDC,
       principal,
       ratio,
-      50_000e6,
-      Permit(bob, block.timestamp, v, r, s),
+      Permit(bob, shares, block.timestamp, v, r, s),
       Permit2(block.timestamp, sigAsset)
     );
 
@@ -935,27 +947,6 @@ contract DebtManagerTest is ForkTest {
   function testPermitAndLeverage() external {
     uint256 principal = 10_000e18;
     deal(address(op), bob, principal);
-    Market marketOP = Market(deployment("MarketOP"));
-
-    (uint8 vMarket, bytes32 rMarket, bytes32 sMarket) = vm.sign(
-      BOB_KEY,
-      keccak256(
-        abi.encodePacked(
-          "\x19\x01",
-          marketOP.DOMAIN_SEPARATOR(),
-          keccak256(
-            abi.encode(
-              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
-              bob,
-              debtManager,
-              20_000e18,
-              marketOP.nonces(bob),
-              block.timestamp
-            )
-          )
-        )
-      )
-    );
 
     (uint8 vAsset, bytes32 rAsset, bytes32 sAsset) = vm.sign(
       BOB_KEY,
@@ -977,15 +968,34 @@ contract DebtManagerTest is ForkTest {
       )
     );
 
+    uint256 shares = marketOP.previewWithdraw(principal.mulWadDown(0.5e18));
+    (uint8 vMarket, bytes32 rMarket, bytes32 sMarket) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          marketOP.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              bob,
+              debtManager,
+              shares,
+              marketOP.nonces(bob),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
+
     vm.startPrank(bob);
     auditor.enterMarket(marketOP);
     debtManager.leverage(
       marketOP,
-      principal,
       1.5e18,
-      20_000e18,
-      Permit(bob, block.timestamp, vMarket, rMarket, sMarket),
-      Permit(bob, block.timestamp, vAsset, rAsset, sAsset)
+      Permit(bob, shares, block.timestamp, vMarket, rMarket, sMarket),
+      Permit(bob, principal, block.timestamp, vAsset, rAsset, sAsset)
     );
     vm.stopPrank();
 
@@ -1027,7 +1037,7 @@ contract DebtManagerTest is ForkTest {
       type(uint256).max,
       type(uint256).max,
       1e18,
-      Permit(bob, 0, 0, 0, 0)
+      Permit(bob, 0, 0, 0, 0, 0)
     );
   }
 
