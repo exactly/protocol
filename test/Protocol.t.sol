@@ -197,7 +197,7 @@ contract ProtocolTest is Test {
     (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(maturity);
     (uint256 principal, uint256 fee) = market.fixedDepositPositions(maturity, account);
     uint256 positionAssets = assets > principal + fee ? principal + fee : assets;
-    uint256 backupAssets = previewFloatingAssetsAverage(market);
+    uint256 backupAssets = previewFloatingAssetsAverage(market, maturity);
 
     if (assets == 0) {
       vm.expectRevert(ZeroWithdraw.selector);
@@ -209,7 +209,8 @@ contract ProtocolTest is Test {
     ) {
       vm.expectRevert(UtilizationExceeded.selector);
     } else if (
-      block.timestamp < maturity && ((supplied + previewFloatingAssetsAverage(market) == 0) || principal + fee == 0)
+      block.timestamp < maturity &&
+      ((supplied + previewFloatingAssetsAverage(market, maturity) == 0) || principal + fee == 0)
     ) {
       vm.expectRevert(bytes(""));
     } else if (
@@ -271,7 +272,7 @@ contract ProtocolTest is Test {
     address account = accounts[i % accounts.length];
     uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(maturity);
-    uint256 backupAssets = previewFloatingAssetsAverage(market);
+    uint256 backupAssets = previewFloatingAssetsAverage(market, maturity);
     uint256 backupDebtAddition;
     {
       uint256 newBorrowed = borrowed + assets;
@@ -1003,8 +1004,10 @@ contract ProtocolTest is Test {
       );
   }
 
-  function previewFloatingAssetsAverage(Market market) internal view returns (uint256) {
-    uint256 floatingDepositAssets = market.floatingAssets();
+  function previewFloatingAssetsAverage(Market market, uint256 maturity) internal view returns (uint256) {
+    (, , uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(maturity);
+    uint256 floatingDepositAssets = market.floatingAssets() +
+      unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual);
     uint256 floatingAssetsAverage = market.floatingAssetsAverage();
     uint256 dampSpeedFactor = floatingDepositAssets < floatingAssetsAverage
       ? market.dampSpeedDown()

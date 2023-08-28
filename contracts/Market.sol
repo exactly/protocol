@@ -239,6 +239,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     FixedLib.Pool storage pool = fixedPools[maturity];
 
     uint256 backupEarnings = pool.accrueEarnings(maturity);
+    floatingAssets += backupEarnings;
 
     (uint256 fee, uint256 backupFee) = pool.calculateDeposit(assets, backupFeeRate);
     positionAssets = assets + fee;
@@ -259,8 +260,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     position.principal += assets;
     position.fee += fee;
-
-    floatingAssets += backupEarnings;
 
     emit DepositAtMaturity(maturity, msg.sender, receiver, assets, fee);
     emitMarketUpdate();
@@ -290,6 +289,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     FixedLib.Pool storage pool = fixedPools[maturity];
 
     uint256 backupEarnings = pool.accrueEarnings(maturity);
+    floatingAssets += backupEarnings;
 
     uint256 fee = assets.mulWadDown(
       interestRateModel.fixedBorrowRate(maturity, assets, pool.borrowed, pool.supplied, previewFloatingAssetsAverage())
@@ -335,8 +335,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       fixedBorrowPositions[maturity][borrower] = FixedLib.Position(position.principal + assets, position.fee + fee);
     }
 
-    floatingAssets += backupEarnings;
-
     emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, fee);
     emitMarketUpdate();
     emitFixedEarningsUpdate(maturity);
@@ -367,6 +365,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     FixedLib.Pool storage pool = fixedPools[maturity];
 
     uint256 backupEarnings = pool.accrueEarnings(maturity);
+    floatingAssets += backupEarnings;
 
     FixedLib.Position memory position = fixedDepositPositions[maturity][owner];
 
@@ -421,8 +420,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       fixedDepositPositions[maturity][owner] = position;
     }
 
-    floatingAssets += backupEarnings;
-
     emit WithdrawAtMaturity(maturity, msg.sender, receiver, owner, positionAssets, assetsDiscounted);
     emitMarketUpdate();
     emitFixedEarningsUpdate(maturity);
@@ -470,6 +467,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     FixedLib.Pool storage pool = fixedPools[maturity];
 
     uint256 backupEarnings = pool.accrueEarnings(maturity);
+    floatingAssets += backupEarnings;
 
     FixedLib.Position memory position = fixedBorrowPositions[maturity][borrower];
 
@@ -523,8 +521,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       // proportionally reduce the values
       fixedBorrowPositions[maturity][borrower] = position;
     }
-
-    floatingAssets += backupEarnings;
 
     emit RepayAtMaturity(maturity, msg.sender, borrower, actualRepayAssets, debtCovered);
     emitFixedEarningsUpdate(maturity);

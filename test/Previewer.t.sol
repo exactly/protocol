@@ -273,13 +273,13 @@ contract PreviewerTest is Test {
     market.deposit(10 ether, address(this));
     vm.warp(180 seconds);
     Previewer.FixedPreview memory preview = previewer.previewBorrowAtMaturity(market, maturity, 1 ether);
-    assertEq(preview.utilization, uint256(1 ether).divWadUp(previewFloatingAssetsAverage()));
+    assertEq(preview.utilization, uint256(1 ether).divWadUp(previewFloatingAssetsAverage(maturity)));
 
     market.depositAtMaturity(maturity, 1.47 ether, 1.47 ether, address(this));
     vm.warp(5301 seconds);
     preview = previewer.previewBorrowAtMaturity(market, maturity, 2.33 ether);
 
-    assertEq(preview.utilization, uint256(2.33 ether).divWadUp(1.47 ether + previewFloatingAssetsAverage()));
+    assertEq(preview.utilization, uint256(2.33 ether).divWadUp(1.47 ether + previewFloatingAssetsAverage(maturity)));
   }
 
   function testPreviewBorrowAtMaturityWithZeroAmount() external {
@@ -1255,11 +1255,13 @@ contract PreviewerTest is Test {
     market.deposit(100 ether, address(this));
     // let only 10 seconds go by
     vm.warp(10 seconds);
-    uint256 floatingAssetsAverage = previewFloatingAssetsAverage();
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    uint256 floatingAssetsAverage;
     for (uint256 i = 0; i < maxFuturePools; i++) {
+      floatingAssetsAverage = previewFloatingAssetsAverage(FixedLib.INTERVAL + FixedLib.INTERVAL * i);
       assertEq(data[0].fixedPools[i].available, floatingAssetsAverage);
     }
+    floatingAssetsAverage = previewFloatingAssetsAverage(FixedLib.INTERVAL);
     vm.expectRevert(UtilizationExceeded.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL, floatingAssetsAverage + 1, 15 ether, address(this), address(this));
 
@@ -1268,18 +1270,18 @@ contract PreviewerTest is Test {
 
     // after 200 seconds pass there's more available liquidity
     vm.warp(200 seconds);
-    floatingAssetsAverage = previewFloatingAssetsAverage();
     data = previewer.exactly(address(this));
     for (uint256 i = 0; i < maxFuturePools; i++) {
-      assertEq(data[0].fixedPools[i].available, floatingAssetsAverage);
+      floatingAssetsAverage = previewFloatingAssetsAverage(FixedLib.INTERVAL + FixedLib.INTERVAL * i);
+      assertApproxEqAbs(data[0].fixedPools[i].available, floatingAssetsAverage, 1e10);
     }
 
     // after 1000 seconds the floatingDepositAssets minus the already borrowed is lower than the floatingAssetsAverage
     vm.warp(1000 seconds);
-    floatingAssetsAverage = previewFloatingAssetsAverage();
     data = previewer.exactly(address(this));
     uint256 borrowed = data[0].fixedBorrowPositions[0].position.principal;
     for (uint256 i = 0; i < maxFuturePools; i++) {
+      floatingAssetsAverage = previewFloatingAssetsAverage(FixedLib.INTERVAL + FixedLib.INTERVAL * i);
       assertEq(data[0].fixedPools[i].available, Math.min(market.floatingAssets() - borrowed, floatingAssetsAverage));
     }
 
@@ -1826,7 +1828,10 @@ contract PreviewerTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
     data = previewer.exactly(address(this));
 
-    assertEq(data[0].fixedPools[0].utilization, uint256(1 ether).divWadUp(previewFloatingAssetsAverage()));
+    assertEq(
+      data[0].fixedPools[0].utilization,
+      uint256(1 ether).divWadUp(previewFloatingAssetsAverage(FixedLib.INTERVAL))
+    );
     assertEq(data[0].fixedPools[1].utilization, 0);
     assertEq(data[0].fixedPools[2].utilization, 0);
 
@@ -1834,17 +1839,32 @@ contract PreviewerTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL * 2, 0.172 ether, 1 ether, address(this), address(this));
     data = previewer.exactly(address(this));
 
-    assertEq(data[0].fixedPools[0].utilization, uint256(1 ether).divWadUp(previewFloatingAssetsAverage()));
-    assertEq(data[0].fixedPools[1].utilization, uint256(0.172 ether).divWadUp(previewFloatingAssetsAverage()));
+    assertEq(
+      data[0].fixedPools[0].utilization,
+      uint256(1 ether).divWadUp(previewFloatingAssetsAverage(FixedLib.INTERVAL))
+    );
+    assertEq(
+      data[0].fixedPools[1].utilization,
+      uint256(0.172 ether).divWadUp(previewFloatingAssetsAverage(FixedLib.INTERVAL * 2))
+    );
     assertEq(data[0].fixedPools[2].utilization, 0);
 
     vm.warp(8999);
     market.borrowAtMaturity(FixedLib.INTERVAL * 3, 1.929 ether, 3 ether, address(this), address(this));
     data = previewer.exactly(address(this));
 
-    assertEq(data[0].fixedPools[0].utilization, uint256(1 ether).divWadUp(previewFloatingAssetsAverage()));
-    assertEq(data[0].fixedPools[1].utilization, uint256(0.172 ether).divWadUp(previewFloatingAssetsAverage()));
-    assertEq(data[0].fixedPools[2].utilization, uint256(1.929 ether).divWadUp(previewFloatingAssetsAverage()));
+    assertEq(
+      data[0].fixedPools[0].utilization,
+      uint256(1 ether).divWadUp(previewFloatingAssetsAverage(FixedLib.INTERVAL))
+    );
+    assertEq(
+      data[0].fixedPools[1].utilization,
+      uint256(0.172 ether).divWadUp(previewFloatingAssetsAverage(FixedLib.INTERVAL * 2))
+    );
+    assertEq(
+      data[0].fixedPools[2].utilization,
+      uint256(1.929 ether).divWadUp(previewFloatingAssetsAverage(FixedLib.INTERVAL * 3))
+    );
   }
 
   function testAccountsWithEmptyAccount() external {
@@ -1868,8 +1888,10 @@ contract PreviewerTest is Test {
     assertEq(data[0].isCollateral, false);
   }
 
-  function previewFloatingAssetsAverage() internal view returns (uint256) {
-    uint256 floatingDepositAssets = market.floatingAssets();
+  function previewFloatingAssetsAverage(uint256 maturity) internal view returns (uint256) {
+    (, , uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(maturity);
+    uint256 floatingDepositAssets = market.floatingAssets() +
+      unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual);
     uint256 floatingAssetsAverage = market.floatingAssetsAverage();
     uint256 dampSpeedFactor = floatingDepositAssets < floatingAssetsAverage
       ? market.dampSpeedDown()
