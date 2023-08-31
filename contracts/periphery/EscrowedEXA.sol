@@ -37,13 +37,13 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
   }
 
   function mint(uint256 amount) external {
+    assert(amount != 0);
     exa.safeTransferFrom(msg.sender, address(this), amount);
     _mint(msg.sender, amount);
   }
 
   function vest(uint128 amount) external returns (uint256 streamId) {
     _burn(msg.sender, amount);
-    emit Vest(msg.sender, streamId, amount);
     streamId = sablier.createWithDurations(
       CreateWithDurations({
         asset: exa,
@@ -55,6 +55,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
         broker: Broker({ account: address(0), fee: 0 })
       })
     );
+    emit Vest(msg.sender, streamId, amount);
   }
 
   function setVestingPeriod(uint40 vestingPeriod_) public onlyOwner {
