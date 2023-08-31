@@ -21,7 +21,10 @@ contract EscrowedEXATest is ForkTest {
     sablier = ISablierV2LockupLinear(deployment("SablierV2LockupLinear"));
     escrowedEXA = EscrowedEXA(
       address(
-        new ERC1967Proxy(address(new EscrowedEXA(exa, sablier)), abi.encodeCall(EscrowedEXA.initialize, (6 * 4 weeks)))
+        new ERC1967Proxy(
+          address(new EscrowedEXA(exa, sablier)),
+          abi.encodeCall(EscrowedEXA.initialize, (6 * 4 weeks, 1e16))
+        )
       )
     );
 
@@ -47,28 +50,46 @@ contract EscrowedEXATest is ForkTest {
   }
 
   function testVest() external {
-    exa.approve(address(escrowedEXA), 1_000 ether);
-    escrowedEXA.mint(1_000 ether);
+    uint256 amount = 1_000 ether;
+    uint256 reserve = amount.mulWadDown(escrowedEXA.reserveFee());
+
+    exa.approve(address(escrowedEXA), amount + reserve);
+    escrowedEXA.mint(amount);
+    uint256 exaBefore = exa.balanceOf(address(this));
     uint256 nextStreamId = ISablierV2Lockup(address(sablier)).nextStreamId();
     vm.expectEmit(true, true, true, true, address(escrowedEXA));
-    emit Vest(address(this), nextStreamId, 1_000 ether);
-    uint256 streamId = escrowedEXA.vest(1_000 ether);
+    emit Vest(address(this), nextStreamId, amount);
+    uint256 streamId = escrowedEXA.vest(uint128(amount));
+
+    assertEq(exaBefore, exa.balanceOf(address(this)) + reserve, "exa balance of sender -= reserve");
+    assertEq(exa.balanceOf(address(escrowedEXA)), reserve, "exa balance of escrowedEXA == reserve");
     assertGt(streamId, 0);
     assertEq(streamId, nextStreamId);
   }
 
   function testVestAndCancel() external {
-    exa.approve(address(escrowedEXA), 2_000 ether);
-    escrowedEXA.mint(2_000 ether);
-    uint256 streamId = escrowedEXA.vest(1_000 ether);
+    uint256 amount = 1_000 ether;
+    uint256 reserve = amount.mulWadDown(escrowedEXA.reserveFee());
+    exa.approve(address(escrowedEXA), amount + reserve);
+    escrowedEXA.mint(amount);
 
-    vm.warp(block.timestamp + 1 days);
-    assertGt(ISablierV2Lockup(address(sablier)).withdrawableAmountOf(streamId), 0);
-    assertFalse(ISablierV2Lockup(address(sablier)).wasCanceled(streamId));
+    uint256 streamId = escrowedEXA.vest(uint128(amount));
+    vm.warp(block.timestamp + escrowedEXA.vestingPeriod() / 2);
+    assertEq(ISablierV2Lockup(address(sablier)).withdrawableAmountOf(streamId), amount / 2);
+    assertFalse(ISablierV2Lockup(address(sablier)).wasCanceled(streamId), "stream is not canceled");
+    assertEq(exa.balanceOf(address(escrowedEXA)), reserve, "exa.balanceOf(escrowedEXA) == reserve + amount");
 
     uint256[] memory streamIds = new uint256[](1);
     streamIds[0] = streamId;
-    uint256 newStreamId = escrowedEXA.vest(1_000 ether, streamIds);
+
+    uint256 remainingesEXA = amount / 2; // half period passed
+    reserve = (amount + remainingesEXA).mulWadDown(escrowedEXA.reserveFee());
+    exa.approve(address(escrowedEXA), amount + reserve);
+    escrowedEXA.mint(amount);
+
+    uint256 newStreamId = escrowedEXA.vest(uint128(amount), streamIds);
+
+    assertEq(exa.balanceOf(address(escrowedEXA)), reserve, "exa.balanceOf(escrowedEXA) == reserve + amount");
     assertEq(newStreamId, streamId + 1);
     assertTrue(ISablierV2Lockup(address(sablier)).wasCanceled(streamId));
     ISablierV2Lockup(address(sablier)).withdrawMax(streamId, address(this));
@@ -79,7 +100,7 @@ contract EscrowedEXATest is ForkTest {
   }
 
   function testVestAndCancelWithInvalidAccount() external {
-    exa.approve(address(escrowedEXA), 2_000 ether);
+    exa.approve(address(escrowedEXA), 2_100 ether);
     escrowedEXA.mint(2_000 ether);
     uint256 streamId = escrowedEXA.vest(1_000 ether);
 
@@ -140,6 +161,20 @@ contract EscrowedEXATest is ForkTest {
     escrowedEXA.transfer(ALICE, 1 ether);
   }
 
+  // todo:
+  // check emit
+  function testSetReserveFeeAsOwner() external {}
+
+  // todo:
+  function testSetReserveFeeAsNotOwner() external {}
+
+  // todo:
+  function testCancelShouldGiveReservesBack() external {}
+
+  // todo:
+  function testVestAndCancelHigherStream() external {}
+
+  event ReserveFeeSet(uint256 reserveFee);
   event VestingPeriodSet(uint256 vestingPeriod);
   event TransferAllowed(address indexed account, bool allow);
   event Vest(address indexed account, uint256 indexed streamId, uint256 amount);

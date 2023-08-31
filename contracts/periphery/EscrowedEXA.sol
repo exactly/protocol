@@ -6,18 +6,25 @@ import {
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { EXA } from "./EXA.sol";
 
 contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
   using SafeERC20Upgradeable for EXA;
+  using FixedPointMathLib for uint128;
 
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   EXA public immutable exa;
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   ISablierV2LockupLinear public immutable sablier;
 
+  uint256 public reserveFee;
+
   uint40 public vestingPeriod;
+
   mapping(address => bool) public allowlist;
+  /// @dev reserves[streamId] = amount
+  mapping(uint256 => uint256) public reserves;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(EXA exa_, ISablierV2LockupLinear sablier_) {
@@ -27,13 +34,14 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
     _disableInitializers();
   }
 
-  function initialize(uint40 vestingPeriod_) external initializer {
+  function initialize(uint40 vestingPeriod_, uint256 reserveFee_) external initializer {
     __ERC20_init("escrowed EXA", "esEXA");
     __ERC20Permit_init("escrowed EXA");
     __ERC20Votes_init();
     __Ownable_init();
 
     setVestingPeriod(vestingPeriod_);
+    setReserveFee(reserveFee_);
     exa.safeApprove(address(sablier), type(uint256).max);
     allowTransfer(address(0), true);
   }
@@ -44,33 +52,44 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
     _mint(msg.sender, amount);
   }
 
+  /// @notice Cancels the `streamIds` vestings and starts a new vesting of remaining EXA + `amount`
   function vest(uint128 amount, uint256[] memory streamIds) external returns (uint256) {
     uint256 balanceEXA = exa.balanceOf(address(this));
+    uint256 streamsReserves;
     for (uint256 i = 0; i < streamIds.length; ++i) {
       uint256 streamId = streamIds[i];
       assert(msg.sender == sablier.getRecipient(streamId));
       sablier.cancel(streamId);
+      streamsReserves += reserves[streamId];
     }
-    return vest(amount, uint128(exa.balanceOf(address(this)) - balanceEXA));
+    return vest(amount, uint128(exa.balanceOf(address(this)) - balanceEXA), streamsReserves);
   }
 
   function vest(uint128 amount) external returns (uint256) {
-    return vest(amount, 0);
+    return vest(amount, 0, 0);
   }
 
-  function vest(uint128 amount, uint128 legacy) internal returns (uint256 streamId) {
+  function vest(uint128 amount, uint128 legacyAmount, uint256 legacyReserve) internal returns (uint256 streamId) {
     _burn(msg.sender, amount);
+
+    uint128 totalAmount = amount + legacyAmount;
+    uint256 fee = totalAmount.mulWadDown(reserveFee);
+
+    if (fee > legacyReserve) exa.safeTransferFrom(msg.sender, address(this), fee - legacyReserve);
+    else exa.safeTransfer(msg.sender, legacyReserve - fee);
+
     streamId = sablier.createWithDurations(
       CreateWithDurations({
         asset: exa,
         sender: address(this),
         recipient: msg.sender,
-        totalAmount: amount + legacy,
+        totalAmount: totalAmount,
         cancelable: true,
         durations: Durations({ cliff: 0, total: vestingPeriod }),
         broker: Broker({ account: address(0), fee: 0 })
       })
     );
+    reserves[streamId] = fee;
     emit Vest(msg.sender, streamId, amount);
   }
 
@@ -82,6 +101,11 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
   function allowTransfer(address account, bool allow) public onlyOwner {
     allowlist[account] = allow;
     emit TransferAllowed(account, allow);
+  }
+
+  function setReserveFee(uint256 reserveFee_) public onlyOwner {
+    reserveFee = reserveFee_;
+    emit ReserveFeeSet(reserveFee_);
   }
 
   function clock() public view override returns (uint48) {
@@ -98,6 +122,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
     super._afterTokenTransfer(from, to, amount);
   }
 
+  event ReserveFeeSet(uint256 reserveFee);
   event VestingPeriodSet(uint256 vestingPeriod);
   event TransferAllowed(address indexed account, bool allow);
   event Vest(address indexed account, uint256 indexed streamId, uint256 amount);
