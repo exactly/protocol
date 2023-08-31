@@ -44,15 +44,29 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
     _mint(msg.sender, amount);
   }
 
-  function vest(uint128 amount) external returns (uint256 streamId) {
+  function vest(uint128 amount, uint256[] memory streamIds) external returns (uint256) {
+    uint256 balanceEXA = exa.balanceOf(address(this));
+    for (uint256 i = 0; i < streamIds.length; ++i) {
+      uint256 streamId = streamIds[i];
+      assert(msg.sender == sablier.getRecipient(streamId));
+      sablier.cancel(streamId);
+    }
+    return vest(amount, uint128(exa.balanceOf(address(this)) - balanceEXA));
+  }
+
+  function vest(uint128 amount) external returns (uint256) {
+    return vest(amount, 0);
+  }
+
+  function vest(uint128 amount, uint128 legacy) internal returns (uint256 streamId) {
     _burn(msg.sender, amount);
     streamId = sablier.createWithDurations(
       CreateWithDurations({
         asset: exa,
         sender: address(this),
         recipient: msg.sender,
-        totalAmount: amount,
-        cancelable: false,
+        totalAmount: amount + legacy,
+        cancelable: true,
         durations: Durations({ cliff: 0, total: vestingPeriod }),
         broker: Broker({ account: address(0), fee: 0 })
       })
@@ -90,6 +104,10 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
 }
 
 interface ISablierV2LockupLinear {
+  function cancel(uint256 streamId) external;
+
+  function getRecipient(uint256 streamId) external view returns (address recipient);
+
   function createWithDurations(CreateWithDurations calldata params) external returns (uint256 streamId);
 }
 

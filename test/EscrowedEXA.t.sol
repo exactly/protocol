@@ -37,12 +37,12 @@ contract EscrowedEXATest is ForkTest {
 
   function testMintMoreThanBalance() external {
     exa.approve(address(escrowedEXA), 1_000_000 ether);
-    vm.expectRevert();
+    vm.expectRevert(bytes(""));
     escrowedEXA.mint(1_000_000 ether);
   }
 
   function testMintZero() external {
-    vm.expectRevert();
+    vm.expectRevert(stdError.assertionError);
     escrowedEXA.mint(0);
   }
 
@@ -57,8 +57,45 @@ contract EscrowedEXATest is ForkTest {
     assertEq(streamId, nextStreamId);
   }
 
+  function testVestAndCancel() external {
+    exa.approve(address(escrowedEXA), 2_000 ether);
+    escrowedEXA.mint(2_000 ether);
+    uint256 streamId = escrowedEXA.vest(1_000 ether);
+
+    vm.warp(block.timestamp + 1 days);
+    assertGt(ISablierV2Lockup(address(sablier)).withdrawableAmountOf(streamId), 0);
+    assertFalse(ISablierV2Lockup(address(sablier)).wasCanceled(streamId));
+
+    uint256[] memory streamIds = new uint256[](1);
+    streamIds[0] = streamId;
+    uint256 newStreamId = escrowedEXA.vest(1_000 ether, streamIds);
+    assertEq(newStreamId, streamId + 1);
+    assertTrue(ISablierV2Lockup(address(sablier)).wasCanceled(streamId));
+    ISablierV2Lockup(address(sablier)).withdrawMax(streamId, address(this));
+
+    vm.warp(block.timestamp + 5 days);
+    assertEq(ISablierV2Lockup(address(sablier)).withdrawableAmountOf(streamId), 0);
+    assertGt(ISablierV2Lockup(address(sablier)).withdrawableAmountOf(newStreamId), 0);
+  }
+
+  function testVestAndCancelWithInvalidAccount() external {
+    exa.approve(address(escrowedEXA), 2_000 ether);
+    escrowedEXA.mint(2_000 ether);
+    uint256 streamId = escrowedEXA.vest(1_000 ether);
+
+    vm.warp(block.timestamp + 1 days);
+    assertGt(ISablierV2Lockup(address(sablier)).withdrawableAmountOf(streamId), 0);
+    assertFalse(ISablierV2Lockup(address(sablier)).wasCanceled(streamId));
+
+    uint256[] memory streamIds = new uint256[](1);
+    streamIds[0] = streamId;
+    vm.prank(ALICE);
+    vm.expectRevert(stdError.assertionError);
+    escrowedEXA.vest(1_000 ether, streamIds);
+  }
+
   function testVestZero() external {
-    vm.expectRevert();
+    vm.expectRevert(SablierV2Lockup_DepositAmountZero.selector);
     escrowedEXA.vest(0);
   }
 
@@ -72,7 +109,7 @@ contract EscrowedEXATest is ForkTest {
 
   function testSetVestingPeriodAsNotOwner() external {
     vm.startPrank(ALICE);
-    vm.expectRevert();
+    vm.expectRevert(bytes(""));
     escrowedEXA.setVestingPeriod(4 weeks);
   }
 
@@ -85,7 +122,7 @@ contract EscrowedEXATest is ForkTest {
 
   function testSetAllowListAsNotOwner() external {
     vm.startPrank(ALICE);
-    vm.expectRevert();
+    vm.expectRevert(bytes(""));
     escrowedEXA.allowTransfer(ALICE, true);
   }
 
@@ -99,7 +136,7 @@ contract EscrowedEXATest is ForkTest {
   }
 
   function testTransferToNotAllowListed() external {
-    vm.expectRevert();
+    vm.expectRevert(bytes(""));
     escrowedEXA.transfer(ALICE, 1 ether);
   }
 
@@ -108,10 +145,16 @@ contract EscrowedEXATest is ForkTest {
   event Vest(address indexed account, uint256 indexed streamId, uint256 amount);
 }
 
+error SablierV2Lockup_DepositAmountZero();
+
 interface ISablierV2Lockup {
   function nextStreamId() external view returns (uint256);
 
   function withdraw(uint256 streamId, address to, uint128 amount) external;
 
   function withdrawMax(uint256 streamId, address to) external;
+
+  function wasCanceled(uint256 streamId) external view returns (bool result);
+
+  function withdrawableAmountOf(uint256 streamId) external view returns (uint128 withdrawableAmount);
 }
