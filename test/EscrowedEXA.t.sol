@@ -76,7 +76,35 @@ contract EscrowedEXATest is ForkTest {
     escrowedEXA.setVestingPeriod(4 weeks);
   }
 
+  function testSetAllowListAsOwner() external {
+    vm.expectEmit(true, true, false, true, address(escrowedEXA));
+    emit TransferAllowed(ALICE, true);
+    escrowedEXA.allowTransfer(ALICE, true);
+    assertTrue(escrowedEXA.allowlist(ALICE));
+  }
+
+  function testSetAllowListAsNotOwner() external {
+    vm.startPrank(ALICE);
+    vm.expectRevert();
+    escrowedEXA.allowTransfer(ALICE, true);
+  }
+
+  function testTransferToAllowListed() external {
+    exa.approve(address(escrowedEXA), 1 ether);
+    escrowedEXA.mint(1 ether);
+
+    escrowedEXA.allowTransfer(ALICE, true);
+    escrowedEXA.transfer(ALICE, 1 ether);
+    assertEq(escrowedEXA.balanceOf(ALICE), 1 ether);
+  }
+
+  function testTransferToNotAllowListed() external {
+    vm.expectRevert();
+    escrowedEXA.transfer(ALICE, 1 ether);
+  }
+
   event VestingPeriodSet(uint256 vestingPeriod);
+  event TransferAllowed(address indexed account, bool allow);
   event Vest(address indexed account, uint256 indexed streamId, uint256 amount);
 }
 

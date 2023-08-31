@@ -17,6 +17,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
   ISablierV2LockupLinear public immutable sablier;
 
   uint40 public vestingPeriod;
+  mapping(address => bool) public allowlist;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(EXA exa_, ISablierV2LockupLinear sablier_) {
@@ -34,6 +35,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
 
     setVestingPeriod(vestingPeriod_);
     exa.safeApprove(address(sablier), type(uint256).max);
+    allowTransfer(address(0), true);
   }
 
   function mint(uint256 amount) external {
@@ -63,6 +65,11 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
     emit VestingPeriodSet(vestingPeriod_);
   }
 
+  function allowTransfer(address account, bool allow) public onlyOwner {
+    allowlist[account] = allow;
+    emit TransferAllowed(account, allow);
+  }
+
   function clock() public view override returns (uint48) {
     return exa.clock();
   }
@@ -72,7 +79,13 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
     return exa.CLOCK_MODE();
   }
 
+  function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+    assert(allowlist[from] || allowlist[to]);
+    super._afterTokenTransfer(from, to, amount);
+  }
+
   event VestingPeriodSet(uint256 vestingPeriod);
+  event TransferAllowed(address indexed account, bool allow);
   event Vest(address indexed account, uint256 indexed streamId, uint256 amount);
 }
 
