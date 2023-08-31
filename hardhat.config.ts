@@ -77,7 +77,7 @@ export default {
           goerli: {
             rewards: {
               OP: { total: 165_000, debt: 16_000, start: "2023-03-09", period: 24 * 7 * 86_400 },
-              EXA: { total: 21_600, debt: 16_000, start: "2023-07-20", period: 8 * 7 * 86_400 },
+              EXA: { total: 15_200, debt: 16_000, start: "2023-07-20", period: 8 * 7 * 86_400 },
             },
           },
           optimism: {
@@ -93,7 +93,7 @@ export default {
                 depositAllocationWeightAddend: 0.03,
               },
               EXA: {
-                total: 21_600,
+                total: 15_200,
                 debt: 1_666,
                 start: "2023-07-24T14:00Z",
                 period: 8 * 7 * 86_400,
@@ -120,13 +120,13 @@ export default {
           goerli: {
             rewards: {
               OP: { total: 385_000, debt: 25_000_000, start: "2023-03-09", period: 24 * 7 * 86_400 },
-              EXA: { total: 43_200, debt: 25_000_000, start: "2023-07-20", period: 8 * 7 * 86_400 },
+              EXA: { total: 30_000, debt: 25_000_000, start: "2023-07-20", period: 8 * 7 * 86_400 },
             },
           },
           optimism: {
             rewards: {
               OP: { total: 385_000, debt: 7_500_000, start: "2023-04-03T14:00Z", period: 24 * 7 * 86_400 },
-              EXA: { total: 43_200, debt: 7_500_000, start: "2023-07-24T14:00Z", period: 8 * 7 * 86_400 },
+              EXA: { total: 30_000, debt: 7_500_000, start: "2023-07-24T14:00Z", period: 8 * 7 * 86_400 },
             },
           },
         },
@@ -182,7 +182,7 @@ export default {
                 depositAllocationWeightAddend: 0.03,
               },
               EXA: {
-                total: 7_200,
+                total: 5_400,
                 debt: 1,
                 start: "2023-07-24T14:00Z",
                 period: 8 * 7 * 86_400,
@@ -203,7 +203,7 @@ export default {
           optimism: {
             rewards: {
               EXA: {
-                total: 3_000,
+                total: 2_300,
                 debt: 100_000,
                 start: "2023-07-24T14:00Z",
                 period: 8 * 7 * 86_400,
