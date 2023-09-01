@@ -5,11 +5,11 @@ import {
   ERC20VotesUpgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { EXA } from "./EXA.sol";
 
-contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
+contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   using SafeERC20Upgradeable for EXA;
   using FixedPointMathLib for uint128;
 
@@ -38,7 +38,9 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
     __ERC20_init("escrowed EXA", "esEXA");
     __ERC20Permit_init("escrowed EXA");
     __ERC20Votes_init();
-    __Ownable_init();
+    __AccessControl_init();
+
+    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     setVestingPeriod(vestingPeriod_);
     setReserveFee(reserveFee_);
@@ -102,17 +104,17 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
     emit Cancel(msg.sender, streamIds);
   }
 
-  function setVestingPeriod(uint40 vestingPeriod_) public onlyOwner {
+  function setVestingPeriod(uint40 vestingPeriod_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     vestingPeriod = vestingPeriod_;
     emit VestingPeriodSet(vestingPeriod_);
   }
 
-  function allowTransfer(address account, bool allow) public onlyOwner {
+  function allowTransfer(address account, bool allow) public onlyRole(DEFAULT_ADMIN_ROLE) {
     allowlist[account] = allow;
     emit TransferAllowed(account, allow);
   }
 
-  function setReserveFee(uint256 reserveFee_) public onlyOwner {
+  function setReserveFee(uint256 reserveFee_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     reserveFee = reserveFee_;
     emit ReserveFeeSet(reserveFee_);
   }

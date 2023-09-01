@@ -120,7 +120,7 @@ contract EscrowedEXATest is ForkTest {
     escrowedEXA.vest(0);
   }
 
-  function testSetVestingPeriodAsOwner() external {
+  function testSetVestingPeriodAsAdmin() external {
     uint40 newPeriod = 4 weeks;
     vm.expectEmit(true, true, true, true, address(escrowedEXA));
     emit VestingPeriodSet(newPeriod);
@@ -128,20 +128,20 @@ contract EscrowedEXATest is ForkTest {
     assertEq(escrowedEXA.vestingPeriod(), newPeriod);
   }
 
-  function testSetVestingPeriodAsNotOwner() external {
+  function testSetVestingPeriodAsNotAdmin() external {
     vm.startPrank(ALICE);
     vm.expectRevert(bytes(""));
     escrowedEXA.setVestingPeriod(4 weeks);
   }
 
-  function testSetAllowListAsOwner() external {
+  function testSetAllowListAsAdmin() external {
     vm.expectEmit(true, true, false, true, address(escrowedEXA));
     emit TransferAllowed(ALICE, true);
     escrowedEXA.allowTransfer(ALICE, true);
     assertTrue(escrowedEXA.allowlist(ALICE));
   }
 
-  function testSetAllowListAsNotOwner() external {
+  function testSetAllowListAsNotAdmin() external {
     vm.startPrank(ALICE);
     vm.expectRevert(bytes(""));
     escrowedEXA.allowTransfer(ALICE, true);
@@ -161,7 +161,7 @@ contract EscrowedEXATest is ForkTest {
     escrowedEXA.transfer(ALICE, 1 ether);
   }
 
-  function testSetReserveFeeAsOwner() external {
+  function testSetReserveFeeAsAdmin() external {
     uint256 newFee = 5e16;
     vm.expectEmit(true, true, true, true, address(escrowedEXA));
     emit ReserveFeeSet(newFee);
@@ -169,7 +169,7 @@ contract EscrowedEXATest is ForkTest {
     assertEq(escrowedEXA.reserveFee(), newFee);
   }
 
-  function testSetReserveFeeAsNotOwner() external {
+  function testSetReserveFeeAsNotAdmin() external {
     vm.startPrank(ALICE);
     vm.expectRevert(bytes(""));
     escrowedEXA.setReserveFee(5e16);
