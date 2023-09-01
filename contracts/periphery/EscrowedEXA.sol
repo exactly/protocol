@@ -49,6 +49,11 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     exa.safeApprove(address(sablier), type(uint256).max);
   }
 
+  function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+    if (!hasRole(TRANSFERRER_ROLE, from) && !hasRole(TRANSFERRER_ROLE, to)) revert Untransferable();
+    super._afterTokenTransfer(from, to, amount);
+  }
+
   function mint(uint256 amount) external {
     assert(amount != 0);
     exa.safeTransferFrom(msg.sender, address(this), amount);
@@ -61,15 +66,15 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     exa.safeTransfer(msg.sender, amount);
   }
 
+  function vest(uint128 amount) external returns (uint256) {
+    return vest(amount, 0, 0);
+  }
+
   /// @notice Cancels the `streamIds` vestings and starts a new vesting of remaining EXA + `amount`
   function vest(uint128 amount, uint256[] memory streamIds) external returns (uint256) {
     uint256 balanceEXA = exa.balanceOf(address(this));
     uint256 streamsReserves = _cancel(streamIds);
     return vest(amount, uint128(exa.balanceOf(address(this)) - balanceEXA), streamsReserves);
-  }
-
-  function vest(uint128 amount) external returns (uint256) {
-    return vest(amount, 0, 0);
   }
 
   function vest(uint128 amount, uint128 legacyAmount, uint256 legacyReserve) internal returns (uint256 streamId) {
@@ -128,11 +133,6 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   // solhint-disable-next-line func-name-mixedcase
   function CLOCK_MODE() public view override returns (string memory) {
     return exa.CLOCK_MODE();
-  }
-
-  function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
-    if (!hasRole(TRANSFERRER_ROLE, from) && !hasRole(TRANSFERRER_ROLE, to)) revert Untransferable();
-    super._afterTokenTransfer(from, to, amount);
   }
 
   event ReserveFeeSet(uint256 reserveFee);
