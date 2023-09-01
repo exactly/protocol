@@ -161,18 +161,45 @@ contract EscrowedEXATest is ForkTest {
     escrowedEXA.transfer(ALICE, 1 ether);
   }
 
-  // todo:
-  // check emit
-  function testSetReserveFeeAsOwner() external {}
+  function testSetReserveFeeAsOwner() external {
+    uint256 newFee = 5e16;
+    vm.expectEmit(true, true, true, true, address(escrowedEXA));
+    emit ReserveFeeSet(newFee);
+    escrowedEXA.setReserveFee(newFee);
+    assertEq(escrowedEXA.reserveFee(), newFee);
+  }
 
-  // todo:
-  function testSetReserveFeeAsNotOwner() external {}
+  function testSetReserveFeeAsNotOwner() external {
+    vm.startPrank(ALICE);
+    vm.expectRevert(bytes(""));
+    escrowedEXA.setReserveFee(5e16);
+  }
 
   // todo:
   function testCancelShouldGiveReservesBack() external {}
 
-  // todo:
-  function testVestAndCancelHigherStream() external {}
+  function testVestAndCancelHigherStream() external {
+    uint256 initialAmount = 1_000 ether;
+    uint256 reserve = initialAmount.mulWadDown(escrowedEXA.reserveFee());
+    exa.approve(address(escrowedEXA), initialAmount + reserve);
+    escrowedEXA.mint(initialAmount);
+    uint256 streamId = escrowedEXA.vest(uint128(initialAmount));
+
+    vm.warp(block.timestamp + escrowedEXA.vestingPeriod() / 2);
+
+    uint256 newAmount = 100 ether;
+    uint256 newReserve = newAmount.mulWadDown(escrowedEXA.reserveFee());
+    exa.approve(address(escrowedEXA), newAmount + newReserve);
+    escrowedEXA.mint(newAmount);
+
+    uint256 exaBefore = exa.balanceOf(address(this));
+    uint256[] memory streamIds = new uint256[](1);
+    streamIds[0] = streamId;
+    escrowedEXA.vest(uint128(newAmount), streamIds);
+
+    assertEq(exa.balanceOf(address(this)), exaBefore + reserve / 2 - newReserve);
+    assertGt(exa.balanceOf(address(this)), exaBefore);
+  }
 
   event ReserveFeeSet(uint256 reserveFee);
   event VestingPeriodSet(uint256 vestingPeriod);
