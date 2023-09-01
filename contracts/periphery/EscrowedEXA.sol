@@ -13,6 +13,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   using SafeERC20Upgradeable for EXA;
   using FixedPointMathLib for uint128;
 
+  bytes32 public constant REDEEMER_ROLE = keccak256("REDEEMER_ROLE");
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   EXA public immutable exa;
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
@@ -52,6 +53,12 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     assert(amount != 0);
     exa.safeTransferFrom(msg.sender, address(this), amount);
     _mint(msg.sender, amount);
+  }
+
+  function redeem(uint256 amount) external onlyRole(REDEEMER_ROLE) {
+    assert(amount != 0);
+    _burn(msg.sender, amount);
+    exa.safeTransfer(msg.sender, amount);
   }
 
   /// @notice Cancels the `streamIds` vestings and starts a new vesting of remaining EXA + `amount`

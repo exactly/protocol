@@ -13,6 +13,7 @@ contract EscrowedEXATest is ForkTest {
   EscrowedEXA internal escrowedEXA;
   ISablierV2LockupLinear internal sablier;
   address internal constant ALICE = address(0x420);
+  address internal constant REDEEMER = address(0x69);
 
   function setUp() external {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 108_911_300);
@@ -30,6 +31,7 @@ contract EscrowedEXATest is ForkTest {
 
     vm.prank(deployment("TimelockController"));
     exa.transfer(address(this), 100_000 ether);
+    escrowedEXA.grantRole(escrowedEXA.REDEEMER_ROLE(), REDEEMER);
   }
 
   function testMint() external {
@@ -243,6 +245,30 @@ contract EscrowedEXATest is ForkTest {
 
     assertEq(exa.balanceOf(address(this)), exaBefore + reserve / 2 - newReserve);
     assertGt(exa.balanceOf(address(this)), exaBefore);
+  }
+
+  function testUnmintAsRedeemer() external {
+    exa.transfer(REDEEMER, 1_000 ether);
+
+    vm.startPrank(REDEEMER);
+    uint256 amount = 1_000 ether;
+    uint256 exaBefore = exa.balanceOf(REDEEMER);
+    exa.approve(address(escrowedEXA), amount);
+    escrowedEXA.mint(amount);
+    assertEq(exa.balanceOf(REDEEMER), exaBefore - amount);
+    escrowedEXA.redeem(amount);
+    assertEq(exa.balanceOf(REDEEMER), exaBefore);
+  }
+
+  function testUnmintAsNotRedeemer() external {
+    exa.transfer(ALICE, 1_000 ether);
+
+    vm.startPrank(ALICE);
+    uint256 amount = 1_000 ether;
+    exa.approve(address(escrowedEXA), amount);
+    escrowedEXA.mint(amount);
+    vm.expectRevert(bytes(""));
+    escrowedEXA.redeem(amount);
   }
 
   event ReserveFeeSet(uint256 reserveFee);
