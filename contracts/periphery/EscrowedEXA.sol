@@ -14,6 +14,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   using FixedPointMathLib for uint128;
 
   bytes32 public constant REDEEMER_ROLE = keccak256("REDEEMER_ROLE");
+  bytes32 public constant TRANSFERRER_ROLE = keccak256("TRANSFERRER_ROLE");
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   EXA public immutable exa;
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
@@ -23,7 +24,6 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
 
   uint40 public vestingPeriod;
 
-  mapping(address => bool) public allowlist;
   /// @dev reserves[streamId] = amount
   mapping(uint256 => uint256) public reserves;
 
@@ -42,11 +42,11 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     __AccessControl_init();
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    _grantRole(TRANSFERRER_ROLE, address(0));
 
     setVestingPeriod(vestingPeriod_);
     setReserveFee(reserveFee_);
     exa.safeApprove(address(sablier), type(uint256).max);
-    allowTransfer(address(0), true);
   }
 
   function mint(uint256 amount) external {
@@ -116,11 +116,6 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     emit VestingPeriodSet(vestingPeriod_);
   }
 
-  function allowTransfer(address account, bool allow) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    allowlist[account] = allow;
-    emit TransferAllowed(account, allow);
-  }
-
   function setReserveFee(uint256 reserveFee_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     reserveFee = reserveFee_;
     emit ReserveFeeSet(reserveFee_);
@@ -136,16 +131,17 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   }
 
   function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
-    assert(allowlist[from] || allowlist[to]);
+    if (!hasRole(TRANSFERRER_ROLE, from) && !hasRole(TRANSFERRER_ROLE, to)) revert Untransferable();
     super._afterTokenTransfer(from, to, amount);
   }
 
   event ReserveFeeSet(uint256 reserveFee);
   event VestingPeriodSet(uint256 vestingPeriod);
-  event TransferAllowed(address indexed account, bool allow);
   event Cancel(address indexed account, uint256[] streamIds);
   event Vest(address indexed account, uint256 indexed streamId, uint256 amount);
 }
+
+error Untransferable();
 
 interface ISablierV2LockupLinear {
   function cancel(uint256 streamId) external;

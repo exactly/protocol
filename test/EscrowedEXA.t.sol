@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ForkTest, stdError } from "./Fork.t.sol";
-import { EXA, EscrowedEXA, ISablierV2LockupLinear } from "../contracts/periphery/EscrowedEXA.sol";
+import { EXA, EscrowedEXA, Untransferable, ISablierV2LockupLinear } from "../contracts/periphery/EscrowedEXA.sol";
 
 contract EscrowedEXATest is ForkTest {
   using FixedPointMathLib for uint256;
@@ -136,30 +136,24 @@ contract EscrowedEXATest is ForkTest {
     escrowedEXA.setVestingPeriod(4 weeks);
   }
 
-  function testSetAllowListAsAdmin() external {
-    vm.expectEmit(true, true, false, true, address(escrowedEXA));
-    emit TransferAllowed(ALICE, true);
-    escrowedEXA.allowTransfer(ALICE, true);
-    assertTrue(escrowedEXA.allowlist(ALICE));
+  function testGrantTransferrerRoleAsAdmin() external {
+    escrowedEXA.grantRole(escrowedEXA.TRANSFERRER_ROLE(), ALICE);
+    assertTrue(escrowedEXA.hasRole(escrowedEXA.TRANSFERRER_ROLE(), ALICE));
   }
 
-  function testSetAllowListAsNotAdmin() external {
-    vm.startPrank(ALICE);
-    vm.expectRevert(bytes(""));
-    escrowedEXA.allowTransfer(ALICE, true);
-  }
-
-  function testTransferToAllowListed() external {
+  function testTransferToTransferrer() external {
     exa.approve(address(escrowedEXA), 1 ether);
     escrowedEXA.mint(1 ether);
 
-    escrowedEXA.allowTransfer(ALICE, true);
+    escrowedEXA.grantRole(escrowedEXA.TRANSFERRER_ROLE(), ALICE);
     escrowedEXA.transfer(ALICE, 1 ether);
     assertEq(escrowedEXA.balanceOf(ALICE), 1 ether);
   }
 
-  function testTransferToNotAllowListed() external {
-    vm.expectRevert(bytes(""));
+  function testTransferToNotTransferrer() external {
+    exa.approve(address(escrowedEXA), 1 ether);
+    escrowedEXA.mint(1 ether);
+    vm.expectRevert(Untransferable.selector);
     escrowedEXA.transfer(ALICE, 1 ether);
   }
 
@@ -273,7 +267,6 @@ contract EscrowedEXATest is ForkTest {
 
   event ReserveFeeSet(uint256 reserveFee);
   event VestingPeriodSet(uint256 vestingPeriod);
-  event TransferAllowed(address indexed account, bool allow);
   event Vest(address indexed account, uint256 indexed streamId, uint256 amount);
 }
 
