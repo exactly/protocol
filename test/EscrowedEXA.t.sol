@@ -23,7 +23,7 @@ contract EscrowedEXATest is ForkTest {
       address(
         new ERC1967Proxy(
           address(new EscrowedEXA(exa, sablier)),
-          abi.encodeCall(EscrowedEXA.initialize, (6 * 4 weeks, 1e16))
+          abi.encodeCall(EscrowedEXA.initialize, (6 * 4 weeks, 1e17))
         )
       )
     );
@@ -175,8 +175,52 @@ contract EscrowedEXATest is ForkTest {
     escrowedEXA.setReserveFee(5e16);
   }
 
-  // todo:
-  function testCancelShouldGiveReservesBack() external {}
+  function testCancelShouldGiveReservesBack() external {
+    uint256 initialAmount = 1_000 ether;
+    uint256 reserve = initialAmount.mulWadDown(escrowedEXA.reserveFee());
+    exa.approve(address(escrowedEXA), initialAmount * 2);
+    escrowedEXA.mint(initialAmount * 2);
+
+    uint256 initialEXA = exa.balanceOf(address(this));
+
+    exa.approve(address(escrowedEXA), reserve);
+    uint256 streamId1 = escrowedEXA.vest(uint128(initialAmount));
+    assertEq(exa.balanceOf(address(this)), initialEXA - reserve);
+
+    exa.approve(address(escrowedEXA), reserve);
+    uint256 streamId2 = escrowedEXA.vest(uint128(initialAmount));
+    assertEq(exa.balanceOf(address(this)), initialEXA - reserve * 2);
+
+    vm.warp(block.timestamp + escrowedEXA.vestingPeriod() / 2);
+
+    uint256[] memory streamIds = new uint256[](2);
+    streamIds[0] = streamId1;
+    streamIds[1] = streamId2;
+    escrowedEXA.cancel(streamIds);
+
+    assertEq(exa.balanceOf(address(this)), initialEXA, "should give reserves back");
+  }
+
+  function testCancelWithInvalidAccount() external {
+    uint256 initialAmount = 1_000 ether;
+    uint256 reserve = initialAmount.mulWadDown(escrowedEXA.reserveFee());
+    exa.approve(address(escrowedEXA), initialAmount);
+    escrowedEXA.mint(initialAmount);
+
+    uint256 initialEXA = exa.balanceOf(address(this));
+
+    exa.approve(address(escrowedEXA), reserve);
+    uint256 streamId1 = escrowedEXA.vest(uint128(initialAmount));
+    assertEq(exa.balanceOf(address(this)), initialEXA - reserve);
+
+    vm.warp(block.timestamp + escrowedEXA.vestingPeriod() / 2);
+
+    uint256[] memory streamIds = new uint256[](1);
+    streamIds[0] = streamId1;
+    vm.prank(ALICE);
+    vm.expectRevert(stdError.assertionError);
+    escrowedEXA.cancel(streamIds);
+  }
 
   function testVestAndCancelHigherStream() external {
     uint256 initialAmount = 1_000 ether;

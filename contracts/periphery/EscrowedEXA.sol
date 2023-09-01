@@ -55,13 +55,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
   /// @notice Cancels the `streamIds` vestings and starts a new vesting of remaining EXA + `amount`
   function vest(uint128 amount, uint256[] memory streamIds) external returns (uint256) {
     uint256 balanceEXA = exa.balanceOf(address(this));
-    uint256 streamsReserves;
-    for (uint256 i = 0; i < streamIds.length; ++i) {
-      uint256 streamId = streamIds[i];
-      assert(msg.sender == sablier.getRecipient(streamId));
-      sablier.cancel(streamId);
-      streamsReserves += reserves[streamId];
-    }
+    uint256 streamsReserves = _cancel(streamIds);
     return vest(amount, uint128(exa.balanceOf(address(this)) - balanceEXA), streamsReserves);
   }
 
@@ -91,6 +85,21 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
     );
     reserves[streamId] = fee;
     emit Vest(msg.sender, streamId, amount);
+  }
+
+  function cancel(uint256[] memory streamIds) external returns (uint256 streamsReserves) {
+    streamsReserves = _cancel(streamIds);
+    exa.safeTransfer(msg.sender, streamsReserves);
+  }
+
+  function _cancel(uint256[] memory streamIds) internal returns (uint256 streamsReserves) {
+    for (uint256 i = 0; i < streamIds.length; ++i) {
+      uint256 streamId = streamIds[i];
+      assert(msg.sender == sablier.getRecipient(streamId));
+      sablier.cancel(streamId);
+      streamsReserves += reserves[streamId];
+    }
+    emit Cancel(msg.sender, streamIds);
   }
 
   function setVestingPeriod(uint40 vestingPeriod_) public onlyOwner {
@@ -125,6 +134,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, OwnableUpgradeable {
   event ReserveFeeSet(uint256 reserveFee);
   event VestingPeriodSet(uint256 vestingPeriod);
   event TransferAllowed(address indexed account, bool allow);
+  event Cancel(address indexed account, uint256[] streamIds);
   event Vest(address indexed account, uint256 indexed streamId, uint256 amount);
 }
 
