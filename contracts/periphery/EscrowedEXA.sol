@@ -115,8 +115,21 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
       streamsReserves += reserves[streamId];
       delete reserves[streamId];
       sablier.cancel(streamId);
+      withdrawMax(streamId);
     }
     emit Cancel(msg.sender, streamIds);
+  }
+
+  function withdrawMax(uint256[] memory streamIds) public {
+    for (uint256 i = 0; i < streamIds.length; ++i) {
+      uint256 streamId = streamIds[i];
+      assert(msg.sender == sablier.getRecipient(streamId));
+      withdrawMax(streamId);
+    }
+  }
+
+  function withdrawMax(uint256 streamId) internal {
+    if (sablier.withdrawableAmountOf(streamId) != 0) sablier.withdrawMax(streamId, msg.sender);
   }
 
   function setVestingPeriod(uint40 vestingPeriod_) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -149,7 +162,11 @@ error Untransferable();
 interface ISablierV2LockupLinear {
   function cancel(uint256 streamId) external;
 
+  function withdrawMax(uint256 streamId, address to) external;
+
   function getRecipient(uint256 streamId) external view returns (address recipient);
+
+  function withdrawableAmountOf(uint256 streamId) external view returns (uint128 withdrawableAmount);
 
   function createWithDurations(CreateWithDurations calldata params) external returns (uint256 streamId);
 }
