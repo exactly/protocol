@@ -95,7 +95,7 @@ DebtPreviewerTest:testPreviewMaxRatioWithdrawWithSameAssetLeverage() (gas: 10205
 DebtPreviewerTest:testPreviewSameAssetInvalidLeverageShouldCapRatio() (gas: 910754)
 EscrowedEXATest:testCancelShouldDeleteReserves() (gas: 446081)
 EscrowedEXATest:testCancelShouldGiveReservesBack() (gas: 629106)
-EscrowedEXATest:testCancelTwiceShouldRevert() (gas: 232)
+EscrowedEXATest:testCancelTwiceShouldRevert() (gas: 445809)
 EscrowedEXATest:testCancelWithInvalidAccount() (gas: 352347)
 EscrowedEXATest:testGrantTransferrerRoleAsAdmin() (gas: 43514)
 EscrowedEXATest:testMint() (gas: 168084)

@@ -221,6 +221,22 @@ contract EscrowedEXATest is ForkTest {
     assertEq(exa.balanceOf(address(this)), exaBefore + reserve, "should give back reserve");
   }
 
+  function testCancelTwiceShouldRevert() external {
+    uint256 amount = 1_000 ether;
+    uint256 reserve = amount.mulWadDown(esEXA.reserveFee());
+    exa.approve(address(esEXA), amount + reserve);
+    esEXA.mint(amount);
+
+    uint256 streamId = esEXA.vest(uint128(amount));
+    vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
+
+    uint256[] memory streamIds = new uint256[](1);
+    streamIds[0] = streamId;
+    esEXA.cancel(streamIds);
+    vm.expectRevert(abi.encodeWithSelector(SablierV2Lockup_StreamCanceled.selector, streamId));
+    esEXA.cancel(streamIds);
+  }
+
   function testCancelWithInvalidAccount() external {
     uint256 initialAmount = 1_000 ether;
     uint256 reserve = initialAmount.mulWadDown(esEXA.reserveFee());
@@ -295,6 +311,7 @@ contract EscrowedEXATest is ForkTest {
 }
 
 error SablierV2Lockup_DepositAmountZero();
+error SablierV2Lockup_StreamCanceled(uint256);
 
 interface ISablierV2Lockup {
   function nextStreamId() external view returns (uint256);
