@@ -197,6 +197,24 @@ contract EscrowedEXATest is ForkTest {
     assertEq(exa.balanceOf(address(this)), initialEXA, "should give reserves back");
   }
 
+  function testCancelShouldDeleteReserves() external {
+    uint256 amount = 1_000 ether;
+    uint256 reserve = amount.mulWadDown(esEXA.reserveFee());
+    exa.approve(address(esEXA), amount + reserve);
+    esEXA.mint(amount);
+
+    uint256 streamId = esEXA.vest(uint128(amount));
+    vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
+
+    uint256 exaBefore = exa.balanceOf(address(this));
+    uint256[] memory streamIds = new uint256[](1);
+    streamIds[0] = streamId;
+    esEXA.cancel(streamIds);
+
+    assertEq(esEXA.reserves(streamId), 0, "reserves[streamId] == 0");
+    assertEq(exa.balanceOf(address(this)), exaBefore + reserve, "should give back reserve");
+  }
+
   function testCancelWithInvalidAccount() external {
     uint256 initialAmount = 1_000 ether;
     uint256 reserve = initialAmount.mulWadDown(esEXA.reserveFee());
