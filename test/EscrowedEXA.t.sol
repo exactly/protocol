@@ -189,12 +189,16 @@ contract EscrowedEXATest is ForkTest {
 
     vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
 
+    uint256 esEXABefore = esEXA.balanceOf(address(this));
     uint256[] memory streamIds = new uint256[](2);
     streamIds[0] = streamId1;
     streamIds[1] = streamId2;
     esEXA.cancel(streamIds);
 
     assertEq(exa.balanceOf(address(this)), initialEXA, "should give reserves back");
+    assertEq(esEXA.reserves(streamId1), 0, "reserves[streamId1] == 0");
+    assertEq(esEXA.reserves(streamId2), 0, "reserves[streamId2] == 0");
+    assertEq(esEXA.balanceOf(address(this)), esEXABefore + initialAmount, "should give back half of the esexa");
   }
 
   function testCancelShouldDeleteReserves() external {
@@ -207,11 +211,13 @@ contract EscrowedEXATest is ForkTest {
     vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
 
     uint256 exaBefore = exa.balanceOf(address(this));
+    uint256 esEXABefore = esEXA.balanceOf(address(this));
     uint256[] memory streamIds = new uint256[](1);
     streamIds[0] = streamId;
     esEXA.cancel(streamIds);
 
     assertEq(esEXA.reserves(streamId), 0, "reserves[streamId] == 0");
+    assertEq(esEXA.balanceOf(address(this)), esEXABefore + amount / 2, "should give back half of the esexa");
     assertEq(exa.balanceOf(address(this)), exaBefore + reserve, "should give back reserve");
   }
 

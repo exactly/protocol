@@ -102,7 +102,9 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   }
 
   function cancel(uint256[] memory streamIds) external returns (uint256 streamsReserves) {
+    uint256 balanceEXA = exa.balanceOf(address(this));
     streamsReserves = _cancel(streamIds);
+    _mint(msg.sender, uint128(exa.balanceOf(address(this)) - balanceEXA));
     exa.safeTransfer(msg.sender, streamsReserves);
   }
 
