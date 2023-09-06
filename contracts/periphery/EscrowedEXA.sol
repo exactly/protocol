@@ -20,7 +20,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   ISablierV2LockupLinear public immutable sablier;
 
-  uint256 public reserveFee;
+  uint256 public reserveRatio;
 
   uint40 public vestingPeriod;
 
@@ -35,7 +35,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     _disableInitializers();
   }
 
-  function initialize(uint40 vestingPeriod_, uint256 reserveFee_) external initializer {
+  function initialize(uint40 vestingPeriod_, uint256 reserveRatio_) external initializer {
     __ERC20_init("escrowed EXA", "esEXA");
     __ERC20Permit_init("escrowed EXA");
     __ERC20Votes_init();
@@ -45,7 +45,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     _grantRole(TRANSFERRER_ROLE, address(0));
 
     setVestingPeriod(vestingPeriod_);
-    setReserveFee(reserveFee_);
+    setReserveRatio(reserveRatio_);
     exa.safeApprove(address(sablier), type(uint256).max);
   }
 
@@ -81,7 +81,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     _burn(msg.sender, amount);
 
     uint128 totalAmount = amount + legacyAmount;
-    uint256 fee = totalAmount.mulWadDown(reserveFee);
+    uint256 fee = totalAmount.mulWadDown(reserveRatio);
 
     if (fee > legacyReserve) exa.safeTransferFrom(msg.sender, address(this), fee - legacyReserve);
     else exa.safeTransfer(msg.sender, legacyReserve - fee);
@@ -137,9 +137,9 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     emit VestingPeriodSet(vestingPeriod_);
   }
 
-  function setReserveFee(uint256 reserveFee_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    reserveFee = reserveFee_;
-    emit ReserveFeeSet(reserveFee_);
+  function setReserveRatio(uint256 reserveRatio_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    reserveRatio = reserveRatio_;
+    emit ReserveRatioSet(reserveRatio_);
   }
 
   function clock() public view override returns (uint48) {
@@ -151,7 +151,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     return exa.CLOCK_MODE();
   }
 
-  event ReserveFeeSet(uint256 reserveFee);
+  event ReserveRatioSet(uint256 reserveRatio);
   event VestingPeriodSet(uint256 vestingPeriod);
   event Cancel(address indexed account, uint256[] streamIds);
   event Vest(address indexed account, uint256 indexed streamId, uint256 amount);

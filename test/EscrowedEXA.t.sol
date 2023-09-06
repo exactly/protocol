@@ -53,7 +53,7 @@ contract EscrowedEXATest is ForkTest {
 
   function testVest() external {
     uint256 amount = 1_000 ether;
-    uint256 reserve = amount.mulWadDown(esEXA.reserveFee());
+    uint256 reserve = amount.mulWadDown(esEXA.reserveRatio());
 
     exa.approve(address(esEXA), amount + reserve);
     esEXA.mint(amount);
@@ -71,7 +71,7 @@ contract EscrowedEXATest is ForkTest {
 
   function testVestAndCancel() external {
     uint256 amount = 1_000 ether;
-    uint256 reserve = amount.mulWadDown(esEXA.reserveFee());
+    uint256 reserve = amount.mulWadDown(esEXA.reserveRatio());
     exa.approve(address(esEXA), amount + reserve);
     esEXA.mint(amount);
 
@@ -85,7 +85,7 @@ contract EscrowedEXATest is ForkTest {
     streamIds[0] = streamId;
 
     uint256 remainingesEXA = amount / 2; // half period passed
-    reserve = (amount + remainingesEXA).mulWadDown(esEXA.reserveFee());
+    reserve = (amount + remainingesEXA).mulWadDown(esEXA.reserveRatio());
     exa.approve(address(esEXA), amount + reserve);
     esEXA.mint(amount);
 
@@ -157,23 +157,23 @@ contract EscrowedEXATest is ForkTest {
     esEXA.transfer(ALICE, 1 ether);
   }
 
-  function testSetReserveFeeAsAdmin() external {
-    uint256 newFee = 5e16;
+  function testSetReserveRatioAsAdmin() external {
+    uint256 newRatio = 5e16;
     vm.expectEmit(true, true, true, true, address(esEXA));
-    emit ReserveFeeSet(newFee);
-    esEXA.setReserveFee(newFee);
-    assertEq(esEXA.reserveFee(), newFee);
+    emit ReserveRatioSet(newRatio);
+    esEXA.setReserveRatio(newRatio);
+    assertEq(esEXA.reserveRatio(), newRatio);
   }
 
-  function testSetReserveFeeAsNotAdmin() external {
+  function testSetReserveRatioAsNotAdmin() external {
     vm.startPrank(ALICE);
     vm.expectRevert(bytes(""));
-    esEXA.setReserveFee(5e16);
+    esEXA.setReserveRatio(5e16);
   }
 
   function testCancelShouldGiveReservesBack() external {
     uint256 initialAmount = 1_000 ether;
-    uint256 reserve = initialAmount.mulWadDown(esEXA.reserveFee());
+    uint256 reserve = initialAmount.mulWadDown(esEXA.reserveRatio());
     exa.approve(address(esEXA), initialAmount * 2);
     esEXA.mint(initialAmount * 2);
 
@@ -205,7 +205,7 @@ contract EscrowedEXATest is ForkTest {
 
   function testCancelShouldDeleteReserves() external {
     uint256 amount = 1_000 ether;
-    uint256 reserve = amount.mulWadDown(esEXA.reserveFee());
+    uint256 reserve = amount.mulWadDown(esEXA.reserveRatio());
     exa.approve(address(esEXA), amount + reserve);
     esEXA.mint(amount);
 
@@ -226,7 +226,7 @@ contract EscrowedEXATest is ForkTest {
 
   function testCancelTwiceShouldRevert() external {
     uint256 amount = 1_000 ether;
-    uint256 reserve = amount.mulWadDown(esEXA.reserveFee());
+    uint256 reserve = amount.mulWadDown(esEXA.reserveRatio());
     exa.approve(address(esEXA), amount + reserve);
     esEXA.mint(amount);
 
@@ -242,7 +242,7 @@ contract EscrowedEXATest is ForkTest {
 
   function testCancelWithInvalidAccount() external {
     uint256 initialAmount = 1_000 ether;
-    uint256 reserve = initialAmount.mulWadDown(esEXA.reserveFee());
+    uint256 reserve = initialAmount.mulWadDown(esEXA.reserveRatio());
     exa.approve(address(esEXA), initialAmount);
     esEXA.mint(initialAmount);
 
@@ -263,7 +263,7 @@ contract EscrowedEXATest is ForkTest {
 
   function testVestAndCancelHigherStream() external {
     uint256 initialAmount = 1_000 ether;
-    uint256 reserve = initialAmount.mulWadDown(esEXA.reserveFee());
+    uint256 reserve = initialAmount.mulWadDown(esEXA.reserveRatio());
     exa.approve(address(esEXA), initialAmount + reserve);
     esEXA.mint(initialAmount);
     uint256 streamId = esEXA.vest(uint128(initialAmount));
@@ -272,7 +272,7 @@ contract EscrowedEXATest is ForkTest {
 
     uint256 withdrawableAmount = ISablierV2Lockup(address(sablier)).withdrawableAmountOf(streamId);
     uint256 newAmount = 100 ether;
-    uint256 newReserve = newAmount.mulWadDown(esEXA.reserveFee());
+    uint256 newReserve = newAmount.mulWadDown(esEXA.reserveRatio());
     exa.approve(address(esEXA), newAmount + newReserve);
     esEXA.mint(newAmount);
 
@@ -287,7 +287,7 @@ contract EscrowedEXATest is ForkTest {
 
   function testWithdrawMaxFromMultipleStreams() external {
     uint256 initialAmount = 1_000 ether;
-    uint256 reserve = initialAmount.mulWadDown(esEXA.reserveFee());
+    uint256 reserve = initialAmount.mulWadDown(esEXA.reserveRatio());
     exa.approve(address(esEXA), initialAmount + reserve);
     esEXA.mint(initialAmount);
     uint256[] memory streams = new uint256[](4);
@@ -317,7 +317,7 @@ contract EscrowedEXATest is ForkTest {
 
   function testWithdrawMaxWithInvalidSender() external {
     uint256 initialAmount = 1_000 ether;
-    uint256 reserve = initialAmount.mulWadDown(esEXA.reserveFee());
+    uint256 reserve = initialAmount.mulWadDown(esEXA.reserveRatio());
     exa.approve(address(esEXA), initialAmount + reserve);
     esEXA.mint(initialAmount);
     uint256[] memory streams = new uint256[](1);
@@ -353,7 +353,7 @@ contract EscrowedEXATest is ForkTest {
     esEXA.redeem(amount);
   }
 
-  event ReserveFeeSet(uint256 reserveFee);
+  event ReserveRatioSet(uint256 reserveRatio);
   event VestingPeriodSet(uint256 vestingPeriod);
   event Vest(address indexed account, uint256 indexed streamId, uint256 amount);
 }
