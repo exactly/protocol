@@ -31,37 +31,41 @@ contract EscrowedEXATest is ForkTest {
 
     vm.prank(deployment("TimelockController"));
     exa.transfer(address(this), 100_000 ether);
+    exa.approve(address(esEXA), 100_000 ether);
     esEXA.grantRole(esEXA.REDEEMER_ROLE(), REDEEMER);
   }
 
   function testMint() external {
-    exa.approve(address(esEXA), 1_000 ether);
-    esEXA.mint(1_000 ether);
+    esEXA.mint(1_000 ether, address(this));
     assertEq(esEXA.balanceOf(address(this)), 1_000 ether);
   }
 
+  function testMintToAnother() external {
+    uint256 amount = 1_000 ether;
+    esEXA.mint(amount, ALICE);
+    assertEq(esEXA.balanceOf(ALICE), amount);
+  }
+
   function testMintMoreThanBalance() external {
-    exa.approve(address(esEXA), 1_000_000 ether);
     vm.expectRevert(bytes(""));
-    esEXA.mint(1_000_000 ether);
+    esEXA.mint(1_000_000 ether, address(this));
   }
 
   function testMintZero() external {
     vm.expectRevert(stdError.assertionError);
-    esEXA.mint(0);
+    esEXA.mint(0, address(this));
   }
 
   function testVest() external {
     uint256 amount = 1_000 ether;
     uint256 reserve = amount.mulWadDown(esEXA.reserveRatio());
 
-    exa.approve(address(esEXA), amount + reserve);
-    esEXA.mint(amount);
+    esEXA.mint(amount, address(this));
     uint256 exaBefore = exa.balanceOf(address(this));
     uint256 nextStreamId = ISablierV2Lockup(address(sablier)).nextStreamId();
     vm.expectEmit(true, true, true, true, address(esEXA));
-    emit Vest(address(this), nextStreamId, amount);
-    uint256 streamId = esEXA.vest(uint128(amount));
+    emit Vest(address(this), address(this), nextStreamId, amount);
+    uint256 streamId = esEXA.vest(uint128(amount), address(this));
 
     assertEq(exaBefore, exa.balanceOf(address(this)) + reserve, "exa balance of sender -= reserve");
     assertEq(exa.balanceOf(address(esEXA)), reserve, "exa balance of esEXA == reserve");
@@ -69,9 +73,35 @@ contract EscrowedEXATest is ForkTest {
     assertEq(streamId, nextStreamId);
   }
 
+  function testVestToAnother() external {
+    uint256 amount = 1_000 ether;
+    uint256 reserve = amount.mulWadDown(esEXA.reserveRatio());
+
+    esEXA.mint(amount, address(this));
+    uint256 exaBefore = exa.balanceOf(address(this));
+    uint256 nextStreamId = ISablierV2Lockup(address(sablier)).nextStreamId();
+    vm.expectEmit(true, true, true, true, address(esEXA));
+    emit Vest(address(this), ALICE, nextStreamId, amount);
+    uint256 streamId = esEXA.vest(uint128(amount), ALICE);
+
+    assertEq(exaBefore, exa.balanceOf(address(this)) + reserve, "exa balance of sender -= reserve");
+    assertEq(exa.balanceOf(address(esEXA)), reserve, "exa balance of esEXA == reserve");
+    assertGt(streamId, 0);
+    assertEq(streamId, nextStreamId);
+
+    vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
+
+    uint256[] memory streams = new uint256[](1);
+    streams[0] = streamId;
+    vm.prank(ALICE);
+    esEXA.withdrawMax(streams);
+
+    assertEq(exa.balanceOf(ALICE), amount / 2, "exa balance of ALICE == amount / 2");
+  }
+
   function testVestZero() external {
     vm.expectRevert(SablierV2Lockup_DepositAmountZero.selector);
-    esEXA.vest(0);
+    esEXA.vest(0, address(this));
   }
 
   function testSetVestingPeriodAsAdmin() external {
@@ -94,8 +124,7 @@ contract EscrowedEXATest is ForkTest {
   }
 
   function testTransferToTransferrer() external {
-    exa.approve(address(esEXA), 1 ether);
-    esEXA.mint(1 ether);
+    esEXA.mint(1 ether, address(this));
 
     esEXA.grantRole(esEXA.TRANSFERRER_ROLE(), ALICE);
     esEXA.transfer(ALICE, 1 ether);
@@ -103,8 +132,7 @@ contract EscrowedEXATest is ForkTest {
   }
 
   function testTransferToNotTransferrer() external {
-    exa.approve(address(esEXA), 1 ether);
-    esEXA.mint(1 ether);
+    esEXA.mint(1 ether, address(this));
     vm.expectRevert(Untransferable.selector);
     esEXA.transfer(ALICE, 1 ether);
   }
@@ -126,17 +154,14 @@ contract EscrowedEXATest is ForkTest {
   function testCancelShouldGiveReservesBack() external {
     uint256 initialAmount = 1_000 ether;
     uint256 reserve = initialAmount.mulWadDown(esEXA.reserveRatio());
-    exa.approve(address(esEXA), initialAmount * 2);
-    esEXA.mint(initialAmount * 2);
+    esEXA.mint(initialAmount * 2, address(this));
 
     uint256 initialEXA = exa.balanceOf(address(this));
 
-    exa.approve(address(esEXA), reserve);
-    uint256 streamId1 = esEXA.vest(uint128(initialAmount));
+    uint256 streamId1 = esEXA.vest(uint128(initialAmount), address(this));
     assertEq(exa.balanceOf(address(this)), initialEXA - reserve);
 
-    exa.approve(address(esEXA), reserve);
-    uint256 streamId2 = esEXA.vest(uint128(initialAmount));
+    uint256 streamId2 = esEXA.vest(uint128(initialAmount), address(this));
     assertEq(exa.balanceOf(address(this)), initialEXA - reserve * 2);
 
     vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
@@ -155,13 +180,28 @@ contract EscrowedEXATest is ForkTest {
     assertEq(esEXA.balanceOf(address(this)), esEXABefore + initialAmount, "should give back half of the esexa");
   }
 
+  function testVestToAnotherAndCancel() external {
+    uint256 amount = 1_000 ether;
+    uint256 reserve = amount.mulWadDown(esEXA.reserveRatio());
+
+    esEXA.mint(amount, address(this));
+    uint256[] memory streams = new uint256[](1);
+    streams[0] = esEXA.vest(uint128(amount), ALICE);
+
+    vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
+    vm.prank(ALICE);
+    esEXA.cancel(streams);
+
+    assertEq(exa.balanceOf(ALICE), amount / 2 + reserve, "exa.balanceOf(ALICE) == amount / 2 + reserve");
+    assertEq(esEXA.balanceOf(ALICE), amount / 2, "esEXA.balanceOf(ALICE) == amount / 2");
+  }
+
   function testCancelShouldDeleteReserves() external {
     uint256 amount = 1_000 ether;
     uint256 reserve = amount.mulWadDown(esEXA.reserveRatio());
-    exa.approve(address(esEXA), amount + reserve);
-    esEXA.mint(amount);
+    esEXA.mint(amount, address(this));
 
-    uint256 streamId = esEXA.vest(uint128(amount));
+    uint256 streamId = esEXA.vest(uint128(amount), address(this));
     vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
 
     uint256 exaBefore = exa.balanceOf(address(this));
@@ -178,11 +218,9 @@ contract EscrowedEXATest is ForkTest {
 
   function testCancelTwiceShouldRevert() external {
     uint256 amount = 1_000 ether;
-    uint256 reserve = amount.mulWadDown(esEXA.reserveRatio());
-    exa.approve(address(esEXA), amount + reserve);
-    esEXA.mint(amount);
+    esEXA.mint(amount, address(this));
 
-    uint256 streamId = esEXA.vest(uint128(amount));
+    uint256 streamId = esEXA.vest(uint128(amount), address(this));
     vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
 
     uint256[] memory streamIds = new uint256[](1);
@@ -195,13 +233,11 @@ contract EscrowedEXATest is ForkTest {
   function testCancelWithInvalidAccount() external {
     uint256 initialAmount = 1_000 ether;
     uint256 reserve = initialAmount.mulWadDown(esEXA.reserveRatio());
-    exa.approve(address(esEXA), initialAmount);
-    esEXA.mint(initialAmount);
+    esEXA.mint(initialAmount, address(this));
 
     uint256 initialEXA = exa.balanceOf(address(this));
 
-    exa.approve(address(esEXA), reserve);
-    uint256 streamId1 = esEXA.vest(uint128(initialAmount));
+    uint256 streamId1 = esEXA.vest(uint128(initialAmount), address(this));
     assertEq(exa.balanceOf(address(this)), initialEXA - reserve);
 
     vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
@@ -215,20 +251,18 @@ contract EscrowedEXATest is ForkTest {
 
   function testWithdrawMaxFromMultipleStreams() external {
     uint256 initialAmount = 1_000 ether;
-    uint256 reserve = initialAmount.mulWadDown(esEXA.reserveRatio());
-    exa.approve(address(esEXA), initialAmount + reserve);
-    esEXA.mint(initialAmount);
+    esEXA.mint(initialAmount, address(this));
     uint256[] memory streams = new uint256[](4);
-    streams[0] = esEXA.vest(uint128(200 ether));
+    streams[0] = esEXA.vest(uint128(200 ether), address(this));
 
     vm.warp(block.timestamp + 2 days);
-    streams[1] = esEXA.vest(uint128(300 ether));
+    streams[1] = esEXA.vest(uint128(300 ether), address(this));
 
     vm.warp(block.timestamp + 7 days);
-    streams[2] = esEXA.vest(uint128(100 ether));
+    streams[2] = esEXA.vest(uint128(100 ether), address(this));
 
     vm.warp(block.timestamp + 3 weeks);
-    streams[3] = esEXA.vest(uint128(400 ether));
+    streams[3] = esEXA.vest(uint128(400 ether), address(this));
 
     vm.warp(block.timestamp + 5 weeks);
     uint256 balanceEXA = exa.balanceOf(address(this));
@@ -245,11 +279,9 @@ contract EscrowedEXATest is ForkTest {
 
   function testWithdrawMaxWithInvalidSender() external {
     uint256 initialAmount = 1_000 ether;
-    uint256 reserve = initialAmount.mulWadDown(esEXA.reserveRatio());
-    exa.approve(address(esEXA), initialAmount + reserve);
-    esEXA.mint(initialAmount);
+    esEXA.mint(initialAmount, address(this));
     uint256[] memory streams = new uint256[](1);
-    streams[0] = esEXA.vest(uint128(1_000 ether));
+    streams[0] = esEXA.vest(uint128(1_000 ether), address(this));
 
     vm.warp(block.timestamp + 5 weeks);
     vm.prank(ALICE);
@@ -257,33 +289,40 @@ contract EscrowedEXATest is ForkTest {
     esEXA.withdrawMax(streams);
   }
 
-  function testUnmintAsRedeemer() external {
-    exa.transfer(REDEEMER, 1_000 ether);
-
-    vm.startPrank(REDEEMER);
+  function testRedeemAsRedeemer() external {
     uint256 amount = 1_000 ether;
-    uint256 exaBefore = exa.balanceOf(REDEEMER);
-    exa.approve(address(esEXA), amount);
-    esEXA.mint(amount);
-    assertEq(exa.balanceOf(REDEEMER), exaBefore - amount);
-    esEXA.redeem(amount);
-    assertEq(exa.balanceOf(REDEEMER), exaBefore);
+    esEXA.mint(amount, REDEEMER);
+
+    vm.prank(REDEEMER);
+    esEXA.redeem(amount, REDEEMER);
+    assertEq(exa.balanceOf(REDEEMER), amount, "exa.balanceOf(redeemer) == amount");
   }
 
-  function testUnmintAsNotRedeemer() external {
-    exa.transfer(ALICE, 1_000 ether);
+  function testRedeemAsRedeemerToAnother() external {
+    uint256 amount = 1_000 ether;
+    esEXA.mint(amount, REDEEMER);
+
+    vm.prank(REDEEMER);
+    esEXA.redeem(amount, ALICE);
+    assertEq(exa.balanceOf(REDEEMER), 0, "exa.balanceOf(redeemer) == exaBefore");
+    assertEq(exa.balanceOf(ALICE), amount, "exa.balanceOf(ALICE) == amount");
+  }
+
+  function testRedeemAsNotRedeemer() external {
+    uint256 amount = 1_000 ether;
+    exa.transfer(ALICE, amount);
 
     vm.startPrank(ALICE);
-    uint256 amount = 1_000 ether;
     exa.approve(address(esEXA), amount);
-    esEXA.mint(amount);
+    esEXA.mint(amount, ALICE);
     vm.expectRevert(bytes(""));
-    esEXA.redeem(amount);
+    esEXA.redeem(amount, ALICE);
+    vm.stopPrank();
   }
 
   event ReserveRatioSet(uint256 reserveRatio);
   event VestingPeriodSet(uint256 vestingPeriod);
-  event Vest(address indexed account, uint256 indexed streamId, uint256 amount);
+  event Vest(address indexed caller, address indexed account, uint256 indexed streamId, uint256 amount);
 }
 
 error SablierV2Lockup_DepositAmountZero();

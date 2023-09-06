@@ -50,19 +50,19 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     super._afterTokenTransfer(from, to, amount);
   }
 
-  function mint(uint256 amount) external {
+  function mint(uint256 amount, address to) external {
     assert(amount != 0);
     exa.safeTransferFrom(msg.sender, address(this), amount);
-    _mint(msg.sender, amount);
+    _mint(to, amount);
   }
 
-  function redeem(uint256 amount) external onlyRole(REDEEMER_ROLE) {
+  function redeem(uint256 amount, address to) external onlyRole(REDEEMER_ROLE) {
     assert(amount != 0);
     _burn(msg.sender, amount);
-    exa.safeTransfer(msg.sender, amount);
+    exa.safeTransfer(to, amount);
   }
 
-  function vest(uint128 amount) external returns (uint256 streamId) {
+  function vest(uint128 amount, address to) external returns (uint256 streamId) {
     _burn(msg.sender, amount);
 
     uint256 reserve = amount.mulWadDown(reserveRatio);
@@ -71,7 +71,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
       CreateWithDurations({
         asset: exa,
         sender: address(this),
-        recipient: msg.sender,
+        recipient: to,
         totalAmount: amount,
         cancelable: true,
         durations: Durations({ cliff: 0, total: vestingPeriod }),
@@ -79,7 +79,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
       })
     );
     reserves[streamId] = reserve;
-    emit Vest(msg.sender, streamId, amount);
+    emit Vest(msg.sender, to, streamId, amount);
   }
 
   function cancel(uint256[] memory streamIds) external returns (uint256 streamsReserves) {
@@ -135,7 +135,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   event ReserveRatioSet(uint256 reserveRatio);
   event VestingPeriodSet(uint256 vestingPeriod);
   event Cancel(address indexed account, uint256[] streamIds);
-  event Vest(address indexed account, uint256 indexed streamId, uint256 amount);
+  event Vest(address indexed caller, address indexed account, uint256 indexed streamId, uint256 amount);
 }
 
 error Untransferable();
