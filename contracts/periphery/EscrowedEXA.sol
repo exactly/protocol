@@ -19,12 +19,8 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   EXA public immutable exa;
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   ISablierV2LockupLinear public immutable sablier;
-
   uint256 public reserveRatio;
-
   uint40 public vestingPeriod;
-
-  /// @dev reserves[streamId] = amount
   mapping(uint256 => uint256) public reserves;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
@@ -66,38 +62,23 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     exa.safeTransfer(msg.sender, amount);
   }
 
-  function vest(uint128 amount) external returns (uint256) {
-    return vest(amount, 0, 0);
-  }
-
-  /// @notice Cancels the `streamIds` vestings and starts a new vesting of remaining EXA + `amount`
-  function vest(uint128 amount, uint256[] memory streamIds) external returns (uint256) {
-    uint256 balanceEXA = exa.balanceOf(address(this));
-    uint256 streamsReserves = _cancel(streamIds);
-    return vest(amount, uint128(exa.balanceOf(address(this)) - balanceEXA), streamsReserves);
-  }
-
-  function vest(uint128 amount, uint128 legacyAmount, uint256 legacyReserve) internal returns (uint256 streamId) {
+  function vest(uint128 amount) external returns (uint256 streamId) {
     _burn(msg.sender, amount);
 
-    uint128 totalAmount = amount + legacyAmount;
-    uint256 fee = totalAmount.mulWadDown(reserveRatio);
-
-    if (fee > legacyReserve) exa.safeTransferFrom(msg.sender, address(this), fee - legacyReserve);
-    else exa.safeTransfer(msg.sender, legacyReserve - fee);
-
+    uint256 reserve = amount.mulWadDown(reserveRatio);
+    exa.safeTransferFrom(msg.sender, address(this), reserve);
     streamId = sablier.createWithDurations(
       CreateWithDurations({
         asset: exa,
         sender: address(this),
         recipient: msg.sender,
-        totalAmount: totalAmount,
+        totalAmount: amount,
         cancelable: true,
         durations: Durations({ cliff: 0, total: vestingPeriod }),
         broker: Broker({ account: address(0), fee: 0 })
       })
     );
-    reserves[streamId] = fee;
+    reserves[streamId] = reserve;
     emit Vest(msg.sender, streamId, amount);
   }
 
