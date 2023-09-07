@@ -149,7 +149,7 @@ contract DebtManager is Initializable {
       }
     }
 
-    balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
+    balancerVault.flashLoan(address(this), tokens, amounts, hash(abi.encode(market, calls)));
   }
 
   /// @notice Deleverages `_msgSender`'s position to a `ratio` via flash loan from Balancer's vault.
@@ -193,7 +193,7 @@ contract DebtManager is Initializable {
     }
     if (withdraw != 0) r.calls[callIndex] = abi.encodeCall(market.withdraw, (withdraw, sender, sender));
 
-    balancerVault.flashLoan(address(this), r.tokens, r.amounts, call(abi.encode(market, r.calls)));
+    balancerVault.flashLoan(address(this), r.tokens, r.amounts, hash(abi.encode(market, r.calls)));
   }
 
   /// @notice Rolls a percentage of the fixed position of `_msgSender` to another fixed pool.
@@ -247,7 +247,7 @@ contract DebtManager is Initializable {
       }
     }
 
-    balancerVault.flashLoan(address(this), r.tokens, r.amounts, call(abi.encode(market, r.calls)));
+    balancerVault.flashLoan(address(this), r.tokens, r.amounts, hash(abi.encode(market, r.calls)));
     (uint256 newPrincipal, uint256 newFee) = market.fixedBorrowPositions(borrowMaturity, sender);
     if (
       newPrincipal + newFee >
@@ -323,7 +323,7 @@ contract DebtManager is Initializable {
         ++r.i;
       }
     }
-    balancerVault.flashLoan(address(this), r.tokens, r.amounts, call(abi.encode(market, r.calls)));
+    balancerVault.flashLoan(address(this), r.tokens, r.amounts, hash(abi.encode(market, r.calls)));
     if (maxRepayAssets < floatingBorrowAssets(market) - r.principal) revert Disagreement();
   }
 
@@ -387,7 +387,7 @@ contract DebtManager is Initializable {
       }
     }
 
-    balancerVault.flashLoan(address(this), r.tokens, r.amounts, call(abi.encode(market, r.calls)));
+    balancerVault.flashLoan(address(this), r.tokens, r.amounts, hash(abi.encode(market, r.calls)));
     (uint256 newPrincipal, uint256 newFee) = market.fixedBorrowPositions(borrowMaturity, sender);
     if (maxBorrowAssets < newPrincipal + newFee - r.principal - r.fee) revert Disagreement();
   }
@@ -448,8 +448,8 @@ contract DebtManager is Initializable {
 
   /// @notice Hashes the data and stores its value in `callHash`.
   /// @param data The calldata to be hashed.
-  /// @return Same calldata that was passed as an argument.
-  function call(bytes memory data) internal returns (bytes memory) {
+  /// @return data The same calldata that was passed as an argument.
+  function hash(bytes memory data) internal returns (bytes memory) {
     callHash = keccak256(data);
     return data;
   }
