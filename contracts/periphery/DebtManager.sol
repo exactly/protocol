@@ -459,7 +459,7 @@ contract DebtManager is Initializable {
   /// @param userData Additional data provided by the borrower for the flash loan.
   function receiveFlashLoan(ERC20[] memory, uint256[] memory, uint256[] memory, bytes memory userData) external {
     bytes32 memCallHash = callHash;
-    assert(msg.sender == address(balancerVault) && memCallHash != bytes32(0) && memCallHash == keccak256(userData));
+    assert(msg.sender == address(balancerVault) && memCallHash == keccak256(userData));
     callHash = bytes32(0);
 
     (Market market, bytes[] memory calls) = abi.decode(userData, (Market, bytes[]));
