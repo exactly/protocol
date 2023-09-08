@@ -473,11 +473,16 @@ contract DebtManager is Initializable {
   }
 
   address private _msgSender;
+  bool private _msgSenderSet;
 
   modifier msgSender() {
-    if (_msgSender == address(0)) _msgSender = msg.sender;
+    if (_msgSender == address(0)) {
+      _msgSender = msg.sender;
+      _msgSenderSet = true;
+    } else assert(!_msgSenderSet);
     _;
     delete _msgSender;
+    delete _msgSenderSet;
   }
 
   function checkMarket(Market market) internal view {
