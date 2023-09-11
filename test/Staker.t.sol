@@ -21,6 +21,7 @@ import {
   LockedBalance,
   FixedPointMathLib
 } from "../contracts/Staker.sol";
+import { EXA, EscrowedEXA, ISablierV2LockupLinear } from "../contracts/periphery/EscrowedEXA.sol";
 
 // solhint-disable reentrancy
 contract StakerTest is ForkTest {
@@ -36,6 +37,7 @@ contract StakerTest is ForkTest {
   WETH internal weth;
   ERC20 internal op;
   ERC20 internal exa;
+  ERC20 internal esEXA;
   ERC20 internal velo;
   IPool internal pool;
   IGauge internal gauge;
@@ -54,6 +56,18 @@ contract StakerTest is ForkTest {
     op = ERC20(deployment("OP"));
     exa = ERC20(deployment("EXA"));
     weth = WETH(payable(deployment("WETH")));
+    esEXA = ERC20(
+      address(
+        EscrowedEXA(
+          address(
+            new ERC1967Proxy(
+              address(new EscrowedEXA(EXA(address(exa)), ISablierV2LockupLinear(deployment("SablierV2LockupLinear")))),
+              abi.encodeCall(EscrowedEXA.initialize, (6 * 4 weeks, 1e17))
+            )
+          )
+        )
+      )
+    );
     velo = ERC20(deployment("VELO"));
     pool = IPool(deployment("EXAPool"));
     gauge = IGauge(deployment("EXAGauge"));
@@ -73,23 +87,35 @@ contract StakerTest is ForkTest {
     staker = Staker(
       payable(
         new ERC1967Proxy(
-          address(new Staker(exa, weth, voter, auditor, factory, votingEscrow, rewardsController)),
+          address(new Staker(exa, weth, esEXA, voter, auditor, factory, votingEscrow, rewardsController)),
           abi.encodeCall(Staker.initialize, ())
         )
       )
     );
     vm.label(address(staker), "Staker");
+    EscrowedEXA escrowedEXA = EscrowedEXA(address(esEXA));
+    escrowedEXA.grantRole(escrowedEXA.REDEEMER_ROLE(), address(staker));
+    escrowedEXA.grantRole(escrowedEXA.TRANSFERRER_ROLE(), address(staker));
 
     bob = payable(vm.addr(BOB_KEY));
     vm.label(bob, "bob");
-    deal(address(exa), bob, 2_000_000e18);
     deal(address(velo), bob, 500e18);
     deal(address(marketUSDC.asset()), address(this), 5_000_000e6);
-    deal(address(exa), address(this), type(uint128).max);
-    pool.approve(address(staker), type(uint256).max);
-    exa.approve(address(staker), type(uint256).max);
+
+    vm.startPrank(deployment("TimelockController"));
+    exa.transfer(address(this), 5_000_000e18);
+    exa.transfer(bob, 2_000_000e18);
+    vm.stopPrank();
+
     exa.approve(address(router), type(uint256).max);
+    exa.approve(address(staker), type(uint256).max);
+    exa.approve(address(esEXA), type(uint256).max);
+    pool.approve(address(staker), type(uint256).max);
     weth.approve(address(router), type(uint256).max);
+    esEXA.approve(address(staker), type(uint256).max);
+
+    EscrowedEXA(address(esEXA)).mint(2_000_000e18, address(this));
+
     marketUSDC.asset().approve(address(marketUSDC), type(uint256).max);
     marketUSDC.deposit(5_000_000e6, bob);
     bob.transfer(500 ether);
@@ -131,7 +157,7 @@ contract StakerTest is ForkTest {
 
   function invariantShareValue() external {
     uint256 currentShareValue = staker.previewMint(1e18);
-    assertGe(currentShareValue, shareValue);
+    assertGe(currentShareValue, shareValue, "share value decreased");
     shareValue = currentShareValue;
   }
 
@@ -139,7 +165,7 @@ contract StakerTest is ForkTest {
     uint256 id = staker.lockId();
     if (id != 0) {
       uint256 currentVotes = voter.votes(id, pool);
-      assertGe(currentVotes, votes);
+      assertGe(currentVotes, votes, "votes decreased");
       votes = currentVotes;
     }
   }
@@ -160,6 +186,11 @@ contract StakerTest is ForkTest {
     assertEq(velo.balanceOf(address(staker)), 0, "0 staker velo");
     assertEq(exa.balanceOf(address(pool)), reserveEXA, "pool exa");
     assertEq(weth.balanceOf(address(pool)), reserveWETH, "pool weth");
+  }
+
+  function invariantEscrowedRatio() external {
+    uint256 ratio = staker.escrowedRatio(address(this));
+    assertLe(ratio, 1e18, "escrowed ratio > 1");
   }
 
   function testStakerProtoSimulator() external {
@@ -200,7 +231,7 @@ contract StakerTest is ForkTest {
           (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
           (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
         }
-        staker.stakeBalance{ value: 0.1 ether }(bob, uint256(0.1 ether).mulDivDown(reserveEXA, reserveWETH), 0, 0);
+        staker.stakeBalance{ value: 0.1 ether }(bob, uint256(0.1 ether).mulDivDown(reserveEXA, reserveWETH), 0, 0, 0);
       }
     }
   }
@@ -299,72 +330,149 @@ contract StakerTest is ForkTest {
 
     uint256 shares = staker.balanceOf(address(this)) / 2;
     uint256 previewRedeem = staker.previewRedeem(shares);
-    assertEq(previewRedeem, staker.redeem(shares, address(this), address(this)));
-    assertEq(previewRedeem, pool.balanceOf(address(this)));
+    assertEq(previewRedeem, staker.redeem(shares, address(this), address(this)), "redeem != preview redeem");
+    assertEq(previewRedeem, pool.balanceOf(address(this)), "preview redeem != pool balance");
 
     uint256 assets = staker.convertToAssets(staker.balanceOf(address(this)));
     staker.withdraw(assets, address(this), address(this));
-    assertEq(staker.balanceOf(address(this)), 0);
-    assertEq(assets + previewRedeem, pool.balanceOf(address(this)));
+    assertEq(staker.balanceOf(address(this)), 0, "shares > 0");
+    assertEq(assets + previewRedeem, pool.balanceOf(address(this)), "assets + previewRedeem != pool balance");
 
     pool.approve(address(staker), type(uint256).max);
     staker.deposit(pool.balanceOf(address(this)) / 2, address(this));
     staker.mint(staker.convertToShares(pool.balanceOf(address(this))), address(this));
-    assertApproxEqAbs(pool.balanceOf(address(this)), 0, 1e10);
+    assertApproxEqAbs(pool.balanceOf(address(this)), 0, 1e10, "pool balance");
+  }
+
+  function testStakeEXAPartiallyEscrowed() external {
+    uint256 amountEXA = 100e18;
+    uint256 amountesEXA = 900e18;
+    uint256 amountETH = staker.previewETH(amountEXA + amountesEXA);
+
+    staker.stakeBalance{ value: amountETH }(payable(address(this)), amountEXA, amountesEXA, 0, 0);
+    assertGt(staker.balanceOf(address(this)), 0, "staker shares == 0");
+    assertApproxEqAbs(staker.escrowedRatio(address(this)), 0.9e18, 1, "escrowed != 90%");
+  }
+
+  function testUnstakePartiallyEscrowed() external {
+    uint256 amountEXA = 100e18;
+    uint256 amountesEXA = 10e18;
+    uint256 ratio = amountesEXA.mulDivDown(1e18, amountEXA + amountesEXA);
+    uint256 amountETH = staker.previewETH(amountEXA + amountesEXA);
+
+    staker.stakeBalance{ value: amountETH }(payable(address(this)), amountEXA, amountesEXA, 0, 0);
+    uint256 shares = staker.balanceOf(address(this));
+    assertGt(shares, 0, "staker shares > 0");
+    assertApproxEqAbs(staker.escrowedRatio(address(this)), ratio, 1, "escrowed ratio");
+
+    uint256 exaBalance = exa.balanceOf(address(this));
+    uint256 esEXABalance = esEXA.balanceOf(address(this));
+    uint256 unstakePercentage = 0.5e18;
+    staker.unstake(address(this), unstakePercentage);
+
+    uint256 unstakedEXA = exa.balanceOf(address(this)) - exaBalance;
+    uint256 unstakedesEXA = esEXA.balanceOf(address(this)) - esEXABalance;
+    uint256 totalUnstaked = unstakedEXA + unstakedesEXA;
+    assertApproxEqAbs(unstakedEXA.mulDivDown(1e18, totalUnstaked), 1e18 - ratio, 1, "unstaked exa ratio");
+    assertApproxEqAbs(unstakedesEXA.mulDivDown(1e18, totalUnstaked), ratio, 2, "unstaked esEXA ratio");
+
+    assertApproxEqAbs(staker.balanceOf(address(this)), shares.mulWadDown(unstakePercentage), 1, "unstaked shares");
+    assertApproxEqAbs(staker.escrowedRatio(address(this)), ratio, 1, "escrowed ratio changed");
+  }
+
+  function testUnstakeSomeonelse() external {
+    staker.stakeBalance{ value: 1 ether }(payable(address(this)), 100e18, 0, 0, 0);
+    vm.expectRevert(bytes(""));
+    vm.prank(bob);
+    staker.unstake(address(this), 1e18);
   }
 
   function balances() internal {
     b.eth = address(this).balance;
     b.exa = exa.balanceOf(address(this));
     b.pool = pool.balanceOf(address(this));
+    b.esEXA = esEXA.balanceOf(address(this));
     b.staker = staker.balanceOf(address(this));
+    b.assets = staker.maxWithdraw(address(this)); // todo: include it in invariants and asserts
     b.poolGauge = pool.balanceOf(address(gauge));
+    b.escrowedRatio = staker.escrowedRatio(address(this));
   }
 
-  function stakeBalance(uint256 eth, uint80 inEXA, uint80 minEXA, uint72 keepETH) external context {
+  struct StakeVars {
+    uint256 reserveEXA;
+    uint256 reserveWETH;
+    uint256 swapWETH;
+    uint256 outEXA;
+    uint256 previewShares;
+    uint256 newesRatio;
+    uint256 shares;
+    uint256 assets;
+    uint256 exa;
+  }
+
+  function stakeBalance(uint256 eth, uint80 inEXA, uint80 inesEXA, uint80 minEXA, uint72 keepETH) external context {
     eth = _bound(eth, 1e5, type(uint72).max);
-    if (keepETH >= eth || eth - keepETH > 1e5) {
-      uint256 swapWETH;
-      uint256 outEXA;
-      uint256 previewShares;
+    keepETH = uint72(_bound(keepETH, 0, eth));
+    StakeVars memory vars;
+    vars.exa = inEXA + inesEXA;
+    (vars.reserveEXA, vars.reserveWETH, ) = pool.getReserves();
+    uint256 previewETH = vars.exa.mulDivDown(vars.reserveWETH, vars.reserveEXA);
+    if (
+      eth > keepETH &&
+      eth >= previewETH &&
+      vars.exa < uint256(eth - keepETH).mulDivDown(vars.reserveEXA, vars.reserveWETH)
+    ) {
+      vars.swapWETH = uint256((eth - keepETH - vars.exa.mulDivDown(vars.reserveWETH, vars.reserveEXA)) / 2).mulDivDown(
+        1e4 - factory.getFee(pool, false),
+        1e4
+      );
+      vars.outEXA = vars.swapWETH.mulDivDown(vars.reserveEXA, vars.swapWETH + vars.reserveWETH).mulDivDown(
+        1e4 - factory.getFee(pool, false),
+        1e4
+      );
 
-      (uint256 reserveEXA, uint256 reserveWETH, ) = pool.getReserves();
-      uint256 previewETH = inEXA.mulDivDown(reserveWETH, reserveEXA);
-      if (eth > keepETH && eth >= previewETH && inEXA < uint256(eth - keepETH).mulDivDown(reserveEXA, reserveWETH)) {
-        swapWETH = uint256((eth - keepETH - inEXA.mulDivDown(reserveWETH, reserveEXA)) / 2).mulDivDown(
-          1e4 - factory.getFee(pool, false),
-          1e4
-        );
-        outEXA = swapWETH.mulDivDown(reserveEXA, swapWETH + reserveWETH).mulDivDown(
-          1e4 - factory.getFee(pool, false),
-          1e4
-        );
-
-        if (outEXA + inEXA >= minEXA && (eth - keepETH) < 4) {
-          vm.expectRevert(InsufficientOutputAmount.selector);
-        } else {
-          previewShares = Math.min(
-            ((outEXA + inEXA) * pool.totalSupply()) / (reserveEXA - outEXA),
-            ((eth - keepETH - swapWETH) * pool.totalSupply()) / (reserveWETH + swapWETH.mulWadDown(0.99e18))
-          );
-          previewShares = staker.previewDeposit(previewShares);
-        }
-      }
-      staker.stakeBalance{ value: eth }(payable(address(this)), inEXA, minEXA, keepETH);
-      if (keepETH >= eth || eth - keepETH < previewETH || outEXA + inEXA < minEXA || eth - keepETH < 50) {
-        if (eth >= keepETH && eth - keepETH > 50) {
-          assertEq(address(this).balance, b.eth);
-          assertEq(staker.balanceOf(address(this)), b.staker);
-          assertEq(pool.balanceOf(address(gauge)), b.poolGauge);
-          assertEq(exa.balanceOf(address(this)), b.exa);
-        }
+      if (vars.outEXA + vars.exa >= minEXA && (eth - keepETH) < 4) {
+        vm.expectRevert(InsufficientOutputAmount.selector);
       } else {
-        assertEq(address(this).balance, b.eth + keepETH - eth);
-        assertApproxEqAbs(staker.balanceOf(address(this)), b.staker + previewShares, 1_000);
-        assertEq(exa.balanceOf(address(this)), b.exa - inEXA);
+        // FIXME
+        vars.previewShares = staker.previewDeposit(
+          Math.min(
+            ((vars.outEXA + vars.exa) * pool.totalSupply()) / (vars.reserveEXA - vars.outEXA),
+            ((eth - keepETH - vars.swapWETH) * pool.totalSupply()) /
+              (vars.reserveWETH + vars.swapWETH.mulWadDown(0.99e18))
+          )
+        );
       }
-      assertEq(pool.balanceOf(address(this)), b.pool);
     }
+    staker.stakeBalance{ value: eth }(payable(address(this)), inEXA, inesEXA, minEXA, keepETH);
+    if (eth - keepETH < previewETH || keepETH == eth) {
+      assertEq(address(this).balance, b.eth, "eth balance changed");
+      assertEq(staker.balanceOf(address(this)), b.staker, "shares balance changed");
+      assertEq(pool.balanceOf(address(gauge)), b.poolGauge, "pool gauge balance changed");
+      assertEq(exa.balanceOf(address(this)), b.exa, "exa balance changed");
+      assertEq(esEXA.balanceOf(address(this)), b.esEXA, "esEXA balance changed");
+      assertEq(staker.escrowedRatio(address(this)), b.escrowedRatio, "escrowed ratio changed");
+    } else {
+      vars.newesRatio = inesEXA.mulDivDown(1e18, vars.exa + vars.outEXA);
+
+      assertEq(address(this).balance, b.eth + keepETH - eth, "eth balance");
+      assertEq(exa.balanceOf(address(this)), b.exa - inEXA, "exa balance");
+      assertEq(esEXA.balanceOf(address(this)), b.esEXA - inesEXA, "esEXA balance");
+
+      assertApproxEqAbs(staker.balanceOf(address(this)), b.staker + vars.previewShares, 1_000, "shares");
+
+      vars.assets = staker.maxWithdraw(address(this));
+      // FIXME
+      assertApproxEqAbs(
+        staker.escrowedRatio(address(this)),
+        (b.assets.mulWadDown(b.escrowedRatio) + (vars.assets - b.assets).mulWadDown(vars.newesRatio)).divWadDown(
+          vars.assets
+        ),
+        1_000,
+        "final escrowed ratio"
+      );
+    }
+    assertEq(pool.balanceOf(address(this)), b.pool, "pool balance");
   }
 
   function stakeRewards(uint256 eth, uint80 minEXA, uint72 keepETH) external context {
@@ -406,32 +514,30 @@ contract StakerTest is ForkTest {
     }
     staker.stakeETH{ value: eth }(payable(address(this)), minEXA, keepETH);
     if (keepETH >= eth || (minEXA > outEXA) || (outEXA >= minEXA && (eth - keepETH) < 4)) {
-      assertEq(address(this).balance, b.eth);
-      assertEq(staker.balanceOf(address(this)), b.staker);
-      assertEq(pool.balanceOf(address(gauge)), b.poolGauge);
+      assertEq(address(this).balance, b.eth, "eth balance changed");
+      assertEq(staker.balanceOf(address(this)), b.staker, "shares balance changed");
+      assertEq(pool.balanceOf(address(gauge)), b.poolGauge, "pool gauge balance changed");
     } else {
-      assertEq(address(this).balance, b.eth + keepETH - eth);
-      assertApproxEqAbs(staker.balanceOf(address(this)), b.staker + previewShares, 35);
+      assertEq(address(this).balance, b.eth + keepETH - eth, "eth used");
+      assertApproxEqAbs(staker.balanceOf(address(this)), b.staker + previewShares, 35, "shares balance");
     }
-    assertEq(exa.balanceOf(address(this)), b.exa);
-    assertEq(pool.balanceOf(address(this)), b.pool);
+    assertEq(exa.balanceOf(address(this)), b.exa, "exa balance");
+    assertEq(pool.balanceOf(address(this)), b.pool, "pool balance");
+    assertEq(esEXA.balanceOf(address(this)), b.esEXA, "esEXA balance");
   }
 
   function unstake(uint64 percentage) external context {
     uint256 shares = staker.balanceOf(address(this));
-    uint256 assets;
     if (percentage == 0) vm.expectRevert(stdError.assertionError);
     else if (
       (staker.previewRedeem(shares.mulWadDown(percentage) * exa.balanceOf(address(pool))) / pool.totalSupply()) == 0 ||
       (staker.previewRedeem(shares.mulWadDown(percentage) * weth.balanceOf(address(pool))) / pool.totalSupply()) == 0
     ) {
       vm.expectRevert(InsufficientLiquidityBurned.selector);
-    } else if (percentage > 1e18 && shares.mulWadDown(percentage) != shares) vm.expectRevert(bytes(""));
-    else {
-      assets = staker.previewRedeem(shares.mulWadDown(Math.min(1e18, percentage)));
-    }
+    } else if (percentage > 1e18) vm.expectRevert(bytes(""));
+
     staker.unstake(address(this), percentage);
-    if (assets > 0) assertEq(pool.balanceOf(address(this)), b.pool + assets);
+    assertEq(b.escrowedRatio, staker.escrowedRatio(address(this)), "escrowed ratio changed");
   }
 
   function mint(uint256 eth) external context {
@@ -475,8 +581,8 @@ contract StakerTest is ForkTest {
     if (shares > staker.balanceOf(address(this))) vm.expectRevert(bytes(""));
     uint256 assets = staker.redeem(shares, address(this), address(this));
     if (assets > 0) {
-      assertEq(assets, previewAssets);
-      assertEq(pool.balanceOf(address(this)), b.pool + assets);
+      assertEq(assets, previewAssets, "preview redeem == redeem");
+      assertEq(pool.balanceOf(address(this)), b.pool + assets, "pool balance += assets redeem");
     }
   }
 
@@ -485,8 +591,8 @@ contract StakerTest is ForkTest {
     if (assets > staker.convertToAssets(staker.balanceOf(address(this)))) vm.expectRevert(bytes(""));
     uint256 shares = staker.withdraw(assets, address(this), address(this));
     if (shares > 0) {
-      assertEq(shares, previewShares);
-      assertEq(pool.balanceOf(address(this)), b.pool + assets);
+      assertEq(shares, previewShares, "preview withdraw == withdraw");
+      assertEq(pool.balanceOf(address(this)), b.pool + assets, "pool balance += assets withdraw");
     }
   }
 
@@ -632,8 +738,11 @@ struct Balances {
   uint256 eth;
   uint256 exa;
   uint256 pool;
+  uint256 esEXA;
   uint256 staker;
+  uint256 assets;
   uint256 poolGauge;
+  uint256 escrowedRatio;
 }
 
 interface IRouter {

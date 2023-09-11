@@ -27,6 +27,9 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
   /// @notice The WETH asset.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   WETH public immutable weth;
+  /// @notice The esEXA asset.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  ERC20 public immutable esEXA;
   /// @notice The VELO asset.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   ERC20 public immutable velo;
@@ -62,11 +65,14 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
   IRewardsDistributor public immutable distributor;
 
   uint256 public lockId;
+  /// @notice The ratio of EXA that is escrowed for each account, represented with 18 decimals.
+  mapping(address => uint256) public escrowedRatio;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(
     ERC20 exa_,
     WETH weth_,
+    ERC20 esEXA_,
     IVoter voter_,
     Auditor auditor_,
     IPoolFactory factory_,
@@ -75,6 +81,7 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
   ) {
     exa = exa_;
     weth = weth_;
+    esEXA = esEXA_;
     voter = voter_;
     auditor = auditor_;
     factory = factory_;
@@ -101,19 +108,40 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     velo.safeApprove(address(votingEscrow), type(uint256).max);
   }
 
-  function stake(address payable account, uint256 inEXA, uint256 minEXA, uint256 keepETH) internal {
-    if (keepETH >= msg.value) return returnAssets(account, inEXA);
+  function stake(address payable account, uint256 inEXA, uint256 minEXA, uint256 inesEXA, uint256 keepETH) internal {
+    if (keepETH >= msg.value) return returnAssets(account, inEXA, inesEXA);
 
     uint256 inETH = msg.value - keepETH;
-    if (inETH < previewETH(inEXA)) return returnAssets(account, inEXA);
+    if (inETH < previewETH(inEXA + inesEXA)) return returnAssets(account, inEXA, inesEXA);
 
     weth.deposit{ value: inETH }();
-    uint256 liquidity = swapAndDeposit(inEXA, inETH, minEXA);
-    if (liquidity == 0) {
-      weth.withdraw(inETH);
-      return returnAssets(account, inEXA);
+    if (inesEXA != 0) IEscrowedEXA(address(esEXA)).redeem(inesEXA, address(this));
+
+    uint256 liquidEXA;
+    uint256 newLiquidity;
+    {
+      (uint256 reserveEXA, uint256 reserveWETH) = poolReserves();
+      uint256 extraWETH = inETH - (inEXA + inesEXA).mulDivDown(reserveWETH, reserveEXA);
+      (uint256 outEXA, uint256 swapWETH) = swap(
+        extraWETH,
+        inEXA + inesEXA > minEXA ? 0 : minEXA - (inEXA + inesEXA),
+        reserveEXA,
+        reserveWETH
+      );
+      liquidEXA = inEXA + outEXA;
+      newLiquidity = provide(liquidEXA + inesEXA, inETH - swapWETH);
     }
-    this.deposit(liquidity, account);
+
+    if (newLiquidity == 0) {
+      weth.withdraw(inETH);
+      return returnAssets(account, inEXA, inesEXA);
+    }
+
+    uint256 prevLiquidity = maxWithdraw(account);
+    escrowedRatio[account] = (escrowedRatio[account].mulWadDown(prevLiquidity) +
+      newLiquidity.mulWadDown((inesEXA).divWadDown(liquidEXA + inesEXA))).divWadDown(prevLiquidity + newLiquidity);
+
+    this.deposit(newLiquidity, account);
 
     if (keepETH != 0) account.safeTransferETH(keepETH);
   }
@@ -126,7 +154,13 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     (uint256 amount0, uint256 amount1) = pool.burn(this);
 
     (uint256 amountEXA, uint256 amountETH) = address(exa) < address(weth) ? (amount0, amount1) : (amount1, amount0);
-    exa.safeTransfer(msg.sender, amountEXA);
+    uint256 ratio = escrowedRatio[account];
+    exa.safeTransfer(msg.sender, amountEXA.mulWadDown(1e18 - ratio));
+    if (ratio != 0) {
+      uint256 amountesEXA = amountEXA.mulWadDown(ratio);
+      exa.approve(address(esEXA), amountesEXA);
+      IEscrowedEXA(address(esEXA)).mint(amountesEXA, account);
+    }
     weth.withdraw(amountETH);
     payable(msg.sender).safeTransferETH(amountETH);
   }
@@ -198,11 +232,22 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     }
 
     uint256 balanceWETH = weth.balanceOf(address(this));
-    if (balanceWETH != 0) gauge.deposit(swapAndDeposit(exa.balanceOf(address(this)), balanceWETH, 0));
+    if (balanceWETH != 0) {
+      uint256 balanceEXA = exa.balanceOf(address(this));
+      (uint256 reserveEXA, uint256 reserveWETH) = poolReserves();
+      uint256 maxEXA = balanceWETH.mulDivDown(reserveEXA, reserveWETH);
+      if (balanceEXA < maxEXA) {
+        uint256 extraWETH = balanceWETH - exa.balanceOf(address(this)).mulDivDown(reserveWETH, reserveEXA);
+        (uint256 outEXA, uint256 swapWETH) = swap(extraWETH, 0, reserveEXA, reserveWETH);
+        gauge.deposit(provide(balanceEXA + outEXA, balanceWETH - swapWETH));
+      } else {
+        gauge.deposit(provide(maxEXA, balanceWETH));
+      }
+    }
   }
 
   function handleReward(ERC20 assetIn) internal {
-    if (assetIn == exa || assetIn == weth || assetIn == velo) return;
+    if (assetIn == exa || assetIn == esEXA || assetIn == weth || assetIn == velo) return;
 
     IPool pool = factory.getPool(assetIn, weth, false);
     if (address(pool) == address(0)) return;
@@ -214,34 +259,29 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     pool.swap(out0, out1, this, "");
   }
 
-  /// @dev spares extra EXA, inEXA = min(inEXA, maxEXA)
-  function swapAndDeposit(uint256 inEXA, uint256 inWETH, uint256 minEXA) internal returns (uint256 liquidity) {
+  function swap(
+    uint256 inWETH,
+    uint256 minEXA,
+    uint256 reserveEXA,
+    uint256 reserveWETH
+  ) internal returns (uint256 outEXA, uint256 swapWETH) {
+    if (inWETH == 0) return (0, 0);
+
     IPool pool = IPool(asset());
+    uint256 fee = factory.getFee(pool, false);
+    swapWETH = (inWETH / 2).mulDivDown(1e4 - fee, 1e4);
+    if (swapWETH == 0) return (0, inWETH);
 
-    uint256 reserveEXA;
-    uint256 reserveWETH;
-    {
-      (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
-      (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
-    }
+    outEXA = swapWETH.mulDivDown(reserveEXA, swapWETH + reserveWETH).mulDivDown(1e4 - fee, 1e4);
+    if (outEXA < minEXA) return (0, inWETH);
 
-    {
-      uint256 maxEXA = inWETH.mulDivDown(reserveEXA, reserveWETH);
-      if (inEXA < maxEXA) {
-        uint256 fee = factory.getFee(pool, false);
-        uint256 extraWETH = inWETH - inEXA.mulDivDown(reserveWETH, reserveEXA);
-        uint256 swapWETH = (extraWETH / 2).mulDivDown(1e4 - fee, 1e4);
-        uint256 outEXA = swapWETH.mulDivDown(reserveEXA, swapWETH + reserveWETH).mulDivDown(1e4 - fee, 1e4);
-        if (outEXA + inEXA < minEXA) return 0;
+    (uint256 out0, uint256 out1) = address(exa) < address(weth) ? (outEXA, uint256(0)) : (uint256(0), outEXA);
+    weth.safeTransfer(address(pool), swapWETH);
+    pool.swap(out0, out1, this, "");
+  }
 
-        (uint256 out0, uint256 out1) = address(exa) < address(weth) ? (outEXA, uint256(0)) : (uint256(0), outEXA);
-        weth.safeTransfer(address(pool), swapWETH);
-        pool.swap(out0, out1, this, "");
-        inWETH -= swapWETH;
-        inEXA += outEXA;
-      } else inEXA = maxEXA;
-    }
-
+  function provide(uint256 inEXA, uint256 inWETH) internal returns (uint256 liquidity) {
+    IPool pool = IPool(asset());
     exa.safeTransfer(address(pool), inEXA);
     weth.safeTransfer(address(pool), inWETH);
     return pool.mint(this);
@@ -269,32 +309,52 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     return gauge.balanceOf(address(this));
   }
 
-  function returnAssets(address payable account, uint256 amountEXA) internal {
+  function returnAssets(address payable account, uint256 amountEXA, uint256 amountesEXA) internal {
     account.safeTransferETH(msg.value);
-    exa.safeTransfer(account, amountEXA);
+    if (amountEXA != 0) exa.safeTransfer(account, amountEXA);
+    if (amountesEXA != 0) esEXA.safeTransfer(account, amountesEXA);
+  }
+
+  function poolReserves() public view returns (uint256 reserveEXA, uint256 reserveWETH) {
+    (uint256 reserve0, uint256 reserve1, ) = IPool(asset()).getReserves();
+    (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
   }
 
   function stakeETH(address payable account, uint256 minEXA, uint256 keepETH) external payable {
-    stake(account, 0, minEXA, keepETH);
+    stake(account, 0, minEXA, 0, keepETH);
   }
 
-  function stakeBalance(address payable account, uint256 inEXA, uint256 minEXA, uint256 keepETH) public payable {
+  function stakeBalance(
+    address payable account,
+    uint256 inEXA,
+    uint256 inesEXA,
+    uint256 minEXA,
+    uint256 keepETH
+  ) public payable {
     exa.safeTransferFrom(account, address(this), inEXA);
-    stake(account, inEXA, minEXA, keepETH);
+    esEXA.safeTransferFrom(account, address(this), inesEXA);
+    stake(account, inEXA, minEXA, inesEXA, keepETH);
   }
 
   function stakeBalance(Permit calldata p, uint256 minEXA, uint256 keepETH) external payable {
     IERC20Permit(address(exa)).safePermit(p.owner, address(this), p.value, p.deadline, p.v, p.r, p.s);
-    stakeBalance(p.owner, p.value, minEXA, keepETH);
+    stakeBalance(p.owner, p.value, 0, minEXA, keepETH);
+  }
+
+  function stakeEscrowed(Permit calldata p, uint256 minEXA, uint256 keepETH) external payable {
+    IERC20Permit(address(esEXA)).safePermit(p.owner, address(this), p.value, p.deadline, p.v, p.r, p.s);
+    stakeBalance(p.owner, 0, p.value, minEXA, keepETH);
   }
 
   function stakeRewards(ClaimPermit calldata p, uint256 minEXA, uint256 keepETH) external payable {
-    if (p.assets.length != 1 || address(p.assets[0]) != address(exa)) {
+    if (p.assets.length != 1 || address(p.assets[0]) != address(exa) || address(p.assets[0]) != address(esEXA)) {
       return payable(p.owner).safeTransferETH(msg.value);
     }
     (, uint256[] memory claimedAmounts) = rewardsController.claim(rewardsController.allMarketsOperations(), p);
     if (claimedAmounts[0] == 0) return payable(p.owner).safeTransferETH(msg.value);
-    stake(payable(p.owner), claimedAmounts[0], minEXA, keepETH);
+
+    if (p.assets[0] == esEXA) return stake(payable(p.owner), 0, minEXA, claimedAmounts[0], keepETH);
+    stake(payable(p.owner), claimedAmounts[0], minEXA, 0, keepETH);
   }
 
   function previewETH(uint256 amountEXA) public view returns (uint256) {
@@ -339,6 +399,10 @@ interface IPool is IERC20, IERC20Permit {
   function swap(uint256 amount0Out, uint256 amount1Out, Staker to, bytes calldata data) external;
 
   function poolFees() external view returns (address);
+
+  function reserve0() external view returns (uint256);
+
+  function reserve1() external view returns (uint256);
 
   function getReserves() external view returns (uint256 reserve0, uint256 reserve1, uint256 blockTimestampLast);
 
@@ -421,6 +485,12 @@ interface IRewardsDistributor {
   function claimable(uint256 tokenId) external view returns (uint256);
 
   function timeCursorOf(uint256 tokenId) external view returns (uint256);
+}
+
+interface IEscrowedEXA {
+  function mint(uint256 amount, address to) external;
+
+  function redeem(uint256 amount, address to) external;
 }
 
 struct LockedBalance {
