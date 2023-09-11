@@ -62,9 +62,8 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     exa.safeTransfer(to, amount);
   }
 
-  function vest(uint128 amount, address to) external returns (uint256 streamId) {
+  function vest(uint128 amount, address to) public returns (uint256 streamId) {
     _burn(msg.sender, amount);
-
     uint256 reserve = amount.mulWadDown(reserveRatio);
     exa.safeTransferFrom(msg.sender, address(this), reserve);
     streamId = sablier.createWithDurations(
@@ -80,6 +79,11 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     );
     reserves[streamId] = reserve;
     emit Vest(msg.sender, to, streamId, amount);
+  }
+
+  function vest(uint128 amount, address to, Permit calldata p) external returns (uint256 streamId) {
+    exa.safePermit(msg.sender, address(this), p.value, p.deadline, p.v, p.r, p.s);
+    return vest(amount, to);
   }
 
   function cancel(uint256[] memory streamIds) external returns (uint256 streamsReserves) {
@@ -170,4 +174,12 @@ struct CreateWithDurations {
   bool cancelable;
   Durations durations;
   Broker broker;
+}
+
+struct Permit {
+  uint256 value;
+  uint256 deadline;
+  uint8 v;
+  bytes32 r;
+  bytes32 s;
 }

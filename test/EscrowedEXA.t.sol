@@ -4,7 +4,13 @@ pragma solidity 0.8.17;
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ForkTest, stdError } from "./Fork.t.sol";
-import { EXA, EscrowedEXA, Untransferable, ISablierV2LockupLinear } from "../contracts/periphery/EscrowedEXA.sol";
+import {
+  EXA,
+  Permit,
+  EscrowedEXA,
+  Untransferable,
+  ISablierV2LockupLinear
+} from "../contracts/periphery/EscrowedEXA.sol";
 
 contract EscrowedEXATest is ForkTest {
   using FixedPointMathLib for uint256;
@@ -12,8 +18,9 @@ contract EscrowedEXATest is ForkTest {
   EXA internal exa;
   EscrowedEXA internal esEXA;
   ISablierV2LockupLinear internal sablier;
-  address internal constant ALICE = address(0x420);
   address internal constant REDEEMER = address(0x69);
+  uint256 internal constant ALICE_KEY = 0x420;
+  address internal alice;
 
   function setUp() external {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 108_911_300);
@@ -29,6 +36,8 @@ contract EscrowedEXATest is ForkTest {
       )
     );
 
+    alice = vm.addr(ALICE_KEY);
+    vm.label(alice, "alice");
     vm.prank(deployment("TimelockController"));
     exa.transfer(address(this), 100_000 ether);
     exa.approve(address(esEXA), 100_000 ether);
@@ -42,8 +51,8 @@ contract EscrowedEXATest is ForkTest {
 
   function testMintToAnother() external {
     uint256 amount = 1_000 ether;
-    esEXA.mint(amount, ALICE);
-    assertEq(esEXA.balanceOf(ALICE), amount);
+    esEXA.mint(amount, alice);
+    assertEq(esEXA.balanceOf(alice), amount);
   }
 
   function testMintMoreThanBalance() external {
@@ -81,8 +90,8 @@ contract EscrowedEXATest is ForkTest {
     uint256 exaBefore = exa.balanceOf(address(this));
     uint256 nextStreamId = ISablierV2Lockup(address(sablier)).nextStreamId();
     vm.expectEmit(true, true, true, true, address(esEXA));
-    emit Vest(address(this), ALICE, nextStreamId, amount);
-    uint256 streamId = esEXA.vest(uint128(amount), ALICE);
+    emit Vest(address(this), alice, nextStreamId, amount);
+    uint256 streamId = esEXA.vest(uint128(amount), alice);
 
     assertEq(exaBefore, exa.balanceOf(address(this)) + reserve, "exa balance of sender -= reserve");
     assertEq(exa.balanceOf(address(esEXA)), reserve, "exa balance of esEXA == reserve");
@@ -93,10 +102,10 @@ contract EscrowedEXATest is ForkTest {
 
     uint256[] memory streams = new uint256[](1);
     streams[0] = streamId;
-    vm.prank(ALICE);
+    vm.prank(alice);
     esEXA.withdrawMax(streams);
 
-    assertEq(exa.balanceOf(ALICE), amount / 2, "exa balance of ALICE == amount / 2");
+    assertEq(exa.balanceOf(alice), amount / 2, "exa balance of alice == amount / 2");
   }
 
   function testVestZero() external {
@@ -113,28 +122,28 @@ contract EscrowedEXATest is ForkTest {
   }
 
   function testSetVestingPeriodAsNotAdmin() external {
-    vm.startPrank(ALICE);
+    vm.startPrank(alice);
     vm.expectRevert(bytes(""));
     esEXA.setVestingPeriod(4 weeks);
   }
 
   function testGrantTransferrerRoleAsAdmin() external {
-    esEXA.grantRole(esEXA.TRANSFERRER_ROLE(), ALICE);
-    assertTrue(esEXA.hasRole(esEXA.TRANSFERRER_ROLE(), ALICE));
+    esEXA.grantRole(esEXA.TRANSFERRER_ROLE(), alice);
+    assertTrue(esEXA.hasRole(esEXA.TRANSFERRER_ROLE(), alice));
   }
 
   function testTransferToTransferrer() external {
     esEXA.mint(1 ether, address(this));
 
-    esEXA.grantRole(esEXA.TRANSFERRER_ROLE(), ALICE);
-    esEXA.transfer(ALICE, 1 ether);
-    assertEq(esEXA.balanceOf(ALICE), 1 ether);
+    esEXA.grantRole(esEXA.TRANSFERRER_ROLE(), alice);
+    esEXA.transfer(alice, 1 ether);
+    assertEq(esEXA.balanceOf(alice), 1 ether);
   }
 
   function testTransferToNotTransferrer() external {
     esEXA.mint(1 ether, address(this));
     vm.expectRevert(Untransferable.selector);
-    esEXA.transfer(ALICE, 1 ether);
+    esEXA.transfer(alice, 1 ether);
   }
 
   function testSetReserveRatioAsAdmin() external {
@@ -146,7 +155,7 @@ contract EscrowedEXATest is ForkTest {
   }
 
   function testSetReserveRatioAsNotAdmin() external {
-    vm.startPrank(ALICE);
+    vm.startPrank(alice);
     vm.expectRevert(bytes(""));
     esEXA.setReserveRatio(5e16);
   }
@@ -186,14 +195,14 @@ contract EscrowedEXATest is ForkTest {
 
     esEXA.mint(amount, address(this));
     uint256[] memory streams = new uint256[](1);
-    streams[0] = esEXA.vest(uint128(amount), ALICE);
+    streams[0] = esEXA.vest(uint128(amount), alice);
 
     vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
-    vm.prank(ALICE);
+    vm.prank(alice);
     esEXA.cancel(streams);
 
-    assertEq(exa.balanceOf(ALICE), amount / 2 + reserve, "exa.balanceOf(ALICE) == amount / 2 + reserve");
-    assertEq(esEXA.balanceOf(ALICE), amount / 2, "esEXA.balanceOf(ALICE) == amount / 2");
+    assertEq(exa.balanceOf(alice), amount / 2 + reserve, "exa.balanceOf(alice) == amount / 2 + reserve");
+    assertEq(esEXA.balanceOf(alice), amount / 2, "esEXA.balanceOf(alice) == amount / 2");
   }
 
   function testCancelShouldDeleteReserves() external {
@@ -244,7 +253,7 @@ contract EscrowedEXATest is ForkTest {
 
     uint256[] memory streamIds = new uint256[](1);
     streamIds[0] = streamId1;
-    vm.prank(ALICE);
+    vm.prank(alice);
     vm.expectRevert(stdError.assertionError);
     esEXA.cancel(streamIds);
   }
@@ -284,7 +293,7 @@ contract EscrowedEXATest is ForkTest {
     streams[0] = esEXA.vest(uint128(1_000 ether), address(this));
 
     vm.warp(block.timestamp + 5 weeks);
-    vm.prank(ALICE);
+    vm.prank(alice);
     vm.expectRevert(stdError.assertionError);
     esEXA.withdrawMax(streams);
   }
@@ -303,21 +312,69 @@ contract EscrowedEXATest is ForkTest {
     esEXA.mint(amount, REDEEMER);
 
     vm.prank(REDEEMER);
-    esEXA.redeem(amount, ALICE);
+    esEXA.redeem(amount, alice);
     assertEq(exa.balanceOf(REDEEMER), 0, "exa.balanceOf(redeemer) == exaBefore");
-    assertEq(exa.balanceOf(ALICE), amount, "exa.balanceOf(ALICE) == amount");
+    assertEq(exa.balanceOf(alice), amount, "exa.balanceOf(alice) == amount");
   }
 
   function testRedeemAsNotRedeemer() external {
     uint256 amount = 1_000 ether;
-    exa.transfer(ALICE, amount);
+    exa.transfer(alice, amount);
 
-    vm.startPrank(ALICE);
+    vm.startPrank(alice);
     exa.approve(address(esEXA), amount);
-    esEXA.mint(amount, ALICE);
+    esEXA.mint(amount, alice);
     vm.expectRevert(bytes(""));
-    esEXA.redeem(amount, ALICE);
+    esEXA.redeem(amount, alice);
     vm.stopPrank();
+  }
+
+  function testVestWithPermitReserve() external {
+    uint256 amount = 1_000 ether;
+    esEXA.mint(amount, alice);
+    uint256 reserve = amount.mulWadDown(esEXA.reserveRatio());
+    exa.transfer(alice, reserve);
+
+    uint256 exaBefore = exa.balanceOf(alice);
+    uint256 nextStreamId = ISablierV2Lockup(address(sablier)).nextStreamId();
+
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+      ALICE_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          exa.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              alice,
+              esEXA,
+              reserve,
+              exa.nonces(alice),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
+
+    vm.expectEmit(true, true, true, true, address(esEXA));
+    emit Vest(alice, alice, nextStreamId, amount);
+    vm.prank(alice);
+    uint256 streamId = esEXA.vest(uint128(amount), alice, Permit(reserve, block.timestamp, v, r, s));
+
+    assertEq(exaBefore, exa.balanceOf(alice) + reserve, "exa balance of alice -= reserve");
+    assertEq(exa.balanceOf(address(esEXA)), reserve, "exa balance of esEXA == reserve");
+    assertGt(streamId, 0);
+    assertEq(streamId, nextStreamId);
+
+    vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
+
+    uint256[] memory streams = new uint256[](1);
+    streams[0] = streamId;
+    vm.prank(alice);
+    esEXA.withdrawMax(streams);
+    assertEq(exa.balanceOf(alice), amount / 2, "exa balance of alice == amount / 2");
   }
 
   event ReserveRatioSet(uint256 reserveRatio);
