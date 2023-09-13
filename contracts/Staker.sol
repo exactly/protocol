@@ -202,7 +202,7 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
   }
 
   function handleReward(ERC20 assetIn) internal {
-    if (assetIn == exa && assetIn == weth && assetIn == velo) return;
+    if (assetIn == exa || assetIn == weth || assetIn == velo) return;
 
     IPool pool = factory.getPool(assetIn, weth, false);
     if (address(pool) == address(0)) return;
@@ -296,7 +296,6 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     if (claimedAmounts[0] == 0) return payable(p.owner).safeTransferETH(msg.value);
     stake(payable(p.owner), claimedAmounts[0], minEXA, keepETH);
   }
-
 
   function previewETH(uint256 amountEXA) public view returns (uint256) {
     (uint256 reserve0, uint256 reserve1, ) = IPool(asset()).getReserves();
