@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { Previewer, FixedLib } from "./Previewer.sol";
@@ -9,7 +8,7 @@ import { ERC20, Market, Auditor, IPriceFeed, DebtManager } from "./DebtManager.s
 
 /// @title DebtPreviewer
 /// @notice Contract to be consumed by Exactly's front-end dApp as a helper for `DebtManager`.
-contract DebtPreviewer is Initializable {
+contract DebtPreviewer {
   using FixedPointMathLib for uint256;
 
   /// @notice DebtManager contract to be used to get Auditor and BalancerVault addresses.
