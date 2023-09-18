@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
 import { WETH, ERC20 } from "solmate/src/tokens/WETH.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
