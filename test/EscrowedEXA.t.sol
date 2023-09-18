@@ -109,7 +109,7 @@ contract EscrowedEXATest is ForkTest {
   }
 
   function testVestZero() external {
-    vm.expectRevert(SablierV2Lockup_DepositAmountZero.selector);
+    vm.expectRevert(stdError.assertionError);
     esEXA.vest(0, address(this));
   }
 
@@ -382,7 +382,6 @@ contract EscrowedEXATest is ForkTest {
   event Vest(address indexed caller, address indexed account, uint256 indexed streamId, uint256 amount);
 }
 
-error SablierV2Lockup_DepositAmountZero();
 error SablierV2Lockup_StreamDepleted(uint256);
 
 interface ISablierV2Lockup {

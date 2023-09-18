@@ -85,6 +85,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   /// @param to Address to vest to.
   /// @return streamId of the vesting stream.
   function vest(uint128 amount, address to) public returns (uint256 streamId) {
+    assert(amount != 0);
     _burn(msg.sender, amount);
     uint256 reserve = amount.mulWadDown(reserveRatio);
     exa.safeTransferFrom(msg.sender, address(this), reserve);
