@@ -33,9 +33,9 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
 
   function initialize(uint40 vestingPeriod_, uint256 reserveRatio_) external initializer {
     __ERC20_init("escrowed EXA", "esEXA");
-    __ERC20Permit_init("escrowed EXA");
-    __ERC20Votes_init();
-    __AccessControl_init();
+    __ERC20Permit_init_unchained("escrowed EXA");
+    __ERC20Votes_init_unchained();
+    __AccessControl_init_unchained();
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     _grantRole(TRANSFERRER_ROLE, address(0));
