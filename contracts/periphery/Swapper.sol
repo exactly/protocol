@@ -46,6 +46,7 @@ contract Swapper {
   /// @param minEXA The minimum amount of EXA to receive.
   /// @param keepETH The amount of ETH to send to `account` (ex: for gas).
   function swap(address payable account, uint256 minEXA, uint256 keepETH) external payable {
+    /// @dev the call could come from a bridge router, so revert is avoided on invalid value.
     if (keepETH >= msg.value) return account.safeTransferETH(msg.value);
 
     uint256 inETH = msg.value - keepETH;
@@ -63,6 +64,12 @@ contract Swapper {
     if (keepETH != 0) account.safeTransferETH(keepETH);
   }
 
+  /// @notice Swaps `amount` of `asset` for EXA and sends it to `account`.
+  /// @param asset The asset to swap for EXA.
+  /// @param amount The amount of `asset` to swap.
+  /// @param socketData The data to send to the socket gateway.
+  /// @param minEXA The minimum amount of EXA to receive.
+  /// @param keepETH The amount of ETH to send to `account` (ex: for gas).
   function swap(ERC20 asset, uint256 amount, bytes calldata socketData, uint256 minEXA, uint256 keepETH) public {
     asset.safeTransferFrom(msg.sender, address(this), amount);
     asset.safeApprove(socket, amount);
@@ -70,6 +77,12 @@ contract Swapper {
     this.swap{ value: outETH }(payable(msg.sender), minEXA, keepETH);
   }
 
+  /// @notice Swaps `permit.value` amount of `asset` for EXA and sends it to `account`.
+  /// @param asset The asset to swap for EXA.
+  /// @param permit The permit to use to transfer `asset`.
+  /// @param socketData The data to send to the socket gateway.
+  /// @param minEXA The minimum amount of EXA to receive.
+  /// @param keepETH The amount of ETH to send to `account` (ex: for gas).
   function swap(
     ERC20 asset,
     Permit calldata permit,
@@ -89,6 +102,12 @@ contract Swapper {
     swap(asset, permit.value, socketData, minEXA, keepETH);
   }
 
+  /// @notice Swaps `permit2` amount of `asset` for EXA and sends it to `account`.
+  /// @param asset The asset to swap for EXA.
+  /// @param permit The permit to use to transfer `asset`.
+  /// @param socketData The data to send to the socket gateway.
+  /// @param minEXA The minimum amount of EXA to receive.
+  /// @param keepETH The amount of ETH to send to `account` (ex: for gas).
   function swap(
     ERC20 asset,
     Permit2 calldata permit,
@@ -111,6 +130,7 @@ contract Swapper {
     this.swap{ value: outETH }(payable(msg.sender), minEXA, keepETH);
   }
 
+  /// @dev The contract needs to be able to receive eth for Socket Gateway compatibility. "Gas stipend is 2_300".
   // solhint-disable-next-line no-empty-blocks
   receive() external payable {}
 }
