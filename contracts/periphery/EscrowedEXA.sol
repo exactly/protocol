@@ -45,9 +45,9 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     exa.safeApprove(address(sablier), type(uint256).max);
   }
 
-  function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+  function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override {
     if (!hasRole(TRANSFERRER_ROLE, from) && !hasRole(TRANSFERRER_ROLE, to)) revert Untransferable();
-    super._afterTokenTransfer(from, to, amount);
+    super._beforeTokenTransfer(from, to, amount);
   }
 
   function mint(uint256 amount, address to) external {
