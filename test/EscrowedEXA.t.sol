@@ -377,6 +377,36 @@ contract EscrowedEXATest is ForkTest {
     assertEq(exa.balanceOf(alice), amount / 2, "exa balance of alice == amount / 2");
   }
 
+  function testWithdrawMaxShouldGiveReserveBackWhenDepleted() external {
+    uint256 amount = 1_000 ether;
+    uint256 reserve = amount.mulWadDown(esEXA.reserveRatio());
+    esEXA.mint(amount, address(this));
+    uint256[] memory streams = new uint256[](1);
+    streams[0] = esEXA.vest(uint128(amount), address(this));
+
+    uint256 exaBefore = exa.balanceOf(address(this));
+    vm.warp(block.timestamp + esEXA.vestingPeriod());
+    esEXA.withdrawMax(streams);
+    assertEq(exa.balanceOf(address(this)), exaBefore + amount + reserve, "got amount + reserve back");
+  }
+
+  function testWithdrawFromStreamAndGetReserveBack() external {
+    uint256 amount = 1_000 ether;
+    uint256 reserve = amount.mulWadDown(esEXA.reserveRatio());
+    esEXA.mint(amount, address(this));
+    uint256[] memory streams = new uint256[](1);
+    streams[0] = esEXA.vest(uint128(amount), address(this));
+
+    uint256 exaBefore = exa.balanceOf(address(this));
+    vm.warp(block.timestamp + esEXA.vestingPeriod());
+    esEXA.sablier().withdrawMax(streams[0], address(this));
+
+    assertEq(exa.balanceOf(address(this)), exaBefore + amount, "got amount back");
+
+    esEXA.withdrawMax(streams);
+    assertEq(exa.balanceOf(address(this)), exaBefore + amount + reserve, "got amount + reserve back");
+  }
+
   event ReserveRatioSet(uint256 reserveRatio);
   event VestingPeriodSet(uint256 vestingPeriod);
   event Vest(address indexed caller, address indexed account, uint256 indexed streamId, uint256 amount);

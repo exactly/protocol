@@ -140,7 +140,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     emit Cancel(msg.sender, streamIds);
   }
 
-  /// @notice Withdraws the EXA from the vesting streamIds.
+  /// @notice Withdraws the EXA from the vesting streamIds. If a stream is depleted, its reserve is returned.
   /// @param streamIds Array of streamIds to withdraw from.
   function withdrawMax(uint256[] memory streamIds) public {
     for (uint256 i = 0; i < streamIds.length; ++i) {
@@ -150,10 +150,15 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     }
   }
 
-  /// @notice Withdraws the EXA from the vesting streamId.
+  /// @notice Withdraws the EXA from the vesting streamId. If the stream is depleted, the reserve is returned.
   /// @param streamId streamId to withdraw from.
   function withdrawMax(uint256 streamId) internal {
     if (sablier.withdrawableAmountOf(streamId) != 0) sablier.withdrawMax(streamId, msg.sender);
+    if (sablier.isDepleted(streamId)) {
+      uint256 reserve = reserves[streamId];
+      delete reserves[streamId];
+      exa.safeTransfer(msg.sender, reserve);
+    }
   }
 
   /// @notice Sets the vesting period.
@@ -197,6 +202,8 @@ interface ISablierV2LockupLinear {
   function cancel(uint256 streamId) external;
 
   function withdrawMax(uint256 streamId, address to) external;
+
+  function isDepleted(uint256 streamId) external view returns (bool result);
 
   function getRecipient(uint256 streamId) external view returns (address recipient);
 
