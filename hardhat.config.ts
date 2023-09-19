@@ -68,6 +68,10 @@ export default {
       depositAllocationWeightAddend: 0.02,
       depositAllocationWeightFactor: 0.01,
     },
+    escrow: {
+      vestingPeriod: 3 * 86_400,
+      reserveRatio: 0.2,
+    },
     markets: {
       WETH: {
         adjustFactor: 0.86,
@@ -309,6 +313,7 @@ declare module "hardhat/types/config" {
     futurePools: number;
     earningsAccumulatorSmoothFactor: number;
     rewards: RewardsParameters;
+    escrow: EscrowParameters;
     markets: { [asset: string]: MarketUserConfig };
     periphery: PeripheryConfig;
   }
@@ -325,6 +330,11 @@ declare module "hardhat/types/config" {
     borrowAllocationWeightFactor: number;
     depositAllocationWeightAddend: number;
     depositAllocationWeightFactor: number;
+  }
+
+  export interface EscrowParameters {
+    vestingPeriod: number;
+    reserveRatio: number;
   }
 
   export interface MarketConfig {

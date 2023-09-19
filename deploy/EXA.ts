@@ -5,8 +5,13 @@ import validateUpgrade from "./.utils/validateUpgrade";
 import airdrop from "../scripts/airdrop.json";
 
 const func: DeployFunction = async ({
+  network: {
+    config: {
+      finance: { escrow },
+    },
+  },
   ethers: {
-    utils: { keccak256, defaultAbiCoder },
+    utils: { keccak256, defaultAbiCoder, parseUnits },
     getSigner,
     getContract,
   },
@@ -54,6 +59,22 @@ const func: DeployFunction = async ({
         from: deployer,
         log: true,
       }),
+  );
+
+  await validateUpgrade("EscrowedEXA", { args: [exa.address, sablier], envKey: "ESCROWED_EXA" }, async (name, opts) =>
+    deploy(name, {
+      ...opts,
+      proxy: {
+        owner: timelock,
+        viaAdminContract: "ProxyAdmin",
+        proxyContract: "TransparentUpgradeableProxy",
+        execute: {
+          init: { methodName: "initialize", args: [escrow.vestingPeriod, parseUnits(String(escrow.reserveRatio))] },
+        },
+      },
+      from: deployer,
+      log: true,
+    }),
   );
 };
 
