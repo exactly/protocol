@@ -1,6 +1,7 @@
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { ProxyAdmin, TimelockController } from "../types";
 import timelockPropose from "./.utils/timelockPropose";
+import revokeRole from "./.utils/revokeRole";
 import tenderlify from "./.utils/tenderlify";
 
 const func: DeployFunction = async ({
@@ -36,6 +37,7 @@ const func: DeployFunction = async ({
   if (!(await timelock.getMinDelay()).eq(timelockDelay)) {
     await timelockPropose(timelock, "updateDelay", [timelockDelay]);
   }
+  await revokeRole(timelock, await timelock.CANCELLER_ROLE(), deployer);
 
   const proxyAdmin = await getContract<ProxyAdmin>("ProxyAdmin", await getSigner(deployer));
   if ((await proxyAdmin.owner()).toLowerCase() !== timelock.address.toLowerCase()) {
