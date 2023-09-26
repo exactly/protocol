@@ -1,5 +1,26 @@
 # @exactly/protocol
 
+## 0.2.16
+
+### Patch Changes
+
+- c45406d: 🔧 deployments: set actual abi for each asset
+- f483484: ✨ escrow: escrow and vest exa
+- 375b367: 🚀 optimism: deploy market upgrade
+- f483484: 🐛 debt-manager: fix allowance denomination in shares
+- f5eadf5: ✨ swapper: swap `ETH` for `EXA` on velodrome
+- 189faaa: 🚀 ethereum: deploy new debt previewer
+- b6fd0a7: 🚑️ debt-previewer: fix different reward lengths
+- 8522222: 🚀 optimism: deploy new debt previewer
+- f483484: 🔥 debt-manager: drop cross-asset features
+- 4b01ae7: 🚀 optimism: deploy rewards permit upgrade
+- 6d2abe1: 🚑️ previewer: fix different reward lengths
+- e9847b1: ✨ rewards: allow claim with signature
+- e73bfb2: 🚑 debt-manager: validate markets
+- f483484: ✨ debt-manager: check permit surplus
+- 4b342d1: 🚀 optimism: deploy new debt manager and escrowed exa
+- f940754: 🚀 optimism: deploy previewer rewards hotfix
+
 ## 0.2.15
 
 ### Patch Changes
