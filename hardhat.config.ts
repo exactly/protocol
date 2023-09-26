@@ -51,7 +51,7 @@ export default {
     },
   },
   finance: {
-    treasuryFeeRate: 0,
+    treasuryFeeRate: 0.2,
     liquidationIncentive: { liquidator: 0.05, lenders: 0.0025 },
     penaltyRatePerDay: 0.0045,
     backupFeeRate: 0.1,
