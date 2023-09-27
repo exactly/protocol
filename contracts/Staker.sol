@@ -150,9 +150,12 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     assert(percentage != 0);
 
     IPool pool = IPool(asset());
-    redeem(balanceOf(account).mulWadDown(percentage), address(pool), account);
-    (uint256 amount0, uint256 amount1) = pool.burn(this);
+    uint256 shares = balanceOf(account).mulWadDown(percentage);
+    uint256 assets = previewRedeem(shares);
+    if (assets != 0) gauge.withdraw(assets);
 
+    super._withdraw(msg.sender, address(pool), account, assets, shares);
+    (uint256 amount0, uint256 amount1) = pool.burn(this);
     (uint256 amountEXA, uint256 amountETH) = address(exa) < address(weth) ? (amount0, amount1) : (amount1, amount0);
     uint256 ratio = escrowedRatio[account];
     exa.safeTransfer(msg.sender, amountEXA.mulWadDown(1e18 - ratio));
@@ -163,6 +166,7 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     }
     weth.withdraw(amountETH);
     payable(msg.sender).safeTransferETH(amountETH);
+    harvest();
   }
 
   function harvest() public {
@@ -300,7 +304,14 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     uint256 assets,
     uint256 shares
   ) internal override {
-    if (assets > 0) gauge.withdraw(assets);
+    uint256 esRatio = escrowedRatio[owner];
+    if (esRatio != 0) {
+      uint256 balance = balanceOf(owner);
+      if (shares > balance.mulWadDown(1e18 - esRatio)) revert Escrowed();
+      escrowedRatio[owner] = balance.mulDivDown(esRatio, balance - shares);
+    }
+
+    if (assets != 0) gauge.withdraw(assets);
     super._withdraw(caller, receiver, owner, assets, shares);
     harvest();
   }
@@ -381,6 +392,8 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
   // solhint-disable-next-line no-empty-blocks
   receive() external payable {}
 }
+
+error Escrowed();
 
 struct Permit {
   address payable owner;
