@@ -135,8 +135,8 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
       streamsReserves += reserves[streamId];
       delete reserves[streamId];
       refundableAmount += sablier.refundableAmountOf(streamId);
-      sablier.cancel(streamId);
       withdrawMax(streamId);
+      sablier.cancel(streamId);
     }
     emit Cancel(msg.sender, streamIds);
   }
