@@ -118,9 +118,9 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   /// @param streamIds Array of streamIds to cancel.
   /// @return streamsReserves Amount of EXA in reserves that is returned to the cancelled stream holders.
   function cancel(uint256[] memory streamIds) external returns (uint256 streamsReserves) {
-    uint256 balanceEXA = exa.balanceOf(address(this));
-    streamsReserves = _cancel(streamIds);
-    _mint(msg.sender, uint128(exa.balanceOf(address(this)) - balanceEXA));
+    uint128 refundableAmount;
+    (streamsReserves, refundableAmount) = _cancel(streamIds);
+    _mint(msg.sender, refundableAmount);
     exa.safeTransfer(msg.sender, streamsReserves);
   }
 
@@ -128,12 +128,13 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   /// @param streamIds Array of streamIds to cancel.
   /// @return streamsReserves Amount of EXA in reserves that is returned to the cancelled streams holder.
   /// @dev the caller must be the recepient of the streamIds.
-  function _cancel(uint256[] memory streamIds) internal returns (uint256 streamsReserves) {
+  function _cancel(uint256[] memory streamIds) internal returns (uint256 streamsReserves, uint128 refundableAmount) {
     for (uint256 i = 0; i < streamIds.length; ++i) {
       uint256 streamId = streamIds[i];
       assert(msg.sender == sablier.getRecipient(streamId));
       streamsReserves += reserves[streamId];
       delete reserves[streamId];
+      refundableAmount += sablier.refundableAmountOf(streamId);
       sablier.cancel(streamId);
       withdrawMax(streamId);
     }
@@ -206,6 +207,8 @@ interface ISablierV2LockupLinear {
   function isDepleted(uint256 streamId) external view returns (bool result);
 
   function getRecipient(uint256 streamId) external view returns (address recipient);
+
+  function refundableAmountOf(uint256 streamId) external view returns (uint128 refundableAmount);
 
   function withdrawableAmountOf(uint256 streamId) external view returns (uint128 withdrawableAmount);
 
