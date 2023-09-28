@@ -162,6 +162,15 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     }
   }
 
+  /// @notice Hook called when a recipient cancels a stream.
+  /// @notice Mints esEXA to the recipient with the remaining EXA received from the canceled stream.
+  /// @param recipient recipient of the cancelled stream.
+  /// @param senderAmount amount of EXA sent to the recipient.
+  function onStreamCanceled(uint256, address recipient, uint128 senderAmount, uint128) external {
+    assert(msg.sender == address(sablier));
+    _mint(recipient, senderAmount);
+  }
+
   /// @notice Sets the vesting period.
   /// @param vestingPeriod_ New vesting period.
   /// @dev Caller must have DEFAULT_ADMIN_ROLE.
