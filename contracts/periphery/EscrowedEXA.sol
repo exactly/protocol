@@ -66,7 +66,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   /// @param to Address to send esEXA to.
   function mint(uint256 amount, address to) external {
     assert(amount != 0);
-    exa.safeTransferFrom(msg.sender, address(this), amount);
+    exa.transferFrom(msg.sender, address(this), amount);
     _mint(to, amount);
   }
 
@@ -77,7 +77,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   function redeem(uint256 amount, address to) external onlyRole(REDEEMER_ROLE) {
     assert(amount != 0);
     _burn(msg.sender, amount);
-    exa.safeTransfer(to, amount);
+    exa.transfer(to, amount);
   }
 
   /// @notice Starts a vesting stream.
@@ -88,7 +88,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     assert(amount != 0);
     _burn(msg.sender, amount);
     uint256 reserve = amount.mulWadDown(reserveRatio);
-    exa.safeTransferFrom(msg.sender, address(this), reserve);
+    exa.transferFrom(msg.sender, address(this), reserve);
     streamId = sablier.createWithDurations(
       CreateWithDurations({
         asset: exa,
@@ -121,15 +121,15 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     uint128 refundableAmount;
     (streamsReserves, refundableAmount) = _cancel(streamIds);
     _mint(msg.sender, refundableAmount);
-    exa.safeTransfer(msg.sender, streamsReserves);
+    exa.transfer(msg.sender, streamsReserves);
   }
 
   /// @notice Cancels vesting streams and withdraws the remaining EXA.
   /// @param streamIds Array of streamIds to cancel.
   /// @return streamsReserves Amount of EXA in reserves that is returned to the cancelled streams holder.
-  /// @dev the caller must be the recepient of the streamIds.
+  /// @dev the caller must be the recipient of the streamIds.
   function _cancel(uint256[] memory streamIds) internal returns (uint256 streamsReserves, uint128 refundableAmount) {
-    for (uint256 i = 0; i < streamIds.length; ++i) {
+    for (uint256 i = 0; i < streamIds.length; ) {
       uint256 streamId = streamIds[i];
       assert(msg.sender == sablier.getRecipient(streamId));
       streamsReserves += reserves[streamId];
@@ -137,28 +137,34 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
       refundableAmount += sablier.refundableAmountOf(streamId);
       withdrawMax(streamId);
       sablier.cancel(streamId);
+      unchecked {
+        i += 1;
+      }
     }
     emit Cancel(msg.sender, streamIds);
   }
 
-  /// @notice Withdraws the EXA from the vesting streamIds. If a stream is depleted, its reserve is returned.
+  /// @notice Withdraws the EXA from the vesting `streamIds`. If a stream is depleted, its reserve is returned.
   /// @param streamIds Array of streamIds to withdraw from.
   function withdrawMax(uint256[] memory streamIds) public {
-    for (uint256 i = 0; i < streamIds.length; ++i) {
+    for (uint256 i = 0; i < streamIds.length; ) {
       uint256 streamId = streamIds[i];
       assert(msg.sender == sablier.getRecipient(streamId));
       withdrawMax(streamId);
+      unchecked {
+        i += 1;
+      }
     }
   }
 
-  /// @notice Withdraws the EXA from the vesting streamId. If the stream is depleted, the reserve is returned.
+  /// @notice Withdraws the EXA from the vesting `streamId`. If the stream is depleted, the reserve is returned.
   /// @param streamId streamId to withdraw from.
   function withdrawMax(uint256 streamId) internal {
     if (sablier.withdrawableAmountOf(streamId) != 0) sablier.withdrawMax(streamId, msg.sender);
     if (sablier.isDepleted(streamId)) {
       uint256 reserve = reserves[streamId];
       delete reserves[streamId];
-      exa.safeTransfer(msg.sender, reserve);
+      exa.transfer(msg.sender, reserve);
     }
   }
 
