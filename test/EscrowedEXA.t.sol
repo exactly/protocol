@@ -416,18 +416,17 @@ contract EscrowedEXATest is ForkTest {
     uint256 amount = 1_000 ether;
     uint256 reserve = amount.mulWadDown(esEXA.reserveRatio());
     esEXA.mint(amount, address(this));
-    uint256[] memory streams = new uint256[](1);
-    streams[0] = esEXA.vest(uint128(amount), address(this));
+    uint256 streamId = esEXA.vest(uint128(amount), address(this));
 
     uint256 exaBefore = exa.balanceOf(address(this));
     vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
 
-    esEXA.sablier().cancel(streams[0]);
+    esEXA.sablier().cancel(streamId);
 
-    assertEq(esEXA.balanceOf(address(this)), amount / 2, "half esEXA sholud be back");
-
-    esEXA.withdrawMax(streams);
-    assertEq(exa.balanceOf(address(this)), exaBefore + amount / 2 + reserve, "amount/2 + reserve should be back");
+    assertEq(esEXA.balanceOf(address(this)), amount / 2, "half esEXA should be back");
+    assertEq(exa.balanceOf(address(this)), exaBefore + reserve, "reserve should be back");
+    esEXA.sablier().withdrawMax(streamId, address(this));
+    assertEq(exa.balanceOf(address(this)), exaBefore + reserve + amount / 2, "amount/2 should be back");
   }
 
   function testCancelFromStreamJustCreated() external {
@@ -441,9 +440,7 @@ contract EscrowedEXATest is ForkTest {
 
     esEXA.sablier().cancel(streams[0]);
 
-    assertEq(esEXA.balanceOf(address(this)), amount, "amount esEXA sholud be back");
-
-    esEXA.withdrawMax(streams);
+    assertEq(esEXA.balanceOf(address(this)), amount, "amount esEXA should be back");
     assertEq(exa.balanceOf(address(this)), exaBefore + reserve, "reserve should be back");
   }
 

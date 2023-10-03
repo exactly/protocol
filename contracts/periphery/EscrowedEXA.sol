@@ -157,17 +157,22 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   /// @param streamId streamId to withdraw from.
   function withdrawMax(uint256 streamId) internal {
     if (sablier.withdrawableAmountOf(streamId) != 0) sablier.withdrawMax(streamId, msg.sender);
-    if (sablier.isDepleted(streamId)) {
-      uint256 reserve = reserves[streamId];
-      delete reserves[streamId];
-      exa.safeTransfer(msg.sender, reserve);
-    }
+    if (sablier.isDepleted(streamId)) returnReserve(streamId, msg.sender);
   }
 
   /// @notice Checks if a stream is valid through its reserve. Reverts with `InvalidStream` if it is not.
   /// @param streamId streamId to check.
   function checkStream(uint256 streamId) internal view {
     if (reserves[streamId] == 0) revert InvalidStream();
+  }
+
+  /// @notice Returns the reserve to the recipient.
+  /// @param streamId streamId of the reserve to return.
+  /// @param recipient recipient of the reserve.
+  function returnReserve(uint256 streamId, address recipient) internal {
+    uint256 reserve = reserves[streamId];
+    delete reserves[streamId];
+    exa.safeTransfer(recipient, reserve);
   }
 
   /// @notice Hook called when a recipient cancels a stream.
@@ -179,6 +184,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     assert(msg.sender == address(sablier));
     checkStream(streamId);
     _mint(recipient, senderAmount);
+    returnReserve(streamId, recipient);
   }
 
   /// @notice Sets the vesting period.
