@@ -7,10 +7,15 @@ import { ForkTest, stdError } from "./Fork.t.sol";
 import {
   EXA,
   Permit,
+  Broker,
+  Durations,
   EscrowedEXA,
+  InvalidStream,
   Untransferable,
+  CreateWithDurations,
   ISablierV2LockupLinear
 } from "../contracts/periphery/EscrowedEXA.sol";
+import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 
 contract EscrowedEXATest is ForkTest {
   using FixedPointMathLib for uint256;
@@ -186,7 +191,7 @@ contract EscrowedEXATest is ForkTest {
     assertEq(exa.balanceOf(address(this)), initialEXA + withdrawableAmount, "should give reserves back");
     assertEq(esEXA.reserves(streamId1), 0, "reserves[streamId1] == 0");
     assertEq(esEXA.reserves(streamId2), 0, "reserves[streamId2] == 0");
-    assertEq(esEXA.balanceOf(address(this)), esEXABefore + initialAmount, "should give back half of the esexa");
+    assertEq(esEXA.balanceOf(address(this)), esEXABefore + initialAmount, "should give back half of the esEXA");
   }
 
   function testVestToAnotherAndCancel() external {
@@ -221,7 +226,7 @@ contract EscrowedEXATest is ForkTest {
     esEXA.cancel(streamIds);
 
     assertEq(esEXA.reserves(streamId), 0, "reserves[streamId] == 0");
-    assertEq(esEXA.balanceOf(address(this)), esEXABefore + amount / 2, "should give back half of the esexa");
+    assertEq(esEXA.balanceOf(address(this)), esEXABefore + amount / 2, "should give back half of the esEXA");
     assertEq(exa.balanceOf(address(this)), exaBefore + reserve + withdrawableAmount, "should give back reserve");
   }
 
@@ -235,7 +240,7 @@ contract EscrowedEXATest is ForkTest {
     uint256[] memory streamIds = new uint256[](1);
     streamIds[0] = streamId;
     esEXA.cancel(streamIds);
-    vm.expectRevert(abi.encodeWithSelector(SablierV2Lockup_StreamDepleted.selector, streamId));
+    vm.expectRevert(abi.encodeWithSelector(InvalidStream.selector));
     esEXA.cancel(streamIds);
   }
 
@@ -440,6 +445,117 @@ contract EscrowedEXATest is ForkTest {
 
     esEXA.withdrawMax(streams);
     assertEq(exa.balanceOf(address(this)), exaBefore + reserve, "reserve should be back");
+  }
+
+  function testFakeTokenWithesEXARecipient() external {
+    MockERC20 token = new MockERC20("Malicious token", "MT", 18);
+    uint128 amount = 1_000 ether;
+    token.mint(address(this), amount);
+    token.approve(address(sablier), type(uint256).max);
+
+    uint256 esEXABefore = esEXA.balanceOf(address(this));
+    uint256 streamId = sablier.createWithDurations(
+      CreateWithDurations({
+        asset: EXA(address(token)),
+        sender: address(this),
+        recipient: address(esEXA),
+        totalAmount: amount,
+        cancelable: true,
+        durations: Durations({ cliff: 0, total: 1 }),
+        broker: Broker({ account: address(0), fee: 0 })
+      })
+    );
+    sablier.cancel(streamId);
+
+    assertEq(esEXA.balanceOf(address(this)), esEXABefore, "esEXA balance shouldn't change");
+  }
+
+  function testCancelExternalStreams() external {
+    uint128 amount = 1_000 ether;
+    exa.approve(address(sablier), type(uint256).max);
+    uint256 esEXABefore = esEXA.balanceOf(address(this));
+    uint256 streamId = sablier.createWithDurations(
+      CreateWithDurations({
+        asset: exa,
+        sender: address(this),
+        recipient: address(esEXA),
+        totalAmount: amount,
+        cancelable: true,
+        durations: Durations({ cliff: 0, total: 1 }),
+        broker: Broker({ account: address(0), fee: 0 })
+      })
+    );
+    sablier.cancel(streamId);
+    assertEq(esEXA.balanceOf(address(this)), esEXABefore, "esEXA balance shouldn't change");
+
+    streamId = sablier.createWithDurations(
+      CreateWithDurations({
+        asset: exa,
+        sender: address(esEXA),
+        recipient: address(this),
+        totalAmount: amount,
+        cancelable: true,
+        durations: Durations({ cliff: 0, total: 1 }),
+        broker: Broker({ account: address(0), fee: 0 })
+      })
+    );
+    uint256 exaBefore = exa.balanceOf(address(this));
+    sablier.cancel(streamId);
+    assertEq(exa.balanceOf(address(this)), exaBefore, "EXA balance shouldn't change");
+    assertEq(esEXA.balanceOf(address(this)), esEXABefore, "should not mint esEXA");
+  }
+
+  function testCancelExternalStreamsWithesEXACancel() external {
+    MockERC20 token = new MockERC20("Malicious token", "MT", 18);
+    uint128 amount = 1_000 ether;
+    token.mint(address(this), amount);
+    token.approve(address(sablier), type(uint256).max);
+
+    uint256 esEXABefore = esEXA.balanceOf(address(this));
+    uint256[] memory streams = new uint256[](1);
+    streams[0] = sablier.createWithDurations(
+      CreateWithDurations({
+        asset: EXA(address(token)),
+        sender: address(esEXA),
+        recipient: address(this),
+        totalAmount: amount,
+        cancelable: true,
+        durations: Durations({ cliff: 0, total: 1 }),
+        broker: Broker({ account: address(0), fee: 0 })
+      })
+    );
+
+    vm.expectRevert(InvalidStream.selector);
+    esEXA.cancel(streams);
+    assertEq(esEXA.balanceOf(address(this)), esEXABefore, "esEXA balance shouldn't change");
+  }
+
+  function testSetReserveRatioAsZero() external {
+    vm.expectRevert(stdError.assertionError);
+    esEXA.setReserveRatio(0);
+  }
+
+  function testWithdrawFromUnknownStream() external {
+    MockERC20 token = new MockERC20("Random token", "RNT", 18);
+    uint128 amount = 1_000 ether;
+    token.mint(address(this), amount);
+    token.approve(address(sablier), type(uint256).max);
+
+    uint256[] memory streams = new uint256[](1);
+    streams[0] = sablier.createWithDurations(
+      CreateWithDurations({
+        asset: EXA(address(token)),
+        sender: address(this),
+        recipient: address(this),
+        totalAmount: amount,
+        cancelable: true,
+        durations: Durations({ cliff: 0, total: 1 }),
+        broker: Broker({ account: address(0), fee: 0 })
+      })
+    );
+
+    vm.expectRevert(abi.encodeWithSelector(InvalidStream.selector));
+    esEXA.withdrawMax(streams);
   }
 
   event ReserveRatioSet(uint256 reserveRatio);

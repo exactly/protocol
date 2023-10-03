@@ -87,7 +87,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   function vest(uint128 amount, address to) public returns (uint256 streamId) {
     assert(amount != 0);
     _burn(msg.sender, amount);
-    uint256 reserve = amount.mulWadDown(reserveRatio);
+    uint256 reserve = amount.mulWadUp(reserveRatio);
     exa.safeTransferFrom(msg.sender, address(this), reserve);
     streamId = sablier.createWithDurations(
       CreateWithDurations({
@@ -131,6 +131,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   function _cancel(uint256[] memory streamIds) internal returns (uint256 streamsReserves, uint128 refundableAmount) {
     for (uint256 i = 0; i < streamIds.length; ++i) {
       uint256 streamId = streamIds[i];
+      checkStream(streamId);
       assert(msg.sender == sablier.getRecipient(streamId));
       streamsReserves += reserves[streamId];
       delete reserves[streamId];
@@ -146,6 +147,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   function withdrawMax(uint256[] memory streamIds) public {
     for (uint256 i = 0; i < streamIds.length; ++i) {
       uint256 streamId = streamIds[i];
+      checkStream(streamId);
       assert(msg.sender == sablier.getRecipient(streamId));
       withdrawMax(streamId);
     }
@@ -162,12 +164,20 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     }
   }
 
+  /// @notice Checks if a stream is valid through its reserve. Reverts with `InvalidStream` if it is not.
+  /// @param streamId streamId to check.
+  function checkStream(uint256 streamId) internal view {
+    if (reserves[streamId] == 0) revert InvalidStream();
+  }
+
   /// @notice Hook called when a recipient cancels a stream.
   /// @notice Mints esEXA to the recipient with the remaining EXA received from the canceled stream.
+  /// @param streamId streamId of the cancelled stream.
   /// @param recipient recipient of the cancelled stream.
-  /// @param senderAmount amount of EXA sent to the recipient.
-  function onStreamCanceled(uint256, address recipient, uint128 senderAmount, uint128) external {
+  /// @param senderAmount amount of EXA received back from the stream cancelling.
+  function onStreamCanceled(uint256 streamId, address recipient, uint128 senderAmount, uint128) external {
     assert(msg.sender == address(sablier));
+    checkStream(streamId);
     _mint(recipient, senderAmount);
   }
 
@@ -183,6 +193,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   /// @param reserveRatio_ New reserve ratio.
   /// @dev Caller must have DEFAULT_ADMIN_ROLE.
   function setReserveRatio(uint256 reserveRatio_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    assert(reserveRatio_ != 0);
     reserveRatio = reserveRatio_;
     emit ReserveRatioSet(reserveRatio_);
   }
@@ -207,6 +218,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
 }
 
 error Untransferable();
+error InvalidStream();
 
 interface ISablierV2LockupLinear {
   function cancel(uint256 streamId) external;
