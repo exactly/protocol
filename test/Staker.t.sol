@@ -22,6 +22,8 @@ import {
   FixedPointMathLib
 } from "../contracts/Staker.sol";
 import { EXA, EscrowedEXA, ISablierV2LockupLinear } from "../contracts/periphery/EscrowedEXA.sol";
+import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
+import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 
 // solhint-disable reentrancy
 contract StakerTest is ForkTest {
@@ -96,6 +98,7 @@ contract StakerTest is ForkTest {
     EscrowedEXA escrowedEXA = EscrowedEXA(address(esEXA));
     escrowedEXA.grantRole(escrowedEXA.REDEEMER_ROLE(), address(staker));
     escrowedEXA.grantRole(escrowedEXA.TRANSFERRER_ROLE(), address(staker));
+    escrowedEXA.grantRole(escrowedEXA.TRANSFERRER_ROLE(), address(rewardsController));
 
     bob = payable(vm.addr(BOB_KEY));
     vm.label(bob, "bob");
@@ -115,6 +118,7 @@ contract StakerTest is ForkTest {
     esEXA.approve(address(staker), type(uint256).max);
 
     EscrowedEXA(address(esEXA)).mint(2_000_000e18, address(this));
+    EscrowedEXA(address(esEXA)).mint(100_000e18, address(rewardsController));
 
     marketUSDC.asset().approve(address(marketUSDC), type(uint256).max);
     marketUSDC.deposit(5_000_000e6, bob);
@@ -387,6 +391,56 @@ contract StakerTest is ForkTest {
     staker.unstake(address(this), 1e18);
   }
 
+  function testStakeMultipleRewards() external {
+    RewardsController.Config[] memory configs = new RewardsController.Config[](2);
+    configs[0] = RewardsController.Config({
+      market: marketUSDC,
+      reward: exa,
+      priceFeed: MockPriceFeed(address(0)),
+      targetDebt: 20_000e6,
+      totalDistribution: 40_000 ether,
+      start: uint32(block.timestamp),
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.5e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    configs[1] = RewardsController.Config({
+      market: marketUSDC,
+      reward: esEXA,
+      priceFeed: MockPriceFeed(address(0)),
+      targetDebt: 20_000e6,
+      totalDistribution: 10_000 ether,
+      start: uint32(block.timestamp),
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.5e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+
+    vm.prank(deployment("TimelockController"));
+    rewardsController.config(configs);
+
+    skip(1 days);
+
+    ERC20[] memory assets = new ERC20[](2);
+    assets[0] = exa;
+    assets[1] = esEXA;
+    uint256 balanceBefore = staker.balanceOf(bob);
+
+    staker.stakeRewards{ value: 1e18 }(claimPermit(assets), 0, 0);
+
+    assertGt(staker.balanceOf(bob), balanceBefore, "bob shares should grow");
+  }
+
   function balances() internal {
     b.eth = address(this).balance;
     b.exa = exa.balanceOf(address(this));
@@ -481,6 +535,33 @@ contract StakerTest is ForkTest {
     assets[0] = exa;
 
     staker.stakeRewards{ value: eth }(claimPermit(assets), minEXA, keepETH);
+  }
+
+  function stakeRewards2(uint256 eth, uint80 minEXA, uint72 keepETH, uint256 rewards) external context {
+    eth = _bound(eth, 1e5, type(uint72).max);
+    rewards = _bound(rewards, 0, 2);
+
+    ERC20[] memory assets = new ERC20[](rewards);
+    ERC20[] memory possibleAssets = new ERC20[](3);
+    possibleAssets[0] = exa;
+    possibleAssets[1] = esEXA;
+    possibleAssets[2] = ERC20(new MockERC20("Random token", "RNT", 18));
+
+    for (uint256 i = 0; i < rewards; ++i) {
+      // get a pseudo random number - https://github.com/foundry-rs/foundry/issues/5407
+      assets[i] = possibleAssets[i];
+    }
+
+    uint256 claimableEXA = rewardsController.allClaimable(bob, exa);
+    uint256 claimableesEXA = rewardsController.allClaimable(bob, esEXA);
+
+    // if 
+    // (rewards length >= 1 & <= 2 
+    // && doesn't contain a random token
+    // && claimableEXA > 0 || claimableesEXA > 0)
+    // then it should stake -> assertGt(newBalance, oldBalance)
+
+
   }
 
   function stakeETH(uint256 eth, uint80 minEXA, uint72 keepETH) external context {

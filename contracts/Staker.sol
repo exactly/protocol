@@ -357,15 +357,34 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     stakeBalance(p.owner, 0, p.value, minEXA, keepETH);
   }
 
+  // FIXME test in progress
   function stakeRewards(ClaimPermit calldata p, uint256 minEXA, uint256 keepETH) external payable {
-    if (p.assets.length != 1 || address(p.assets[0]) != address(exa) || address(p.assets[0]) != address(esEXA)) {
+    if (p.assets.length > 2) return payable(p.owner).safeTransferETH(msg.value);
+    if (p.assets.length == 1 && address(p.assets[0]) != address(exa) && address(p.assets[0]) != address(esEXA)) {
       return payable(p.owner).safeTransferETH(msg.value);
     }
-    (, uint256[] memory claimedAmounts) = rewardsController.claim(rewardsController.allMarketsOperations(), p);
-    if (claimedAmounts[0] == 0) return payable(p.owner).safeTransferETH(msg.value);
+    if (
+      p.assets.length == 2 &&
+      ((address(p.assets[0]) != address(exa) && address(p.assets[1]) != address(exa)) ||
+        (address(p.assets[0]) != address(esEXA) && address(p.assets[1]) != address(esEXA)))
+    ) return payable(p.owner).safeTransferETH(msg.value);
 
-    if (p.assets[0] == esEXA) return stake(payable(p.owner), 0, minEXA, claimedAmounts[0], keepETH);
-    stake(payable(p.owner), claimedAmounts[0], minEXA, 0, keepETH);
+    (ERC20[] memory rewards, uint256[] memory amounts) = rewardsController.claim(
+      rewardsController.allMarketsOperations(),
+      p
+    );
+
+    uint256 exaAmount;
+    uint256 esEXAAmount;
+    for (uint256 i = 0; i < rewards.length; i++) {
+      if (rewards[i] == exa) {
+        exaAmount = amounts[i];
+      } else if (rewards[i] == esEXA) {
+        esEXAAmount = amounts[i];
+      }
+    }
+
+    stake(payable(p.owner), exaAmount, minEXA, esEXAAmount, keepETH);
   }
 
   function previewETH(uint256 amountEXA) public view returns (uint256) {
