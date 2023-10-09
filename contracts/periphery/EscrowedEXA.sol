@@ -131,16 +131,6 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   /// @return streamsReserves Amount of EXA in reserves that is returned to the cancelled stream holders.
   function cancel(uint256[] memory streamIds) external returns (uint256 streamsReserves) {
     uint128 refundableAmount;
-    (streamsReserves, refundableAmount) = _cancel(streamIds);
-    _mint(msg.sender, refundableAmount);
-    exa.safeTransfer(msg.sender, streamsReserves);
-  }
-
-  /// @notice Cancels vesting streams and withdraws the remaining EXA.
-  /// @param streamIds Array of streamIds to cancel.
-  /// @return streamsReserves Amount of EXA in reserves that is returned to the cancelled streams holder.
-  /// @dev the caller must be the recepient of the streamIds.
-  function _cancel(uint256[] memory streamIds) internal returns (uint256 streamsReserves, uint128 refundableAmount) {
     for (uint256 i = 0; i < streamIds.length; ++i) {
       uint256 streamId = streamIds[i];
       checkStream(streamId);
@@ -152,6 +142,8 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
       sablier.cancel(streamId);
     }
     emit Cancel(msg.sender, streamIds);
+    _mint(msg.sender, refundableAmount);
+    exa.safeTransfer(msg.sender, streamsReserves);
   }
 
   /// @notice Withdraws the EXA from the vesting streamIds. If a stream is depleted, its reserve is returned.
