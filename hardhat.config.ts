@@ -223,6 +223,7 @@ export default {
     },
     periphery: {
       optimism: {
+        extraReserve: 50,
         uniswapFees: [
           { assets: ["WETH", "OP"], fee: 0.3 },
           { assets: ["USDC", "OP"], fee: 0.3 },
@@ -364,6 +365,7 @@ declare module "hardhat/types/config" {
   }
 
   export interface PeripheryConfig {
+    extraReserve?: number;
     uniswapFees: { assets: [string, string]; fee: number }[];
   }
 
