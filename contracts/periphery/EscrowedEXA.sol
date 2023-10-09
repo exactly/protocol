@@ -83,9 +83,13 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   /// @notice Starts a vesting stream.
   /// @param amount Amount of EXA to vest.
   /// @param to Address to vest to.
+  /// @param maxRatio Maximum reserve ratio accepted for the vesting.
+  /// @param maxPeriod Maximum vesting period accepted for the vesting.
   /// @return streamId of the vesting stream.
-  function vest(uint128 amount, address to) public returns (uint256 streamId) {
+  function vest(uint128 amount, address to, uint256 maxRatio, uint256 maxPeriod) public returns (uint256 streamId) {
     assert(amount != 0);
+    if (reserveRatio > maxRatio || vestingPeriod > maxPeriod) revert Disagreement();
+
     _burn(msg.sender, amount);
     uint256 reserve = amount.mulWadUp(reserveRatio);
     exa.safeTransferFrom(msg.sender, address(this), reserve);
@@ -107,11 +111,19 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   /// @notice Starts a vesting stream using a permit.
   /// @param amount Amount of EXA to vest.
   /// @param to Address to vest to.
+  /// @param maxRatio Maximum reserve ratio accepted for the vesting.
+  /// @param maxPeriod Maximum vesting period accepted for the vesting.
   /// @param p Permit for the EXA reserve.
   /// @return streamId of the vesting stream.
-  function vest(uint128 amount, address to, Permit calldata p) external returns (uint256 streamId) {
+  function vest(
+    uint128 amount,
+    address to,
+    uint256 maxRatio,
+    uint256 maxPeriod,
+    Permit calldata p
+  ) external returns (uint256 streamId) {
     exa.safePermit(msg.sender, address(this), p.value, p.deadline, p.v, p.r, p.s);
-    return vest(amount, to);
+    return vest(amount, to, maxRatio, maxPeriod);
   }
 
   /// @notice Cancels vesting streams.
@@ -225,6 +237,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
 
 error Untransferable();
 error InvalidStream();
+error Disagreement();
 
 interface ISablierV2LockupLinear {
   function cancel(uint256 streamId) external;
