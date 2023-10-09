@@ -42,9 +42,9 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   /// @dev can only be called once.
   function initialize(uint40 vestingPeriod_, uint256 reserveRatio_) external initializer {
     __ERC20_init("escrowed EXA", "esEXA");
-    __ERC20Permit_init_unchained("escrowed EXA");
-    __ERC20Votes_init_unchained();
-    __AccessControl_init_unchained();
+    __ERC20Permit_init("escrowed EXA");
+    __ERC20Votes_init();
+    __AccessControl_init();
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     /// @dev address(0) holds the TRANSFERRER_ROLE so the token can be minted or burnt.
