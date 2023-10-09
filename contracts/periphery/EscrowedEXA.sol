@@ -62,7 +62,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
   }
 
   /// @notice Mints esEXA for EXA.
-  /// @param amount Amount of EXA to mint.
+  /// @param amount Amount of esEXA to mint.
   /// @param to Address to send esEXA to.
   function mint(uint256 amount, address to) external {
     assert(amount != 0);
@@ -70,8 +70,8 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     _mint(to, amount);
   }
 
-  /// @notice Redeems esEXA for EXA.
-  /// @param amount Amount of esEXA to redeem.
+  /// @notice Redeems EXA for esEXA.
+  /// @param amount Amount of EXA to redeem.
   /// @param to Address to send EXA to.
   /// @dev Caller must have REDEEMER_ROLE.
   function redeem(uint256 amount, address to) external onlyRole(REDEEMER_ROLE) {
@@ -208,10 +208,12 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
     emit ReserveRatioSet(reserveRatio_);
   }
 
+  /// @notice Returns the current timepoint of EXA, as per ERC-6372.
   function clock() public view override returns (uint48) {
     return exa.clock();
   }
 
+  /// @notice Returns the current clock mode of EXA, as per ERC-6372.
   // solhint-disable-next-line func-name-mixedcase
   function CLOCK_MODE() public view override returns (string memory) {
     return exa.CLOCK_MODE();
@@ -231,6 +233,7 @@ error Untransferable();
 error InvalidStream();
 error Disagreement();
 
+/// @dev https://github.com/sablier-labs/v2-core/blob/v1.0.0/src/interfaces/ISablierV2LockupLinear.sol
 interface ISablierV2LockupLinear {
   function cancel(uint256 streamId) external;
 
