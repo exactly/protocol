@@ -61,20 +61,23 @@ const func: DeployFunction = async ({
       }),
   );
 
-  await validateUpgrade("EscrowedEXA", { args: [exa.address, sablier], envKey: "ESCROWED_EXA" }, async (name, opts) =>
-    deploy(name, {
-      ...opts,
-      proxy: {
-        owner: timelock,
-        viaAdminContract: "ProxyAdmin",
-        proxyContract: "TransparentUpgradeableProxy",
-        execute: {
-          init: { methodName: "initialize", args: [escrow.vestingPeriod, parseUnits(String(escrow.reserveRatio))] },
+  await validateUpgrade(
+    "esEXA",
+    { contract: "EscrowedEXA", args: [exa.address, sablier], envKey: "ESCROWED_EXA" },
+    async (name, opts) =>
+      deploy(name, {
+        ...opts,
+        proxy: {
+          owner: timelock,
+          viaAdminContract: "ProxyAdmin",
+          proxyContract: "TransparentUpgradeableProxy",
+          execute: {
+            init: { methodName: "initialize", args: [escrow.vestingPeriod, parseUnits(String(escrow.reserveRatio))] },
+          },
         },
-      },
-      from: deployer,
-      log: true,
-    }),
+        from: deployer,
+        log: true,
+      }),
   );
 };
 
