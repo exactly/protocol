@@ -44,6 +44,7 @@ const func: DeployFunction = async ({
     }),
   );
 
+  if (periphery.extraReserve == null) return;
   await validateUpgrade(
     "VotePreviewer",
     { args: [exa, exaPool, exaGauge, extraLending, periphery.extraReserve], envKey: "VOTE_PREVIEWER" },
