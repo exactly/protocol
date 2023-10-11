@@ -69,8 +69,8 @@ export default {
       depositAllocationWeightFactor: 0.01,
     },
     escrow: {
-      vestingPeriod: 3 * 86_400,
-      reserveRatio: 0.2,
+      vestingPeriod: 365 * 86_400,
+      reserveRatio: 0.15,
     },
     markets: {
       WETH: {
@@ -82,6 +82,7 @@ export default {
             rewards: {
               OP: { total: 180_000, debt: 16_000, start: "2023-03-09", period: 32 * 7 * 86_400 },
               EXA: { total: 15_200, debt: 16_000, start: "2023-07-20", period: 8 * 7 * 86_400 },
+              esEXA: { total: 150_000, debt: 6_000, start: "2023-10-11", period: 30 * 7 * 86_400 },
             },
           },
           optimism: {
@@ -98,10 +99,20 @@ export default {
               },
               EXA: {
                 total: 15_200,
-                debt: 1_666,
+                debt: 1_000,
                 start: "2023-07-24T14:00Z",
                 period: 8 * 7 * 86_400,
-                undistributedFactor: 0.3,
+                undistributedFactor: 1,
+                compensationFactor: 0.7,
+                transitionFactor: 0.7056,
+                depositAllocationWeightAddend: 0.03,
+              },
+              esEXA: {
+                total: 150_000,
+                debt: 6_000,
+                start: "2023-10-23T14:00Z",
+                period: 30 * 7 * 86_400,
+                undistributedFactor: 0.65,
                 compensationFactor: 0.7,
                 transitionFactor: 0.7056,
                 depositAllocationWeightAddend: 0.03,
@@ -125,12 +136,26 @@ export default {
             rewards: {
               OP: { total: 420_000, debt: 25_000_000, start: "2023-03-09", period: 32 * 7 * 86_400 },
               EXA: { total: 30_000, debt: 25_000_000, start: "2023-07-20", period: 8 * 7 * 86_400 },
+              esEXA: { total: 300_000, debt: 25_000_000, start: "2023-10-11", period: 30 * 7 * 86_400 },
             },
           },
           optimism: {
             rewards: {
               OP: { total: 420_000, debt: 7_500_000, start: "2023-04-03T14:00Z", period: 32 * 7 * 86_400 },
-              EXA: { total: 30_000, debt: 7_500_000, start: "2023-07-24T14:00Z", period: 8 * 7 * 86_400 },
+              EXA: {
+                total: 30_000,
+                debt: 5_000_000,
+                start: "2023-07-24T14:00Z",
+                period: 8 * 7 * 86_400,
+                undistributedFactor: 1,
+              },
+              esEXA: {
+                total: 300_000,
+                debt: 25_000_000,
+                start: "2023-10-23T14:00Z",
+                period: 30 * 7 * 86_400,
+                undistributedFactor: 0.3,
+              },
             },
           },
         },
@@ -171,6 +196,7 @@ export default {
                 transitionFactor: 0.64,
                 depositAllocationWeightAddend: 0.03,
               },
+              esEXA: { total: 7, debt: 1, start: "2023-10-11", period: 30 * 7 * 86_400 },
             },
           },
           optimism: {
@@ -190,6 +216,16 @@ export default {
                 debt: 1,
                 start: "2023-07-24T14:00Z",
                 period: 8 * 7 * 86_400,
+                undistributedFactor: 1,
+                compensationFactor: 0,
+                transitionFactor: 0.64,
+                depositAllocationWeightAddend: 0.03,
+              },
+              esEXA: {
+                total: 50_000,
+                debt: 3_100,
+                start: "2023-10-23T14:00Z",
+                period: 30 * 7 * 86_400,
                 compensationFactor: 0,
                 transitionFactor: 0.64,
                 depositAllocationWeightAddend: 0.03,
@@ -208,10 +244,10 @@ export default {
             rewards: {
               EXA: {
                 total: 2_300,
-                debt: 100_000,
+                debt: 20_000,
                 start: "2023-07-24T14:00Z",
                 period: 8 * 7 * 86_400,
-                undistributedFactor: 0.3,
+                undistributedFactor: 1,
                 compensationFactor: 0.7,
                 transitionFactor: 0.7056,
                 depositAllocationWeightAddend: 0.03,
