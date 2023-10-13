@@ -1,6 +1,7 @@
 import { MerkleTree } from "merkletreejs";
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { EXA } from "../types";
+import type { EXA, EscrowedEXA } from "../types";
+import transferOwnership from "./.utils/transferOwnership";
 import validateUpgrade from "./.utils/validateUpgrade";
 import airdrop from "../scripts/airdrop.json";
 
@@ -79,6 +80,8 @@ const func: DeployFunction = async ({
         log: true,
       }),
   );
+  const esEXA = await getContract<EscrowedEXA>("esEXA", await getSigner(deployer));
+  await transferOwnership(esEXA, deployer, timelock);
 };
 
 func.tags = ["EXA"];
