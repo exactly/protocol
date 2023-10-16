@@ -19,6 +19,8 @@ const func: DeployFunction = async ({
     { address: exa },
     { address: exaPool },
     { address: exaGauge },
+    { address: beefyEXA },
+    { address: beefyEXABoost },
     { address: priceFeedETH },
     { address: extraLending },
     { deployer },
@@ -28,6 +30,8 @@ const func: DeployFunction = async ({
     get("EXA"),
     getOrNull("EXAPool").then((d) => d ?? { address: AddressZero }),
     getOrNull("EXAGauge").then((d) => d ?? { address: AddressZero }),
+    getOrNull("BeefyEXA").then((d) => d ?? { address: AddressZero }),
+    getOrNull("BeefyEXABoost").then((d) => d ?? { address: AddressZero }),
     getOrNull("PriceFeedETH").then((d) => d ?? { address: AddressZero }),
     getOrNull("ExtraLending").then((d) => d ?? { address: AddressZero }),
     getNamedAccounts(),
@@ -47,7 +51,10 @@ const func: DeployFunction = async ({
   if (periphery.extraReserve == null) return;
   await validateUpgrade(
     "VotePreviewer",
-    { args: [exa, exaPool, exaGauge, extraLending, periphery.extraReserve], envKey: "VOTE_PREVIEWER" },
+    {
+      args: [exa, exaPool, exaGauge, beefyEXA, beefyEXABoost, extraLending, periphery.extraReserve],
+      envKey: "VOTE_PREVIEWER",
+    },
     async (name, opts) =>
       deploy(name, { ...opts, proxy: { proxyContract: "TransparentUpgradeableProxy" }, from: deployer, log: true }),
   );

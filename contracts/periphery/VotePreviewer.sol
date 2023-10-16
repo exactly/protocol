@@ -16,23 +16,44 @@ contract VotePreviewer {
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IERC20 public immutable gauge;
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IBeefyVault public immutable beefyVault;
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IERC20 public immutable beefyBoost;
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IExtraLending public immutable extraLending;
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   uint256 public immutable extraReserveId;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(address exa_, IPool pool_, IERC20 gauge_, IExtraLending extraLending_, uint256 extraReserveId_) {
+  constructor(
+    address exa_,
+    IPool pool_,
+    IERC20 gauge_,
+    IBeefyVault beefyVault_,
+    IERC20 beefyBoost_,
+    IExtraLending extraLending_,
+    uint256 extraReserveId_
+  ) {
     exa = exa_;
     pool = pool_;
     gauge = gauge_;
+    beefyVault = beefyVault_;
+    beefyBoost = beefyBoost_;
     extraLending = extraLending_;
     extraReserveId = extraReserveId_;
   }
 
   function externalVotes(address account) external view returns (uint256 votes) {
+    // velodrome
     uint256 liquidity = pool.balanceOf(account) + gauge.balanceOf(account);
     votes += liquidity.mulDivDown(exa == pool.token0() ? pool.reserve0() : pool.reserve1(), pool.totalSupply());
 
+    // beefy
+    votes += beefyVault.getPricePerFullShare().mulWadDown(
+      beefyVault.balanceOf(account) + beefyBoost.balanceOf(account)
+    );
+
+    // extra
     uint256[] memory reserveIds = new uint256[](1);
     reserveIds[0] = extraReserveId;
     IExtraLending.PositionStatus[] memory e = extraLending.getPositionStatus(reserveIds, account);
@@ -46,6 +67,10 @@ interface IPool is IERC20 {
   function reserve0() external view returns (uint256);
 
   function reserve1() external view returns (uint256);
+}
+
+interface IBeefyVault is IERC20 {
+  function getPricePerFullShare() external view returns (uint256);
 }
 
 interface IExtraLending {
