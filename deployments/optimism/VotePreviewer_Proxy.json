@@ -2,6 +2,13 @@
   "address": "0x6012BD4f60cef7773CA2a4c79bE850b0B3b22Efc",
   "abi": [
     {
+      "name": "upgradeTo",
+      "inputs": [{ "internalType": "address", "name": "newImplementation", "type": "address" }],
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "address",

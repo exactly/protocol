@@ -11681,6 +11681,14 @@
         "storage": [],
         "types": {}
       }
+    },
+    "0x543E3e0eF9a0FF2D24b5E412763F637A2aD10ae9": {
+      "address": "0x543E3e0eF9a0FF2D24b5E412763F637A2aD10ae9",
+      "layout": {
+        "solcVersion": "0.8.17",
+        "storage": [],
+        "types": {}
+      }
     }
   }
 }
