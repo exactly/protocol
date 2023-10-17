@@ -44,5 +44,9 @@ export default async function format(v: unknown): Promise<unknown> {
 
   if (Array.isArray(v)) return Promise.all(v.map(format));
 
+  if (v && typeof v === "object") {
+    return Object.fromEntries(await Promise.all(Object.entries(v).map(async ([k, v_]) => [k, await format(v_)])));
+  }
+
   return v;
 }
