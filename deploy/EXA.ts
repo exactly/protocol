@@ -3,6 +3,7 @@ import type { DeployFunction } from "hardhat-deploy/types";
 import type { EXA, EscrowedEXA } from "../types";
 import transferOwnership from "./.utils/transferOwnership";
 import validateUpgrade from "./.utils/validateUpgrade";
+import grantRole from "./.utils/grantRole";
 import airdrop from "../scripts/airdrop.json";
 
 const func: DeployFunction = async ({
@@ -19,11 +20,13 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [{ address: timelock }, { address: sablier }, { deployer, treasury, multisig }] = await Promise.all([
-    get("TimelockController"),
-    get("SablierV2LockupLinear"),
-    getNamedAccounts(),
-  ]);
+  const [{ address: timelock }, { address: sablier }, { address: rewards }, { deployer, treasury, multisig }] =
+    await Promise.all([
+      get("TimelockController"),
+      get("SablierV2LockupLinear"),
+      get("RewardsController"),
+      getNamedAccounts(),
+    ]);
 
   await validateUpgrade("EXA", { envKey: "EXA" }, async (name, opts) =>
     deploy(name, {
@@ -81,11 +84,12 @@ const func: DeployFunction = async ({
       }),
   );
   const esEXA = await getContract<EscrowedEXA>("esEXA", await getSigner(deployer));
+  await grantRole(esEXA, await esEXA.TRANSFERRER_ROLE(), rewards);
   await transferOwnership(esEXA, deployer, timelock);
 };
 
 func.tags = ["EXA"];
-func.dependencies = ["Governance", "Sablier"];
+func.dependencies = ["Governance", "Sablier", "Rewards"];
 func.skip = async ({ network }) => !["optimism", "goerli"].includes(network.name) && network.live;
 
 export default func;
