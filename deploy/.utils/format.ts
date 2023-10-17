@@ -10,7 +10,7 @@ const {
 
 inspect.defaultOptions.depth = null;
 
-const format = async (v: unknown) => {
+export default async function format(v: unknown): Promise<unknown> {
   if (v instanceof BigNumber) return v.toBigInt();
 
   if (typeof v === "string") {
@@ -42,7 +42,7 @@ const format = async (v: unknown) => {
     }
   }
 
-  return v;
-};
+  if (Array.isArray(v)) return Promise.all(v.map(format));
 
-export default async (v?: unknown) => (Array.isArray(v) ? Promise.all(v.map(format)) : format(v));
+  return v;
+}
