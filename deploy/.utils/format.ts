@@ -17,8 +17,8 @@ export default async function format(v: unknown): Promise<unknown> {
     const allDeployments = await deployments.all();
 
     if (isAddress(v)) {
-      const deployment = Object.entries(allDeployments).find(([, { address }]) => v === address);
-      if (deployment) return deployment[0];
+      const deployment = Object.entries(allDeployments).filter(([, { address }]) => v === address);
+      if (deployment.length) return deployment.sort(([a], [b]) => a.length - b.length)[0][0];
 
       const account = Object.entries(await getNamedAccounts()).find(([, address]) => v === address);
       if (account) return account[0];
