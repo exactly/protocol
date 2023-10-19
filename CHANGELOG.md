@@ -1,5 +1,22 @@
 # @exactly/protocol
 
+## 0.2.17
+
+### Patch Changes
+
+- ab123c1: 🔥 escrow: drop unchained initializers
+- 6179c24: 📝 escrow: add missing natspec
+- 11d82f2: 🚚 deployments: rename `esEXA`
+- 2cd9c82: 🔒 escrow: validate streams on cancel and withdraw
+- e766ecf: 🚀 optimism: deploy vote previewer beefy support
+- 4e319bf: ✨ vote: get power from beefy
+- 2d882d6: 🚸 escrow: receive `maxRatio` and `maxPeriod` on vesting
+- 8938c27: 🚀 optimism: deploy escrow upgrade
+- 0182437: 🚸 escrow: return reserve on external stream cancel
+- 3b40526: ✨ vote: get voting power from velodrome and extra
+- 686c503: 🚀 optimism: deploy vote previewer
+- a0f4889: 🔥 escrow: drop internal `_cancel`
+
 ## 0.2.16
 
 ### Patch Changes
