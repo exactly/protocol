@@ -2,6 +2,7 @@ import { MerkleTree } from "merkletreejs";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { EXA, EscrowedEXA } from "../types";
 import transferOwnership from "./.utils/transferOwnership";
+import executeOrPropose from "./.utils/executeOrPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
 import grantRole from "./.utils/grantRole";
 import airdrop from "../scripts/airdrop.json";
@@ -84,6 +85,14 @@ const func: DeployFunction = async ({
       }),
   );
   const esEXA = await getContract<EscrowedEXA>("esEXA", await getSigner(deployer));
+
+  if ((await esEXA.vestingPeriod()) !== escrow.vestingPeriod) {
+    await executeOrPropose(esEXA, "setVestingPeriod", [escrow.vestingPeriod]);
+  }
+  if (!(await esEXA.reserveRatio()).eq(parseUnits(String(escrow.reserveRatio)))) {
+    await executeOrPropose(esEXA, "setReserveRatio", [parseUnits(String(escrow.reserveRatio))]);
+  }
+
   await grantRole(esEXA, await esEXA.TRANSFERRER_ROLE(), rewards);
   await transferOwnership(esEXA, deployer, timelock);
 };
