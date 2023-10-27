@@ -14,6 +14,7 @@
     "snapshot": "forge snapshot --no-match-test testFuzz",
     "test": "concurrently 'npm:test:*' --kill-others-on-fail --group -c auto",
     "test:foundry": "forge test",
+    "test:simulator": "cargo run --release",
     "test:hardhat": "hardhat test --deploy-fixture",
     "coverage": "concurrently 'npm:coverage:*' --kill-others-on-fail --group -c auto",
     "coverage:foundry": "forge coverage --report lcov",
@@ -24,6 +25,7 @@
     "deploy:goerli": "hardhat --network goerli deploy",
     "postinstall": "concurrently 'npm:postinstall:*' --group -c auto",
     "postinstall:foundry": "forge install",
+    "postinstall:simulator": "forge bind --revert-strings strip -b sim/bindings/ --module --overwrite",
     "postinstall:hardhat": "hardhat compile --force"
   },
   "files": [

@@ -4,7 +4,9 @@
 /coverage.json
 /docs/
 /lcov.info
+/target/
 /types/
+/sim/bindings/
 
 .openzeppelin/unknown-*
 .vscode/
