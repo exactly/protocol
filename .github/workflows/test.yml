@@ -8,14 +8,14 @@ jobs:
     env:
       OPTIMISM_NODE: ${{ secrets.OPTIMISM_NODE }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: yarn
-      - run: export FOUNDRY_DIR=$HOME/.local && curl -L https://foundry.paradigm.xyz | bash && foundryup
+      - uses: foundry-rs/foundry-toolchain@v1
       - run: yarn
       - run: yarn lint
       - run: yarn coverage

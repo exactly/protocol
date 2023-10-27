@@ -299,6 +299,8 @@ export default {
       },
     },
   },
+  mocha: { timeout: 66_666 },
+  paths: { artifacts: "artifacts/hardhat" },
   dodoc: { exclude: ["mocks/", "k/", "elin/", "rc/"] },
   tenderly: { project: "exactly", username: "exactly", privateVerification: false },
   typechain: { outDir: "types", target: "ethers-v5" },

@@ -6,9 +6,9 @@ revert_strings = "strip"
 
 ffi = true
 src = "test"
-out = "artifacts/.foundry"
+out = "artifacts/foundry"
 script = "scripts"
-cache_path = "cache/.foundry"
+cache_path = "cache/foundry"
 fs_permissions = [{ access = "read", path = "./deployments" }]
 verbosity = 3
 
