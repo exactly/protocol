@@ -1,10 +1,12 @@
 use anyhow::{Ok, Result};
 use arbiter_core::{
+    data_collection::EventLogger,
     environment::builder::{BlockSettings, EnvironmentBuilder},
     middleware::RevmMiddleware,
 };
 use ethers::types::{Bytes, I256, U128, U256};
 use futures::future::try_join_all;
+use log::info;
 use startup::deploy_market;
 
 use crate::{
@@ -100,6 +102,13 @@ pub async fn main() -> Result<()> {
         )
     }))
     .await?;
+    let mut listener = EventLogger::builder().directory("artifacts/simulator");
+    for (_, market, _) in &markets {
+        let name = market.symbol().call().await?;
+        info!("{}: {}", name, market.address());
+        listener = listener.add(market.events(), name);
+    }
+    listener.run()?;
 
     let alice = RevmMiddleware::new(&environment, Some("alice"))?;
     markets[0]
@@ -130,6 +139,7 @@ pub async fn main() -> Result<()> {
             price_changer.update_price().await?;
         }
     }
+    environment.stop()?;
 
     Ok(())
 }
