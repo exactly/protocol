@@ -4,19 +4,20 @@ use arbiter_core::{
     environment::builder::{BlockSettings, EnvironmentBuilder},
     middleware::RevmMiddleware,
 };
-use ethers::types::{Bytes, I256, U128, U256};
+use ethers::types::{Address, Bytes, I256, U128, U256};
 use futures::future::try_join_all;
 use log::info;
 use startup::deploy_market;
 
 use crate::{
-    agents::price_changer::PriceProcessParameters,
+    agents::{liquidator::Liquidator, price_changer::PriceProcessParameters},
     bindings::{
         auditor::{Auditor, LiquidationIncentive},
         erc1967_proxy::ERC1967Proxy,
         interest_rate_model::InterestRateModel,
         market::Market,
         mock_erc20::MockERC20,
+        previewer::Previewer,
     },
 };
 
@@ -113,7 +114,7 @@ pub async fn main() -> Result<()> {
     let alice = RevmMiddleware::new(&environment, Some("alice"))?;
     markets[0]
         .0
-        .mint(alice.address(), U256::exp10(24))
+        .mint(alice.address(), U256::exp10(18) * 1_000_000)
         .send()
         .await?
         .await?;
@@ -122,22 +123,53 @@ pub async fn main() -> Result<()> {
         .send()
         .await?
         .await?;
-    let alice_market = Market::new(markets[0].1.address(), alice.clone());
-    alice_market
-        .deposit(U256::exp10(20), alice.address())
+    Market::new(markets[0].1.address(), alice.clone())
+        .deposit(U256::exp10(18) * 1_000_000, alice.address())
         .send()
         .await?
         .await?;
-    alice_market
-        .borrow(U256::exp10(19), alice.address(), alice.address())
+    Auditor::new(auditor.address(), alice.clone())
+        .enter_market(markets[0].1.address())
+        .send()
+        .await?
+        .await?;
+    markets[1]
+        .0
+        .mint(deployer.address(), U256::exp10(6) * 1_000_000)
+        .send()
+        .await?
+        .await?;
+    markets[1]
+        .0
+        .approve(markets[1].1.address(), U256::MAX)
+        .send()
+        .await?
+        .await?;
+    markets[1]
+        .1
+        .deposit(U256::exp10(6) * 1_000_000, deployer.address())
+        .send()
+        .await?
+        .await?;
+    Market::new(markets[1].1.address(), alice.clone())
+        .borrow(U256::exp10(6) * 810_000, alice.address(), alice.address())
         .send()
         .await?
         .await?;
 
+    let liquidator = Liquidator::new(
+        auditor.clone(),
+        Previewer::deploy(deployer.clone(), (auditor.address(), Address::zero()))?
+            .send()
+            .await?,
+        [alice.address()],
+    )
+    .await?;
     for _ in 1..markets[0].2.trajectory.paths[0].len() {
         for (_, _, price_changer) in &mut markets {
             price_changer.update_price().await?;
         }
+        liquidator.check_liquidations().await?;
     }
     environment.stop()?;
 
