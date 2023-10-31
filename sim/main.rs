@@ -1,8 +1,11 @@
 use anyhow::{Ok, Result};
+use arbiter_core::math::float_to_wad;
 use arbiter_core::{environment::builder::EnvironmentBuilder, middleware::RevmMiddleware};
 use ethers::types::{Bytes, I256, U128, U256};
+use log::info;
 
-use bindings::{
+use crate::agents::price_changer::{PriceChanger, PriceProcessParameters};
+use crate::bindings::{
     auditor::{Auditor, LiquidationIncentive},
     erc1967_proxy::ERC1967Proxy,
     interest_rate_model::InterestRateModel,
@@ -11,13 +14,29 @@ use bindings::{
     mock_price_feed::MockPriceFeed,
 };
 
+mod agents;
 #[allow(unused_imports)]
 mod bindings;
 
 #[tokio::main]
 pub async fn main() -> Result<()> {
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "warn");
+    }
+    env_logger::init();
+
+    let price_process_params = PriceProcessParameters {
+        initial_price: 1.0,
+        mean: 1.0,
+        std_dev: 0.01,
+        theta: 3.0,
+        t_0: 0.0,
+        t_n: 100.0,
+        num_steps: 2_500,
+        seed: None,
+    };
     let environment = EnvironmentBuilder::new().build();
-    let deployer = RevmMiddleware::new(&environment, None)?;
+    let deployer = RevmMiddleware::new(&environment, Some("deployer"))?;
 
     let auditor = Auditor::new(
         ERC1967Proxy::deploy(
@@ -96,9 +115,15 @@ pub async fn main() -> Result<()> {
         .await?
         .await?;
 
-    let price_feed = MockPriceFeed::deploy(deployer.clone(), (U256::from(18), I256::exp10(18)))?
-        .send()
-        .await?;
+    let price_feed = MockPriceFeed::deploy(
+        deployer.clone(),
+        (
+            U256::from(18),
+            I256::from_raw(float_to_wad(price_process_params.initial_price)),
+        ),
+    )?
+    .send()
+    .await?;
     auditor
         .enable_market(
             market.address(),
@@ -109,7 +134,7 @@ pub async fn main() -> Result<()> {
         .await?
         .await?;
 
-    let alice = RevmMiddleware::new(&environment, None)?;
+    let alice = RevmMiddleware::new(&environment, Some("alice"))?;
     asset
         .mint(alice.address(), U256::exp10(24))
         .send()
@@ -131,6 +156,13 @@ pub async fn main() -> Result<()> {
         .send()
         .await?
         .await?;
+
+    let mut price_changer = PriceChanger::new(price_feed.clone(), price_process_params);
+    for index in 1..price_changer.trajectory.paths[0].len() {
+        info!("block {}, timestamp {}", index, index * 3_600);
+        deployer.update_block(index, index * 3_600).unwrap();
+        price_changer.update_price().await?;
+    }
 
     Ok(())
 }
