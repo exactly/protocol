@@ -1,24 +1,26 @@
+use std::process::Command;
+
 use anyhow::{Ok, Result};
 use arbiter_core::{
     data_collection::EventLogger,
     environment::builder::{BlockSettings, EnvironmentBuilder},
     middleware::RevmMiddleware,
 };
-use ethers::types::{Address, Bytes, I256, U128, U256};
+use ethers::types::{Address, Bytes, U128, U256};
 use futures::future::try_join_all;
 use log::info;
-use startup::deploy_market;
+use serde_json::from_slice;
 
 use crate::{
     agents::{liquidator::Liquidator, price_changer::PriceProcessParameters},
     bindings::{
         auditor::{Auditor, LiquidationIncentive},
         erc1967_proxy::ERC1967Proxy,
-        interest_rate_model::InterestRateModel,
         market::Market,
         mock_erc20::MockERC20,
         previewer::Previewer,
     },
+    startup::{deploy_market, Finance},
 };
 
 mod agents;
@@ -33,16 +35,16 @@ pub async fn main() -> Result<()> {
     }
     env_logger::init();
 
-    let price_process_params = PriceProcessParameters {
-        initial_price: 1.0,
-        mean: 1.0,
-        std_dev: 0.01,
-        theta: 3.0,
-        t_0: 0.0,
-        t_n: 100.0,
-        num_steps: 2_500,
-        seed: None,
-    };
+    let finance = from_slice::<Finance>(
+        &Command::new("npx")
+            .arg("hardhat")
+            .arg("--network")
+            .arg("optimism")
+            .arg("finance")
+            .output()?
+            .stdout,
+    )?;
+
     let environment = EnvironmentBuilder::new()
         .label("exactly")
         .block_settings(BlockSettings::RandomlySampled {
@@ -71,42 +73,45 @@ pub async fn main() -> Result<()> {
     );
     auditor
         .initialize(LiquidationIncentive {
-            liquidator: U128::exp10(16).as_u128() * 9,
-            lenders: U128::exp10(16).as_u128(),
+            liquidator: float_to_wad(finance.liquidation_incentive.liquidator).as_u128(),
+            lenders: float_to_wad(finance.liquidation_incentive.lenders).as_u128(),
         })
         .send()
         .await?
         .await?;
 
-    let irm = InterestRateModel::deploy(
-        deployer.clone(),
-        (
-            U256::exp10(15) * 23,
-            I256::exp10(14) * -25,
-            U256::exp10(16) * 102,
-            U256::exp10(15) * 23,
-            I256::exp10(14) * -25,
-            U256::exp10(16) * 102,
-        ),
-    )?
-    .send()
-    .await?;
-
-    let mut markets = try_join_all([("DAI", 18), ("USDC", 6)].map(|(symbol, decimals)| {
+    let mut markets = try_join_all(finance.markets.keys().map(|symbol| {
+        let initial_price = match symbol.as_str() {
+            "WETH" => 1850.0,
+            "wstETH" => 2100.0,
+            "OP" => 1.40,
+            _ => 1.0,
+        };
         deploy_market(
             symbol,
-            decimals,
-            deployer.clone(),
+            match symbol.as_str() {
+                "USDC" => 6,
+                _ => 18,
+            },
             auditor.clone(),
-            irm.clone(),
-            price_process_params,
+            finance.clone(),
+            PriceProcessParameters {
+                initial_price,
+                mean: initial_price,
+                std_dev: 0.01,
+                theta: 3.0,
+                t_0: 0.0,
+                t_n: 100.0,
+                n_steps: 2_500,
+                seed: None,
+            },
         )
     }))
     .await?;
     let mut listener = EventLogger::builder().directory("artifacts/simulator");
     for (_, market, _) in &markets {
         let name = market.symbol().call().await?;
-        info!("{}: {}", name, market.address());
+        info!("{:9} {}", name, market.address());
         listener = listener.add(market.events(), name);
     }
     listener.run()?;

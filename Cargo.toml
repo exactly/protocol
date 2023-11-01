@@ -15,6 +15,7 @@ ethers = { version = "2.0.10" }
 futures = { version = "0.3.29" }
 log = { version = "0.4.20" }
 serde = { version = "1.0.190", features = ["derive"] }
+serde_json = { version = "1.0.107" }
 tokio = { version = "1.33.0", features = ["full"] }
 
 [profile.release]

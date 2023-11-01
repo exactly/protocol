@@ -10,13 +10,14 @@ use serde::{Deserialize, Serialize};
 use crate::bindings::mock_price_feed::MockPriceFeed;
 
 pub struct PriceChanger {
+    pub symbol: String,
     pub trajectory: Trajectories,
     pub price_feed: MockPriceFeed<RevmMiddleware>,
     pub index: usize,
 }
 
 impl PriceChanger {
-    pub fn new(price_feed: MockPriceFeed<RevmMiddleware>, params: PriceProcessParameters) -> Self {
+    pub fn new(symbol: &str, price_feed: MockPriceFeed<RevmMiddleware>, params: PriceProcessParameters) -> Self {
         let PriceProcessParameters {
             initial_price,
             mean,
@@ -24,19 +25,20 @@ impl PriceChanger {
             theta,
             t_0,
             t_n,
-            num_steps,
+            n_steps,
             seed,
         } = params;
         let process = OrnsteinUhlenbeck::new(mean, std_dev, theta);
 
         let trajectory = match seed {
             Some(seed) => {
-                process.seedable_euler_maruyama(initial_price, t_0, t_n, num_steps, 1, false, seed)
+                process.seedable_euler_maruyama(initial_price, t_0, t_n, n_steps, 1, false, seed)
             }
-            None => process.euler_maruyama(initial_price, t_0, t_n, num_steps, 1, false),
+            None => process.euler_maruyama(initial_price, t_0, t_n, n_steps, 1, false),
         };
 
         Self {
+            symbol: symbol.to_string(),
             trajectory,
             price_feed,
             index: 1,
@@ -45,7 +47,7 @@ impl PriceChanger {
 
     pub async fn update_price(&mut self) -> Result<()> {
         let price = self.trajectory.paths[0][self.index];
-        info!("updating price to: {}", price);
+        info!("{:6} {price}", self.symbol);
         self.price_feed
             .set_price(I256::from_raw(float_to_wad(price)))
             .send()
@@ -64,6 +66,6 @@ pub struct PriceProcessParameters {
     pub theta: f64,
     pub t_0: f64,
     pub t_n: f64,
-    pub num_steps: usize,
+    pub n_steps: usize,
     pub seed: Option<u64>,
 }
