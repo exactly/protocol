@@ -320,6 +320,10 @@ task(
   .addOptionalPositionalParam("pause", "whether to pause or unpause the market", true, boolean)
   .addOptionalParam("account", "signer's account name", "deployer", string);
 
+task("finance", "prints finance configuration", async (_, { network: { config } }) => {
+  console.log(JSON.stringify(config.finance, (__, v) => (typeof v === "bigint" ? String(v) : v), 2)); // eslint-disable-line no-console
+});
+
 extendConfig((hardhatConfig, { finance }) => {
   delete (hardhatConfig as any).finance; // eslint-disable-line @typescript-eslint/no-explicit-any
   for (const [networkName, networkConfig] of Object.entries(hardhatConfig.networks)) {
