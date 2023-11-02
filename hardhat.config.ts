@@ -108,8 +108,8 @@ export default {
                 depositAllocationWeightAddend: 0.03,
               },
               esEXA: {
-                total: 150_000,
-                debt: 6_000,
+                total: 300_000,
+                debt: 1_111,
                 start: "2023-10-23T14:00Z",
                 period: 30 * 7 * 86_400,
                 undistributedFactor: 0.65,
@@ -150,8 +150,8 @@ export default {
                 undistributedFactor: 1,
               },
               esEXA: {
-                total: 300_000,
-                debt: 12_500_000,
+                total: 600_000,
+                debt: 6_000_000,
                 start: "2023-10-23T14:00Z",
                 period: 30 * 7 * 86_400,
                 undistributedFactor: 0.3,
@@ -222,7 +222,7 @@ export default {
                 depositAllocationWeightAddend: 0.03,
               },
               esEXA: {
-                total: 35_000,
+                total: 70_000,
                 debt: 2.5,
                 start: "2023-10-23T14:00Z",
                 period: 30 * 7 * 86_400,
@@ -253,7 +253,7 @@ export default {
                 depositAllocationWeightAddend: 0.03,
               },
               esEXA: {
-                total: 15_000,
+                total: 30_000,
                 debt: 730_000,
                 start: "2023-10-23T14:00Z",
                 period: 30 * 7 * 86_400,
