@@ -18,6 +18,7 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@v1
       - run: yarn
       - run: yarn lint
+      - run: forge build
       - run: yarn coverage
       - uses: codecov/codecov-action@v3
         with:
