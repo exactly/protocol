@@ -161,13 +161,13 @@ export default {
         },
       },
       WBTC: {
-        networks: ["ethereum", "goerli"],
         adjustFactor: 0.85,
-        floatingCurve: { a: 3.6184e-2, b: -1.5925e-2, maxUtilization: 1.007213882 },
-        fixedCurve: { a: 3.697e-1, b: -3.497e-1, maxUtilization: 1.000007768 },
+        floatingCurve: { a: 2.7194e-2, b: 3.016e-3, maxUtilization: 1.007776377 },
+        fixedCurve: { a: 4.6586e-1, b: -4.1345e-1, maxUtilization: 1.050553997 },
         overrides: {
           ethereum: { priceFeed: "double" },
           goerli: { priceFeed: "double" },
+          optimism: { adjustFactor: 0.78 },
         },
       },
       wstETH: {
