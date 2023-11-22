@@ -1,5 +1,12 @@
 # @exactly/protocol
 
+## 0.2.18
+
+### Patch Changes
+
+- 5770fa8: 🚀 ethereum: deploy new `WBTC` irm
+- bd4a216: 🚀 optimism: deploy `WBTC` market
+
 ## 0.2.17
 
 ### Patch Changes
