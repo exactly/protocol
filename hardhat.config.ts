@@ -89,7 +89,7 @@ export default {
             rewards: {
               OP: {
                 total: 180_000,
-                debt: 1_666,
+                debt: 1,
                 start: "2023-04-03T14:00Z",
                 period: 32 * 7 * 86_400,
                 undistributedFactor: 0.3,
@@ -244,7 +244,7 @@ export default {
             rewards: {
               EXA: {
                 total: 2_300,
-                debt: 20_000,
+                debt: 1,
                 start: "2023-07-24T14:00Z",
                 period: 8 * 7 * 86_400,
                 undistributedFactor: 1,
