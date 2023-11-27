@@ -1,5 +1,11 @@
 # @exactly/protocol
 
+## 0.2.19
+
+### Patch Changes
+
+- e9c2406: 📄 escrow: change `EscrowedEXA` license to MIT
+
 ## 0.2.18
 
 ### Patch Changes
