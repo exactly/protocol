@@ -22,9 +22,9 @@
     "coverage:fuzzer": "FOUNDRY_PROFILE=production forge test --match-test testFuzz",
     "deploy:ethereum": "hardhat --network ethereum deploy",
     "deploy:goerli": "hardhat --network goerli deploy",
-    "postinstall": "concurrently 'npm:postinstall:*' --group -c auto",
-    "postinstall:foundry": "forge install",
-    "postinstall:hardhat": "hardhat compile --force"
+    "prepare": "concurrently 'npm:prepare:*' --group -c auto",
+    "prepare:foundry": "forge install",
+    "prepare:hardhat": "hardhat compile --force"
   },
   "files": [
     "scripts",
