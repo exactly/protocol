@@ -291,18 +291,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 backupEarnings = pool.accrueEarnings(maturity);
     floatingAssets += backupEarnings;
 
-    uint256 fee = assets.mulWadDown(
-      interestRateModel.fixedBorrowRate(maturity, assets, pool.borrowed, pool.supplied, previewFloatingAssetsAverage())
-    );
-    assetsOwed = assets + fee;
-
-    // validate that the account is not taking arbitrary fees
-    if (assetsOwed > maxAssets) revert Disagreement();
-
     RewardsController memRewardsController = rewardsController;
     if (address(memRewardsController) != address(0)) memRewardsController.handleBorrow(borrower);
-
-    spendAllowance(borrower, assetsOwed);
 
     {
       uint256 backupDebtAddition = pool.borrow(assets);
@@ -315,6 +305,26 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         floatingBackupBorrowed = newFloatingBackupBorrowed;
       }
     }
+    uint256 fee;
+    {
+      uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
+      uint256 memFloatingDebt = floatingDebt;
+      fee = assets.mulWadDown(
+        interestRateModel.fixedRate(
+          maturity,
+          maxFuturePools,
+          fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssetsAverage),
+          floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
+          globalUtilization(memFloatingAssetsAverage, memFloatingDebt, floatingBackupBorrowed)
+        )
+      );
+    }
+    assetsOwed = assets + fee;
+
+    // validate that the account is not taking arbitrary fees
+    if (assetsOwed > maxAssets) revert Disagreement();
+
+    spendAllowance(borrower, assetsOwed);
 
     {
       // if account doesn't have a current position, add it to the list
@@ -371,26 +381,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     if (positionAssets > position.principal + position.fee) positionAssets = position.principal + position.fee;
 
-    // verify if there are any penalties/fee for the account because of early withdrawal, if so discount
-    if (block.timestamp < maturity) {
-      assetsDiscounted = positionAssets.divWadDown(
-        1e18 +
-          interestRateModel.fixedBorrowRate(
-            maturity,
-            positionAssets,
-            pool.borrowed,
-            pool.supplied,
-            previewFloatingAssetsAverage()
-          )
-      );
-    } else {
-      assetsDiscounted = positionAssets;
-    }
-
-    if (assetsDiscounted < minAssetsRequired) revert Disagreement();
-
-    spendAllowance(owner, assetsDiscounted);
-
     {
       // remove the supply from the fixed rate pool
       uint256 newFloatingBackupBorrowed = floatingBackupBorrowed +
@@ -400,6 +390,30 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       if (newFloatingBackupBorrowed + floatingDebt > floatingAssets) revert InsufficientProtocolLiquidity();
       floatingBackupBorrowed = newFloatingBackupBorrowed;
     }
+
+    // verify if there are any penalties/fee for the account because of early withdrawal, if so discount
+    if (block.timestamp < maturity) {
+      uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
+      uint256 memFloatingDebt = floatingDebt;
+      uint256 memFloatingBackupBorrowed = floatingBackupBorrowed;
+
+      assetsDiscounted = positionAssets.divWadDown(
+        1e18 +
+          interestRateModel.fixedRate(
+            maturity,
+            maxFuturePools,
+            fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssetsAverage),
+            floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
+            globalUtilization(memFloatingAssetsAverage, memFloatingDebt, memFloatingBackupBorrowed)
+          )
+      );
+    } else {
+      assetsDiscounted = positionAssets;
+    }
+
+    if (assetsDiscounted < minAssetsRequired) revert Disagreement();
+
+    spendAllowance(owner, assetsDiscounted);
 
     // all the fees go to unassigned or to the floating pool
     (uint256 unassignedEarnings, uint256 newBackupEarnings) = pool.distributeEarnings(
@@ -882,9 +896,11 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function updateFloatingDebt() internal returns (uint256 treasuryFee) {
     uint256 memFloatingDebt = floatingDebt;
     uint256 memFloatingAssets = floatingAssets;
-    uint256 floatingUtilization = memFloatingAssets > 0 ? memFloatingDebt.divWadUp(memFloatingAssets) : 0;
+    uint256 utilization = floatingUtilization(memFloatingAssets, memFloatingDebt);
     uint256 newDebt = memFloatingDebt.mulWadDown(
-      interestRateModel.floatingRate(floatingUtilization).mulDivDown(block.timestamp - lastFloatingDebtUpdate, 365 days)
+      interestRateModel
+        .floatingRate(utilization, globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed))
+        .mulDivDown(block.timestamp - lastFloatingDebtUpdate, 365 days)
     );
 
     memFloatingDebt += newDebt;
@@ -892,7 +908,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     floatingAssets = memFloatingAssets + newDebt - treasuryFee;
     floatingDebt = memFloatingDebt;
     lastFloatingDebtUpdate = uint32(block.timestamp);
-    emit FloatingDebtUpdate(block.timestamp, floatingUtilization);
+    emit FloatingDebtUpdate(block.timestamp, utilization);
   }
 
   /// @notice Calculates the total floating debt, considering elapsed time since last update and current interest rate.
@@ -900,9 +916,13 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function totalFloatingBorrowAssets() public view returns (uint256) {
     uint256 memFloatingDebt = floatingDebt;
     uint256 memFloatingAssets = floatingAssets;
-    uint256 floatingUtilization = memFloatingAssets > 0 ? memFloatingDebt.divWadUp(memFloatingAssets) : 0;
     uint256 newDebt = memFloatingDebt.mulWadDown(
-      interestRateModel.floatingRate(floatingUtilization).mulDivDown(block.timestamp - lastFloatingDebtUpdate, 365 days)
+      interestRateModel
+        .floatingRate(
+          floatingUtilization(memFloatingAssets, memFloatingDebt),
+          globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed)
+        )
+        .mulDivDown(block.timestamp - lastFloatingDebtUpdate, 365 days)
     );
     return memFloatingDebt + newDebt;
   }
@@ -986,6 +1006,24 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @return borrowed and supplied amount of the fixed pool.
   function fixedPoolBalance(uint256 maturity) external view returns (uint256, uint256) {
     return (fixedPools[maturity].borrowed, fixedPools[maturity].supplied);
+  }
+
+  /// @notice Retrieves fixed utilization of the floating pool.
+  /// @dev Internal function to avoid code duplication.
+  function fixedUtilization(uint256 supplied, uint256 borrowed, uint256 assets) internal pure returns (uint256) {
+    return assets > 0 && borrowed > supplied ? (borrowed - supplied).divWadUp(assets) : 0;
+  }
+
+  /// @notice Retrieves global utilization of the floating pool.
+  /// @dev Internal function to avoid code duplication.
+  function globalUtilization(uint256 assets, uint256 debt, uint256 backupBorrowed) internal pure returns (uint256) {
+    return assets > 0 ? 1e18 - (assets - debt - backupBorrowed).divWadDown(assets) : 0;
+  }
+
+  /// @notice Retrieves floating utilization of the floating pool.
+  /// @dev Internal function to avoid code duplication.
+  function floatingUtilization(uint256 assets, uint256 debt) internal pure returns (uint256) {
+    return assets > 0 ? debt.divWadUp(assets) : 0;
   }
 
   /// @notice Emits MarketUpdate event.

@@ -481,13 +481,13 @@ contract PreviewerTest is Test {
       else assertEq(data[0].fixedPools[i].available, 100 ether);
     }
     // try to borrow 140 ether + 1 (ONE UNIT) from first maturity and it should fail
-    vm.expectRevert(stdError.arithmeticError);
+    vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL, 140 ether + 1, 250 ether, address(this), address(this));
     // try to borrow 200 ether + 1 (ONE UNIT) from second maturity and it should fail
-    vm.expectRevert(stdError.arithmeticError);
+    vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether + 1, 2_500 ether, address(this), address(this));
     // try to borrow 100 ether + 1 (ONE UNIT) from any other maturity and it should fail
-    vm.expectRevert(stdError.arithmeticError);
+    vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL * 7, 100 ether + 1, 2_500 ether, address(this), address(this));
 
     // finally borrow 200 ether from second maturity and it doesn't fail
@@ -624,7 +624,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].rewardRates[0].assetName, rewardAsset.name());
     assertEq(data[0].rewardRates[0].assetSymbol, rewardAsset.symbol());
 
-    uint256 newDepositRewards = 19042907321800000;
+    uint256 newDepositRewards = 19042907327270000;
     uint256 newDepositRewardsValue = newDepositRewards.mulDivDown(
       uint256(opPriceFeed.latestAnswer()),
       10 ** opPriceFeed.decimals()

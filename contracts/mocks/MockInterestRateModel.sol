@@ -12,6 +12,14 @@ contract MockInterestRateModel {
     return borrowRate;
   }
 
+  function floatingRate(uint256, uint256) external view returns (uint256) {
+    return borrowRate;
+  }
+
+  function fixedRate(uint256, uint256, uint256, uint256, uint256) external view returns (uint256) {
+    return borrowRate;
+  }
+
   function fixedBorrowRate(uint256, uint256, uint256, uint256, uint256) external view returns (uint256) {
     return borrowRate;
   }
