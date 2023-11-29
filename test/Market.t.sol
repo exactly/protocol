@@ -916,7 +916,19 @@ contract MarketTest is Test {
     vm.expectEmit(true, true, true, false, address(market));
     emit MarketUpdate(block.timestamp, market.totalSupply(), 0, 0, 0, 0);
     market.setInterestRateModel(
-      new InterestRateModel(Market(address(0)), 0.023e18, -0.0025e18, 1e18 + 1, 7e17, 1.5e18, 1.5e18, 15_000e16)
+      new InterestRateModel(
+        Market(address(0)),
+        0.023e18,
+        -0.0025e18,
+        1e18 + 1,
+        7e17,
+        1.5e18,
+        1.5e18,
+        15_000e16,
+        0.2e18,
+        0,
+        0.5e18
+      )
     );
     // assertGt(market.floatingDebt(), floatingDebtBefore);
     // // if floatingDebt is updated with these last new irm values, then floatingDebt would be lower than 30.003 ether
@@ -933,7 +945,19 @@ contract MarketTest is Test {
     vm.expectEmit(true, true, true, false, address(market));
     emit MarketUpdate(block.timestamp, market.totalSupply(), 0, 0, 0, 0);
     market.setInterestRateModel(
-      new InterestRateModel(Market(address(0)), 0.023e18, -0.0025e18, 1e18 + 1, 7e17, 1.5e18, 1.5e18, 15_000e16)
+      new InterestRateModel(
+        Market(address(0)),
+        0.023e18,
+        -0.0025e18,
+        1e18 + 1,
+        7e17,
+        1.5e18,
+        1.5e18,
+        15_000e16,
+        0.2e18,
+        0,
+        0.5e18
+      )
     );
     assertEq(market.floatingDebt(), floatingDebtBefore);
   }
@@ -2302,7 +2326,7 @@ contract MarketTest is Test {
 
   function testEarlyRepaymentWithExcessiveAmountOfFees() external {
     market.setInterestRateModel(
-      new InterestRateModel(market, 0.023e18, -0.0025e18, 1e18 + 1, 7e17, 1.5e18, 1.5e18, 1e18)
+      new InterestRateModel(market, 0.023e18, -0.0025e18, 1e18 + 1, 7e17, 1.5e18, 1.5e18, 1e18, 0.2e18, 0, 0.5e18)
     );
 
     market.deposit(1_000_000 ether, address(this));

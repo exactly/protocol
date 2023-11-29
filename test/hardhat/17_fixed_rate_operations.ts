@@ -108,6 +108,9 @@ describe("Fixed Rate Operations", () => {
         parseUnits("2.5"),
         parseUnits("2.5"),
         parseUnits("10"),
+        parseUnits("0.2"),
+        parseUnits("0"),
+        parseUnits("0.5"),
       );
       await newInterestRateModel.deployed();
     });
