@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import { Test } from "forge-std/Test.sol";
+import { Test, stdError } from "forge-std/Test.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
@@ -44,7 +44,7 @@ contract PreviewerTest is Test {
     vm.label(address(auditor), "Auditor");
 
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
-    irm = new InterestRateModel(market, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18);
+    irm = new InterestRateModel(market, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18, 0.2e18, 0, 0.5e18);
     market.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
     vm.label(address(market), "MarketDAI");
     auditor.enableMarket(market, daiPriceFeed, 0.8e18);
@@ -242,19 +242,6 @@ contract PreviewerTest is Test {
     assertEq(positionAssetsMaturities[2].assets, principalAfterBorrow + feesAfterBorrow);
   }
 
-  function testPreviewBorrowAtAllMaturitiesReturningMaxUint256() external {
-    Previewer.FixedPreview[] memory positionAssetsMaturities = previewer.previewBorrowAtAllMaturities(market, 1 ether);
-    assertEq(positionAssetsMaturities[0].maturity, FixedLib.INTERVAL);
-    assertEq(positionAssetsMaturities[0].assets, type(uint256).max);
-    assertEq(positionAssetsMaturities[0].utilization, type(uint256).max);
-    assertEq(positionAssetsMaturities[1].maturity, FixedLib.INTERVAL * 2);
-    assertEq(positionAssetsMaturities[1].assets, type(uint256).max);
-    assertEq(positionAssetsMaturities[1].utilization, type(uint256).max);
-    assertEq(positionAssetsMaturities[2].maturity, FixedLib.INTERVAL * 3);
-    assertEq(positionAssetsMaturities[2].assets, type(uint256).max);
-    assertEq(positionAssetsMaturities[2].utilization, type(uint256).max);
-  }
-
   function testPreviewBorrowAtMaturityReturningAccurateAmount() external {
     uint256 maturity = FixedLib.INTERVAL;
     market.deposit(10 ether, address(this));
@@ -445,7 +432,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       12,
       1e18,
-      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18, 0.2e18, 0, 0.5e18),
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
@@ -494,17 +481,17 @@ contract PreviewerTest is Test {
       else assertEq(data[0].fixedPools[i].available, 100 ether);
     }
     // try to borrow 140 ether + 1 (ONE UNIT) from first maturity and it should fail
-    vm.expectRevert(UtilizationExceeded.selector);
+    vm.expectRevert(stdError.arithmeticError);
     market.borrowAtMaturity(FixedLib.INTERVAL, 140 ether + 1, 250 ether, address(this), address(this));
     // try to borrow 200 ether + 1 (ONE UNIT) from second maturity and it should fail
-    vm.expectRevert(UtilizationExceeded.selector);
-    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether + 1, 250 ether, address(this), address(this));
+    vm.expectRevert(stdError.arithmeticError);
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether + 1, 2_500 ether, address(this), address(this));
     // try to borrow 100 ether + 1 (ONE UNIT) from any other maturity and it should fail
-    vm.expectRevert(UtilizationExceeded.selector);
-    market.borrowAtMaturity(FixedLib.INTERVAL * 7, 100 ether + 1, 250 ether, address(this), address(this));
+    vm.expectRevert(stdError.arithmeticError);
+    market.borrowAtMaturity(FixedLib.INTERVAL * 7, 100 ether + 1, 2_500 ether, address(this), address(this));
 
     // finally borrow 200 ether from second maturity and it doesn't fail
-    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 250 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 2_500 ether, address(this), address(this));
 
     // repay back the 10 borrowed from the first maturity
     uint256 totalBorrowed = data[0].fixedBorrowPositions[0].position.principal +
@@ -518,7 +505,7 @@ contract PreviewerTest is Test {
 
     // supply 100 more to the smart pool
     market.deposit(100 ether, address(this));
-    uint256 distributedEarnings = 217011602480424;
+    uint256 distributedEarnings = 279281054959861332;
     // set the smart pool reserve in 10%
     // since smart pool supply is 200 then 10% is 20
     market.setReserveFactor(0.1e18);
@@ -543,7 +530,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       12,
       1e18,
-      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18, 0.2e18, 0, 0.5e18),
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
@@ -565,36 +552,36 @@ contract PreviewerTest is Test {
     // borrow 10 from the first maturity of marketDAI
     market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 15 ether, address(this), address(this));
     // borrow 200 from the second maturity of marketWETH
-    marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 250 ether, address(this), address(this));
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 300 ether, address(this), address(this));
 
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
-    uint256 depositRate = 27548500288626052;
+    uint256 depositRate = 373670779862528600;
     // MarketDAI
     assertEq(data[0].fixedPools[0].optimalDeposit, 10 ether);
-    assertEq(data[0].fixedPools[0].minBorrowRate, 31258000000000000);
+    assertEq(data[0].fixedPools[0].minBorrowRate, 31731524803233979);
     assertEq(data[0].fixedPools[0].depositRate, depositRate);
     assertEq(data[0].fixedPools[0].utilization, 0.1 ether);
     assertEq(data[0].fixedPools[1].optimalDeposit, 0);
-    assertEq(data[0].fixedPools[1].minBorrowRate, 30000818181818181);
+    assertEq(data[0].fixedPools[1].minBorrowRate, 30002302036923718);
     assertEq(data[0].fixedPools[1].depositRate, 0);
     assertEq(data[0].fixedPools[1].utilization, 0);
     // MarketWETH
     assertEq(data[1].fixedPools[0].optimalDeposit, 0);
-    assertEq(data[1].fixedPools[0].minBorrowRate, 30000818181818181);
+    assertEq(data[1].fixedPools[0].minBorrowRate, 30000818196566846);
     assertEq(data[1].fixedPools[0].depositRate, 0);
     assertEq(data[1].fixedPools[0].utilization, 0);
     assertEq(data[1].fixedPools[1].optimalDeposit, 200 ether);
-    assertEq(data[1].fixedPools[1].minBorrowRate, 30046700729927007);
-    assertEq(data[1].fixedPools[1].depositRate, 27021358437838027);
+    assertEq(data[1].fixedPools[1].minBorrowRate, 32448472356562004);
+    assertEq(data[1].fixedPools[1].depositRate, 190700254734737694);
     assertEq(data[1].fixedPools[1].utilization, 0.004 ether);
 
     vm.warp(block.timestamp + 1 days);
     data = previewer.exactly(address(this));
-    assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 10);
+    assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 5);
 
     vm.warp(block.timestamp + 3 hours + 4 minutes + 19 minutes);
     data = previewer.exactly(address(this));
-    assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 1);
+    assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 8);
   }
 
   function testRewardsRateX() external {
@@ -637,7 +624,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].rewardRates[0].assetName, rewardAsset.name());
     assertEq(data[0].rewardRates[0].assetSymbol, rewardAsset.symbol());
 
-    uint256 newDepositRewards = 19062759563460000;
+    uint256 newDepositRewards = 19042907321800000;
     uint256 newDepositRewardsValue = newDepositRewards.mulDivDown(
       uint256(opPriceFeed.latestAnswer()),
       10 ** opPriceFeed.decimals()
@@ -678,7 +665,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       12,
       1e18,
-      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18, 0.2e18, 0, 0.5e18),
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
@@ -836,7 +823,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       12,
       1e18,
-      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18, 0.2e18, 0, 0.5e18),
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
@@ -1155,7 +1142,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       12,
       1e18,
-      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18, 0.2e18, 0, 0.5e18),
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
@@ -1206,7 +1193,7 @@ contract PreviewerTest is Test {
 
     // supply 100 more to the smart pool
     market.deposit(100 ether, address(this));
-    uint256 distributedEarnings = 653322267121;
+    uint256 distributedEarnings = 8861732526246;
     // set the smart pool reserve to 10%
     // since smart pool supply is 200 then 10% is 20
     market.setReserveFactor(0.1e18);
@@ -1220,7 +1207,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       12,
       1e18,
-      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18, 0.2e18, 0, 0.5e18),
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
@@ -1257,7 +1244,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       12,
       1e18,
-      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18, 0.2e18, 0, 0.5e18),
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
@@ -1283,7 +1270,7 @@ contract PreviewerTest is Test {
     market.borrow(50 ether, address(this), address(this));
 
     // borrow 10 from the first maturity
-    market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 15 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 100 ether, address(this), address(this));
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[0].floatingAvailableAssets, 30 ether);
 
@@ -1306,7 +1293,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       12,
       1e18,
-      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18, 0.2e18, 0, 0.5e18),
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
@@ -1332,11 +1319,11 @@ contract PreviewerTest is Test {
       assertEq(data[0].fixedPools[i].available, floatingAssetsAverage);
     }
     floatingAssetsAverage = previewFloatingAssetsAverage(FixedLib.INTERVAL);
-    vm.expectRevert(UtilizationExceeded.selector);
-    market.borrowAtMaturity(FixedLib.INTERVAL, floatingAssetsAverage + 1, 15 ether, address(this), address(this));
+    vm.expectRevert(stdError.arithmeticError);
+    market.borrowAtMaturity(FixedLib.INTERVAL, floatingAssetsAverage + 1, 50 ether, address(this), address(this));
 
     // borrowing exactly floatingAssetsAverage doesn't revert
-    market.borrowAtMaturity(FixedLib.INTERVAL, floatingAssetsAverage, 15 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, floatingAssetsAverage, 50 ether, address(this), address(this));
 
     // after 200 seconds pass there's more available liquidity
     vm.warp(200 seconds);
@@ -1375,12 +1362,10 @@ contract PreviewerTest is Test {
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
 
     assertEq(data[0].interestRateModel.id, address(irm));
-    assertEq(data[0].interestRateModel.fixedCurveA, irm.fixedCurveA());
-    assertEq(data[0].interestRateModel.fixedCurveB, irm.fixedCurveB());
-    assertEq(data[0].interestRateModel.fixedMaxUtilization, irm.fixedMaxUtilization());
-    assertEq(data[0].interestRateModel.floatingCurveA, irm.floatingCurveA());
-    assertEq(data[0].interestRateModel.floatingCurveB, irm.floatingCurveB());
-    assertEq(data[0].interestRateModel.floatingMaxUtilization, irm.floatingMaxUtilization());
+    assertEq(data[0].interestRateModel.curveA, irm.floatingCurveA());
+    assertEq(data[0].interestRateModel.curveB, irm.floatingCurveB());
+    assertEq(data[0].interestRateModel.maxUtilization, irm.floatingMaxUtilization());
+    assertEq(data[0].interestRateModel.floatingNaturalUtilization, irm.floatingNaturalUtilization());
   }
 
   function testMaxBorrowAssetsCapacity() external {
@@ -1409,7 +1394,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       12,
       1e18,
-      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18, 0.2e18, 0, 0.5e18),
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
@@ -1443,7 +1428,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       12,
       1e18,
-      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18, 0.2e18, 0, 0.5e18),
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
@@ -1633,7 +1618,7 @@ contract PreviewerTest is Test {
 
     vm.warp(2 days);
     vm.prank(BOB);
-    market.borrowAtMaturity(maturity, 2.3 ether, 3 ether, BOB, BOB);
+    market.borrowAtMaturity(maturity, 2.3 ether, 4 ether, BOB, BOB);
 
     vm.warp(3 days);
     Previewer.FixedPreview memory preview = previewer.previewWithdrawAtMaturity(
@@ -1643,14 +1628,14 @@ contract PreviewerTest is Test {
       address(this)
     );
     uint256 balanceBeforeWithdraw = asset.balanceOf(address(this));
-    market.withdrawAtMaturity(maturity, 0.47 ether, 0.4 ether, address(this), address(this));
+    market.withdrawAtMaturity(maturity, 0.47 ether, 0.3 ether, address(this), address(this));
     uint256 feeAfterWithdraw = 0.47 ether - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
     assertEq(preview.assets, 0.47 ether - feeAfterWithdraw);
 
     vm.warp(5 days);
     preview = previewer.previewWithdrawAtMaturity(market, maturity, 1.1 ether, address(this));
     balanceBeforeWithdraw = asset.balanceOf(address(this));
-    market.withdrawAtMaturity(maturity, 1.1 ether, 1 ether, address(this), address(this));
+    market.withdrawAtMaturity(maturity, 1.1 ether, 0.7 ether, address(this), address(this));
     feeAfterWithdraw = 1.1 ether - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
     assertEq(preview.assets, 1.1 ether - feeAfterWithdraw);
 
@@ -1749,7 +1734,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       12,
       1e18,
-      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18, 0.2e18, 0, 0.5e18),
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
@@ -1772,7 +1757,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       12,
       1e18,
-      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18, 0.2e18, 0, 0.5e18),
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
@@ -1825,7 +1810,7 @@ contract PreviewerTest is Test {
     assertEq(data[1].isCollateral, true);
 
     vm.warp(200 seconds);
-    marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 33 ether, 40 ether, address(this), address(this));
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 33 ether, 60 ether, address(this), address(this));
     data = previewer.exactly(address(this));
 
     sumDebt += (data[1].fixedBorrowPositions[0].position.principal + data[1].fixedBorrowPositions[0].position.fee)
@@ -1845,7 +1830,7 @@ contract PreviewerTest is Test {
     vm.warp(400 seconds);
     market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
     market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
-    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 2.33 ether, 3 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 2.33 ether, 4 ether, address(this), address(this));
     market.depositAtMaturity(FixedLib.INTERVAL * 2, 1.19 ether, 1.19 ether, address(this));
     (uint256 firstMaturitySupplyPrincipal, uint256 firstMaturitySupplyFee) = market.fixedDepositPositions(
       FixedLib.INTERVAL,

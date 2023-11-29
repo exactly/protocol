@@ -75,7 +75,10 @@ contract ProtocolTest is Test {
         7e17,
         1.5e18,
         1.5e18,
-        15_000e16
+        15_000e16,
+        0.2e18,
+        0,
+        0.5e18
       );
       market.initialize(MAX_FUTURE_POOLS, 2e18, irm, PENALTY_RATE, 1e17, RESERVE_FACTOR, 0.0046e18, 0.42e18);
       vm.label(address(market), string.concat("Market", i.toString()));

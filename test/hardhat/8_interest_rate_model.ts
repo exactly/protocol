@@ -60,9 +60,24 @@ describe("InterestRateModel", () => {
       const sigmoidSpeed = parseUnits("2.5");
       const growthSpeed = parseUnits("2.5");
       const maxRate = parseUnits("10");
+      const a0 = parseUnits("0.2");
+      const a1 = parseUnits("0");
+      const eta = parseUnits("0.5");
 
       await expect(
-        irmFactory.deploy(AddressZero, a, b, maxUtilization, naturalUtilization, sigmoidSpeed, growthSpeed, maxRate),
+        irmFactory.deploy(
+          AddressZero,
+          a,
+          b,
+          maxUtilization,
+          naturalUtilization,
+          sigmoidSpeed,
+          growthSpeed,
+          maxRate,
+          a0,
+          a1,
+          eta,
+        ),
       ).to.be.reverted;
     });
     it("WHEN deploying a contract with A and B parameters yielding an invalid floating curve THEN it reverts", async () => {
@@ -73,9 +88,24 @@ describe("InterestRateModel", () => {
       const sigmoidSpeed = parseUnits("2.5");
       const growthSpeed = parseUnits("2.5");
       const maxRate = parseUnits("10");
+      const a0 = parseUnits("0.2");
+      const a1 = parseUnits("0");
+      const eta = parseUnits("0.5");
 
       await expect(
-        irmFactory.deploy(AddressZero, a, b, maxUtilization, naturalUtilization, sigmoidSpeed, growthSpeed, maxRate),
+        irmFactory.deploy(
+          AddressZero,
+          a,
+          b,
+          maxUtilization,
+          naturalUtilization,
+          sigmoidSpeed,
+          growthSpeed,
+          maxRate,
+          a0,
+          a1,
+          eta,
+        ),
       ).to.be.revertedWithPanic(0x01);
     });
   });
@@ -108,6 +138,9 @@ describe("InterestRateModel", () => {
           const sigmoidSpeed = parseUnits("2.5");
           const growthSpeed = parseUnits("2.5");
           const maxRate = parseUnits("10");
+          const a0 = parseUnits("0.2");
+          const a1 = parseUnits("0");
+          const eta = parseUnits("0.5");
 
           await exactlyEnv.setIRMParameters(
             a,
@@ -117,6 +150,9 @@ describe("InterestRateModel", () => {
             sigmoidSpeed,
             growthSpeed,
             maxRate,
+            a0,
+            a1,
+            eta,
           );
           exactlyEnv.switchWallet(alice);
         });
@@ -157,6 +193,9 @@ describe("InterestRateModel", () => {
           const sigmoidSpeed = parseUnits("2.5");
           const growthSpeed = parseUnits("2.5");
           const maxRate = parseUnits("10");
+          const a0 = parseUnits("0.2");
+          const a1 = parseUnits("0");
+          const eta = parseUnits("0.5");
 
           await exactlyEnv.setIRMParameters(
             a,
@@ -166,6 +205,9 @@ describe("InterestRateModel", () => {
             sigmoidSpeed,
             growthSpeed,
             maxRate,
+            a0,
+            a1,
+            eta,
           );
 
           exactlyEnv.switchWallet(alice);
@@ -234,8 +276,22 @@ describe("InterestRateModel", () => {
       const sigmoidSpeed = parseUnits("2.5");
       const growthSpeed = parseUnits("2.5");
       const maxRate = parseUnits("10");
+      const a0 = parseUnits("0.2");
+      const a1 = parseUnits("0");
+      const eta = parseUnits("0.5");
 
-      await exactlyEnv.setIRMParameters(a, b, maxUtilization, naturalUtilization, sigmoidSpeed, growthSpeed, maxRate);
+      await exactlyEnv.setIRMParameters(
+        a,
+        b,
+        maxUtilization,
+        naturalUtilization,
+        sigmoidSpeed,
+        growthSpeed,
+        maxRate,
+        a0,
+        a1,
+        eta,
+      );
 
       await exactlyEnv.depositSP("WETH", "10");
       await exactlyEnv.enterMarket("WETH");
@@ -267,8 +323,22 @@ describe("InterestRateModel", () => {
       const sigmoidSpeed = parseUnits("2.5");
       const growthSpeed = parseUnits("2.5");
       const maxRate = parseUnits("10");
+      const a0 = parseUnits("0.2");
+      const a1 = parseUnits("0");
+      const eta = parseUnits("0.5");
 
-      await exactlyEnv.setIRMParameters(a, b, maxUtilization, naturalUtilization, sigmoidSpeed, growthSpeed, maxRate);
+      await exactlyEnv.setIRMParameters(
+        a,
+        b,
+        maxUtilization,
+        naturalUtilization,
+        sigmoidSpeed,
+        growthSpeed,
+        maxRate,
+        a0,
+        a1,
+        eta,
+      );
     });
     describe("GIVEN enough collateral", () => {
       beforeEach(async () => {

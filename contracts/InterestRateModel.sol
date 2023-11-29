@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Market } from "./Market.sol";
@@ -8,17 +9,6 @@ import { Market } from "./Market.sol";
 contract InterestRateModel {
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for int256;
-
-  /// @notice Threshold to define which method should be used to calculate the interest rates.
-  /// @dev When `eta` (`delta / alpha`) is lower than this value, use simpson's rule for approximation.
-  uint256 internal constant PRECISION_THRESHOLD = 7.5e14;
-
-  /// @notice Scale factor of the fixed curve.
-  uint256 public immutable fixedCurveA;
-  /// @notice Origin intercept of the fixed curve.
-  int256 public immutable fixedCurveB;
-  /// @notice Asymptote of the fixed curve.
-  uint256 public immutable fixedMaxUtilization;
 
   /// @notice Scale factor of the floating curve.
   uint256 public immutable floatingCurveA;
@@ -32,6 +22,9 @@ contract InterestRateModel {
   int256 public immutable growthSpeed;
   int256 public immutable sigmoidSpeed;
   uint256 public immutable maxRate;
+  int256 public immutable spreadFactor;
+  int256 public immutable timePreference;
+  uint256 public immutable maturitySpeed;
 
   /// @dev auxiliary variable to save an extra operation.
   int256 internal immutable auxUNat;
@@ -44,7 +37,10 @@ contract InterestRateModel {
     uint256 floatingNaturalUtilization_,
     int256 sigmoidSpeed_,
     int256 growthSpeed_,
-    uint256 maxRate_
+    uint256 maxRate_,
+    int256 spreadFactor_,
+    int256 timePreference_,
+    uint256 maturitySpeed_
   ) {
     assert(maxUtilization_ > 1e18);
 
@@ -65,76 +61,61 @@ contract InterestRateModel {
     sigmoidSpeed = sigmoidSpeed_;
     growthSpeed = growthSpeed_;
     maxRate = maxRate_;
+    spreadFactor = spreadFactor_;
+    timePreference = timePreference_;
+    maturitySpeed = maturitySpeed_;
 
     // reverts if it's an invalid curve (such as one yielding a negative interest rate).
-    fixedRate(0, 0);
-    floatingRate(0, 0);
+    fixedRate((block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL, 1, 0, 0, 0);
+    baseRate(0, 0);
   }
 
-  /// @notice Gets the rate to borrow a certain amount at a certain maturity with supply/demand values in the fixed rate
-  /// pool and assets from the backup supplier.
-  /// @param maturity maturity date for calculating days left to maturity.
-  /// @param amount the current borrow's amount.
-  /// @param borrowed ex-ante amount borrowed from this fixed rate pool.
-  /// @param supplied deposits in the fixed rate pool.
-  /// @param backupAssets backup supplier assets.
-  /// @return rate of the fee that the borrower will have to pay (represented with 18 decimals).
-  function fixedBorrowRate(
+  struct FixedVars {
+    uint256 fNatPools;
+    uint256 auxFNatPools;
+    uint256 fixedFactor;
+    int256 natPools;
+  }
+
+  function fixedRate(
     uint256 maturity,
-    uint256 amount,
-    uint256 borrowed,
-    uint256 supplied,
-    uint256 backupAssets
-  ) external view returns (uint256) {
+    uint256 maxPools,
+    uint256 uFixed,
+    uint256 uFloating,
+    uint256 uGlobal
+  ) public view returns (uint256) {
     if (block.timestamp >= maturity) revert AlreadyMatured();
+    if (uFixed > uGlobal) revert UtilizationExceeded();
+    if (uFixed == 0) return floatingRate(uFloating, uGlobal);
 
-    uint256 potentialAssets = supplied + backupAssets;
-    uint256 utilizationAfter = (borrowed + amount).divWadUp(potentialAssets);
+    FixedVars memory v;
+    v.fNatPools = (maxPools * 1e18).divWadDown(fixedNaturalUtilization);
+    v.auxFNatPools = (v.fNatPools * 1e18).sqrt();
+    v.fixedFactor = (maxPools * uFixed).mulDivDown(1e36, uGlobal * fixedNaturalUtilization);
+    v.natPools = ((2e18 - int256(v.fNatPools)) * 1e36) / (int256(v.auxFNatPools) * (1e18 - int256(v.auxFNatPools)));
 
-    if (utilizationAfter > 1e18) revert UtilizationExceeded();
+    uint256 spread = uint256(
+      1e18 +
+        (((int256(maturitySpeed) *
+          int256(
+            (maturity - block.timestamp).divWadDown(
+              maxPools * FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)
+            )
+          ).lnWad()) / 1e18).expWad() *
+          (timePreference +
+            (spreadFactor *
+              ((v.natPools * int256((v.fixedFactor * 1e18).sqrt())) /
+                1e18 +
+                ((1e18 - v.natPools) * int256(v.fixedFactor)) /
+                1e18 -
+                1e18)) /
+            1e18)) /
+        1e18
+    );
+    uint256 base = baseRate(uFloating, uGlobal);
 
-    uint256 utilizationBefore = borrowed.divWadDown(potentialAssets);
-
-    return fixedRate(utilizationBefore, utilizationAfter).mulDivDown(maturity - block.timestamp, 365 days);
-  }
-
-  /// @notice Returns the current annualized fixed rate to borrow with supply/demand values in the fixed rate pool and
-  /// assets from the backup supplier.
-  /// @param borrowed amount borrowed from the fixed rate pool.
-  /// @param supplied deposits in the fixed rate pool.
-  /// @param backupAssets backup supplier assets.
-  /// @return rate of the fee that the borrower will have to pay, with 18 decimals precision.
-  /// @return utilization current utilization rate, with 18 decimals precision.
-  function minFixedRate(
-    uint256 borrowed,
-    uint256 supplied,
-    uint256 backupAssets
-  ) external view returns (uint256 rate, uint256 utilization) {
-    utilization = borrowed.divWadUp(supplied + backupAssets);
-    rate = fixedRate(utilization, utilization);
-  }
-
-  /// @notice Returns the interest rate integral from `u0` to `u1`, using the analytical solution (ln).
-  /// @dev Uses the fixed rate curve parameters.
-  /// Handles special case where delta utilization tends to zero, using simpson's rule.
-  /// @param utilizationBefore ex-ante utilization rate, with 18 decimals precision.
-  /// @param utilizationAfter ex-post utilization rate, with 18 decimals precision.
-  /// @return the interest rate, with 18 decimals precision.
-  function fixedRate(uint256 utilizationBefore, uint256 utilizationAfter) internal view returns (uint256) {
-    uint256 alpha = fixedMaxUtilization - utilizationBefore;
-    uint256 delta = utilizationAfter - utilizationBefore;
-    int256 r = int256(
-      delta.divWadDown(alpha) < PRECISION_THRESHOLD
-        ? (fixedCurveA.divWadDown(alpha) +
-          fixedCurveA.mulDivDown(4e18, fixedMaxUtilization - ((utilizationAfter + utilizationBefore) / 2)) +
-          fixedCurveA.divWadDown(fixedMaxUtilization - utilizationAfter)) / 6
-        : fixedCurveA.mulDivDown(
-          uint256(int256(alpha.divWadDown(fixedMaxUtilization - utilizationAfter)).lnWad()),
-          delta
-        )
-    ) + fixedCurveB;
-    assert(r >= 0);
-    return uint256(r);
+    if (base >= maxRate.divWadDown(spread)) return maxRate;
+    return base.mulWadUp(spread);
   }
 
   function baseRate(uint256 uFloating, uint256 uGlobal) public view returns (uint256) {
@@ -167,14 +148,16 @@ contract InterestRateModel {
   }
 
   function floatingRate(uint256 uFloating, uint256 uGlobal) public view returns (uint256) {
-    uint256 base = baseRate(uFloating, uGlobal);
-    return base > maxRate ? maxRate : base;
+    return Math.min(baseRate(uFloating, uGlobal), maxRate);
   }
 
   // Legacy interface, kept for compatibility.
 
   /// @notice Market where the interest rate model is used. Keeps compatibility with legacy interest rate model.
   Market public immutable market;
+  uint256 public immutable fixedCurveA;
+  int256 public immutable fixedCurveB;
+  uint256 public immutable fixedMaxUtilization;
 
   /// @dev Deprecated in favor of `floatingRate(uFloating, uGlobal)`.
   function floatingRate(uint256) public view returns (uint256) {
@@ -185,6 +168,50 @@ contract InterestRateModel {
         floatingAssets != 0 ? floatingDebt.divWadUp(floatingAssets) : 0,
         globalUtilization(floatingAssets, floatingDebt, market.floatingBackupBorrowed())
       );
+  }
+
+  /// @dev Deprecated in favor of `fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal)`
+  function fixedBorrowRate(
+    uint256 maturity,
+    uint256 amount,
+    uint256 borrowed,
+    uint256 supplied,
+    uint256
+  ) external view returns (uint256) {
+    if (block.timestamp >= maturity) revert AlreadyMatured();
+    uint256 floatingAssets = previewFloatingAssetsAverage(maturity);
+    uint256 backupBorrowed = market.floatingBackupBorrowed();
+    uint256 floatingDebt = totalFloatingBorrowAssets(
+      floatingAssets,
+      market.floatingDebt(),
+      backupBorrowed,
+      market.lastFloatingDebtUpdate()
+    );
+    uint256 newBorrowed = borrowed + amount;
+    uint256 backupDebtAddition = newBorrowed - Math.min(Math.max(borrowed, supplied), newBorrowed);
+
+    return
+      fixedRate(
+        maturity,
+        market.maxFuturePools(),
+        fixedUtilization(supplied, newBorrowed, floatingAssets),
+        floatingAssets != 0 ? floatingDebt.divWadUp(floatingAssets) : 0,
+        globalUtilization(floatingAssets, floatingDebt, backupBorrowed + backupDebtAddition)
+      );
+  }
+
+  /// @dev deprecated in favor of `fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal)`
+  function minFixedRate(uint256, uint256, uint256) external view returns (uint256 rate, uint256 utilization) {
+    uint256 floatingAssets = market.floatingAssetsAverage();
+    uint256 backupBorrowed = market.floatingBackupBorrowed();
+    uint256 floatingDebt = totalFloatingBorrowAssets(
+      floatingAssets,
+      market.floatingDebt(),
+      backupBorrowed,
+      market.lastFloatingDebtUpdate()
+    );
+    utilization = globalUtilization(floatingAssets, floatingDebt, backupBorrowed);
+    rate = baseRate(floatingAssets != 0 ? floatingDebt.divWadUp(floatingAssets) : 0, utilization);
   }
 
   function previewFloatingAssetsAverage(uint256 maturity) internal view returns (uint256) {
@@ -228,6 +255,14 @@ contract InterestRateModel {
     uint256 backupBorrowed
   ) internal pure returns (uint256) {
     return floatingAssets != 0 ? 1e18 - (floatingAssets - floatingDebt - backupBorrowed).divWadDown(floatingAssets) : 0;
+  }
+
+  function fixedUtilization(
+    uint256 supplied,
+    uint256 borrowed,
+    uint256 floatingAssets
+  ) internal pure returns (uint256) {
+    return floatingAssets != 0 && borrowed > supplied ? (borrowed - supplied).divWadUp(floatingAssets) : 0;
   }
 }
 

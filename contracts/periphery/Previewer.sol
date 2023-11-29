@@ -78,12 +78,10 @@ contract Previewer {
 
   struct InterestRateModel {
     address id;
-    uint256 fixedCurveA;
-    int256 fixedCurveB;
-    uint256 fixedMaxUtilization;
-    uint256 floatingCurveA;
-    int256 floatingCurveB;
-    uint256 floatingMaxUtilization;
+    uint256 curveA;
+    int256 curveB;
+    uint256 maxUtilization;
+    uint256 floatingNaturalUtilization;
   }
 
   struct FixedPosition {
@@ -143,12 +141,10 @@ contract Previewer {
         assetSymbol: market.asset().symbol(),
         interestRateModel: InterestRateModel({
           id: address(irm),
-          fixedCurveA: irm.fixedCurveA(),
-          fixedCurveB: irm.fixedCurveB(),
-          fixedMaxUtilization: irm.fixedMaxUtilization(),
-          floatingCurveA: irm.floatingCurveA(),
-          floatingCurveB: irm.floatingCurveB(),
-          floatingMaxUtilization: irm.floatingMaxUtilization()
+          curveA: irm.floatingCurveA(),
+          curveB: irm.floatingCurveB(),
+          maxUtilization: irm.floatingMaxUtilization(),
+          floatingNaturalUtilization: irm.floatingNaturalUtilization()
         }),
         usdPrice: auditor.assetPrice(m.priceFeed).mulWadDown(basePrice),
         penaltyRate: market.penaltyRate(),
@@ -156,9 +152,7 @@ contract Previewer {
         maxFuturePools: market.maxFuturePools(),
         fixedPools: fixedPools(market),
         rewardRates: rewardRates(market, basePrice),
-        floatingBorrowRate: irm.floatingRate(
-          market.floatingAssets() > 0 ? Math.min(market.floatingDebt().divWadUp(market.floatingAssets()), 1e18) : 0
-        ),
+        floatingBorrowRate: irm.floatingRate(0),
         floatingUtilization: market.floatingAssets() > 0
           ? Math.min(market.floatingDebt().divWadUp(market.floatingAssets()), 1e18)
           : 0,
@@ -400,10 +394,16 @@ contract Previewer {
       f.optimalDeposit = pool.borrowed - Math.min(pool.borrowed, pool.supplied);
       pool.unassignedEarnings -= f.backupEarnings;
       f.liquidity = (f.floatingAssets + f.freshFloatingDebt).mulWadDown(1e18 - market.reserveFactor());
-      (uint256 minBorrowRate, uint256 utilization) = (f.floatingAssetsAverage + pool.supplied) > 0
-        ? market.interestRateModel().minFixedRate(pool.borrowed, pool.supplied, f.floatingAssetsAverage)
-        : (0, 0);
-
+      f.floatingUtilization = f.floatingAssetsAverage > 0 ? f.freshFloatingDebt.divWadUp(f.floatingAssetsAverage) : 0;
+      f.fixedUtilization = f.floatingAssetsAverage > 0 && pool.borrowed > pool.supplied
+        ? (pool.borrowed - pool.supplied).divWadUp(f.floatingAssetsAverage)
+        : 0;
+      f.globalUtilization = f.floatingAssetsAverage > 0
+        ? 1e18 -
+          (f.floatingAssetsAverage - f.freshFloatingDebt - market.floatingBackupBorrowed()).divWadDown(
+            f.floatingAssetsAverage
+          )
+        : 0;
       pools[i] = FixedPool({
         maturity: f.maturity,
         borrowed: pool.borrowed,
@@ -415,7 +415,7 @@ contract Previewer {
         ) +
           pool.supplied -
           Math.min(pool.supplied, pool.borrowed),
-        utilization: utilization,
+        utilization: f.fixedUtilization,
         optimalDeposit: f.optimalDeposit,
         depositRate: uint256(365 days).mulDivDown(
           f.optimalDeposit > 0
@@ -423,7 +423,13 @@ contract Previewer {
             : 0,
           f.maturity - block.timestamp
         ),
-        minBorrowRate: minBorrowRate
+        minBorrowRate: market.interestRateModel().fixedRate(
+          f.maturity,
+          f.maxFuturePools,
+          f.fixedUtilization,
+          f.floatingUtilization,
+          f.globalUtilization
+        )
       });
       unchecked {
         ++i;
@@ -613,14 +619,12 @@ contract Previewer {
   }
 
   function newFloatingDebt(Market market) internal view returns (uint256) {
-    uint256 memFloatingDebt = market.floatingDebt();
-    uint256 memFloatingAssets = market.floatingAssets();
     return
-      memFloatingDebt.mulWadDown(
-        market
-          .interestRateModel()
-          .floatingRate(memFloatingAssets > 0 ? Math.min(memFloatingDebt.divWadUp(memFloatingAssets), 1e18) : 0)
-          .mulDivDown(block.timestamp - market.lastFloatingDebtUpdate(), 365 days)
+      market.floatingDebt().mulWadDown(
+        market.interestRateModel().floatingRate(0).mulDivDown(
+          block.timestamp - market.lastFloatingDebtUpdate(),
+          365 days
+        )
       );
   }
 
@@ -656,6 +660,9 @@ contract Previewer {
     uint256 maxFuturePools;
     uint256 liquidity;
     uint256 maturity;
+    uint256 floatingUtilization;
+    uint256 fixedUtilization;
+    uint256 globalUtilization;
   }
 }
 
