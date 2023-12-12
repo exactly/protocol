@@ -912,11 +912,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @return actual floatingAssets plus earnings to be accrued at current timestamp.
   function totalAssets() public view override returns (uint256) {
     unchecked {
-      uint256 memMaxFuturePools = maxFuturePools;
       uint256 backupEarnings = 0;
 
       uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
-      uint256 maxMaturity = latestMaturity + memMaxFuturePools * FixedLib.INTERVAL;
+      uint256 maxMaturity = latestMaturity + maxFuturePools * FixedLib.INTERVAL;
 
       for (uint256 maturity = latestMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
         FixedLib.Pool storage pool = fixedPools[maturity];
