@@ -42,7 +42,18 @@ contract InterestRateModel {
     int256 timePreference_,
     uint256 maturitySpeed_
   ) {
-    assert(maxUtilization_ > 1e18);
+    assert(
+      curveA_ != 0 &&
+        maxUtilization_ > 1e18 &&
+        floatingNaturalUtilization_ != 0 &&
+        floatingNaturalUtilization_ < 1e18 &&
+        sigmoidSpeed_ != 0 &&
+        growthSpeed_ != 0 &&
+        maxRate_ != 0 &&
+        maxRate_ <= 15_000e16 &&
+        spreadFactor_ != 0 &&
+        maturitySpeed_ != 0
+    );
 
     market = market_;
 
