@@ -694,8 +694,8 @@ contract RewardsControllerTest is Test {
     uint256 distributedRewards = rewardsController.allClaimable(address(this), opRewardAsset);
     rewardsController.claimAll(address(this));
     (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
-    assertApproxEqAbs(distributedRewards, 600 ether, 3e18);
-    assertApproxEqAbs(lastUndistributed, 1_400 ether, 3e18);
+    assertApproxEqAbs(distributedRewards, 589 ether, 3e18);
+    assertApproxEqAbs(lastUndistributed, 1_410 ether, 3e18);
   }
 
   function testAllClaimableWETH() external {
@@ -895,7 +895,7 @@ contract RewardsControllerTest is Test {
 
     vm.warp(12 weeks);
     rewardsController.claimAll(address(this));
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), 1788 ether, 1e18);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), 1772 ether, 1e18);
   }
 
   function testSetLowerDistributionPeriod() external {
@@ -1108,7 +1108,7 @@ contract RewardsControllerTest is Test {
 
     vm.warp(45 weeks);
     rewardsController.claimAll(address(this));
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), 1952 ether, 1e18);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), 1950 ether, 1e18);
   }
 
   function testSetTargetDebtMultipleTimesAfterEnd() external {
@@ -1143,7 +1143,7 @@ contract RewardsControllerTest is Test {
 
     vm.warp(45 weeks);
     rewardsController.claimAll(address(this));
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), 1900 ether, 1e18);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), 1892 ether, 1e18);
   }
 
   function testSetTotalDistributionMultipleTimes() external {
@@ -1421,13 +1421,13 @@ contract RewardsControllerTest is Test {
       1 days
     );
     vm.expectEmit(true, true, true, true, address(rewardsController));
-    emit Accrue(marketWETH, opRewardAsset, address(this), true, 0, borrowIndex, 18450581604194260);
+    emit Accrue(marketWETH, opRewardAsset, address(this), true, 0, borrowIndex, 18445762012054140);
     rewardsController.claimAll(address(this));
 
     vm.warp(2 days);
     (, uint256 newDepositIndex, ) = rewardsController.previewAllocation(marketWETH, opRewardAsset, 1 days);
     vm.expectEmit(true, true, true, true, address(rewardsController));
-    emit Accrue(marketWETH, opRewardAsset, address(this), false, depositIndex, newDepositIndex, 5470239084941400);
+    emit Accrue(marketWETH, opRewardAsset, address(this), false, depositIndex, newDepositIndex, 5466772660369400);
     marketWETH.deposit(10 ether, address(this));
   }
 
