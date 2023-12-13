@@ -474,8 +474,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 deltaTime
   ) internal view returns (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) {
     TotalMarketBalance memory m;
-    m.debt = market.totalFloatingBorrowAssets();
-    m.supply = market.totalAssets();
+    m.floatingDebt = market.floatingDebt();
+    m.floatingAssets = market.floatingAssets();
     TimeVars memory t;
     t.start = rewardData.start;
     t.end = rewardData.end;
@@ -486,14 +486,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         (FixedLib.INTERVAL * market.maxFuturePools());
       uint256 fixedDebt;
       for (uint256 maturity = firstMaturity; maturity <= maxMaturity; ) {
-        (uint256 borrowed, uint256 supplied) = market.fixedPoolBalance(maturity);
+        (uint256 borrowed, ) = market.fixedPoolBalance(maturity);
         fixedDebt += borrowed;
-        m.supply += supplied;
         unchecked {
           maturity += FixedLib.INTERVAL;
         }
       }
-      m.debt += fixedDebt;
+      m.debt = m.floatingDebt + fixedDebt;
       m.fixedBorrowShares = market.previewRepay(fixedDebt);
     }
     uint256 target;
@@ -543,16 +542,21 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
     {
       AllocationVars memory v;
-      v.utilization = m.supply > 0 ? Math.min(m.debt.divWadDown(m.supply), UTILIZATION_CAP) : 0;
+      v.globalUtilization = Math.min(
+        m.floatingAssets != 0
+          ? 1e18 - (m.floatingAssets - m.floatingDebt - market.floatingBackupBorrowed()).divWadDown(m.floatingAssets)
+          : 0,
+        UTILIZATION_CAP
+      );
       v.transitionFactor = rewardData.transitionFactor;
       v.flipSpeed = rewardData.flipSpeed;
       v.borrowAllocationWeightFactor = rewardData.borrowAllocationWeightFactor;
-      v.sigmoid = v.utilization > 0
+      v.sigmoid = v.globalUtilization > 0
         ? uint256(1e18).divWadDown(
           1e18 +
             uint256(
               (-(v.flipSpeed *
-                (int256(v.utilization.divWadDown(1e18 - v.utilization)).lnWad() -
+                (int256(v.globalUtilization.divWadDown(1e18 - v.globalUtilization)).lnWad() -
                   int256(v.transitionFactor.divWadDown(1e18 - v.transitionFactor)).lnWad())) / 1e18).expWad()
             )
         )
@@ -560,9 +564,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       v.borrowRewardRule = rewardData
         .compensationFactor
         .mulWadDown(
-          market.interestRateModel().floatingRate(v.utilization).mulWadDown(
-            1e18 - v.utilization.mulWadUp(1e18 - market.treasuryFeeRate())
-          ) + v.borrowAllocationWeightFactor
+          market
+            .interestRateModel()
+            .floatingRate(m.floatingAssets != 0 ? m.floatingDebt.divWadDown(m.floatingAssets) : 0, v.globalUtilization)
+            .mulWadDown(1e18 - v.globalUtilization.mulWadUp(1e18 - market.treasuryFeeRate())) +
+            v.borrowAllocationWeightFactor
         )
         .mulWadDown(1e18 - v.sigmoid);
       v.depositRewardRule =
@@ -769,8 +775,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   struct TotalMarketBalance {
     uint256 debt;
-    uint256 supply;
     uint256 fixedBorrowShares;
+    uint256 floatingDebt;
+    uint256 floatingAssets;
   }
 
   struct TimeVars {
@@ -780,7 +787,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   }
 
   struct AllocationVars {
-    uint256 utilization;
+    uint256 globalUtilization;
     uint256 sigmoid;
     uint256 borrowRewardRule;
     uint256 depositRewardRule;
