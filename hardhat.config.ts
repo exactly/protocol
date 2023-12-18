@@ -59,6 +59,16 @@ export default {
     dampSpeed: { up: 0.0046, down: 0.4 },
     futurePools: 6,
     earningsAccumulatorSmoothFactor: 2,
+    interestRateModel: {
+      floatingCurve: { a: 1.3829e-2, b: 1.7429e-2, maxUtilization: 1.1 },
+      floatingNaturalUtilization: 0.7,
+      sigmoidSpeed: 2.5,
+      growthSpeed: 1,
+      maxRate: 0.1,
+      spreadFactor: 0.2,
+      timePreference: 0,
+      maturitySpeed: 0.5,
+    },
     rewards: {
       undistributedFactor: 0.5,
       flipSpeed: 2,
@@ -75,14 +85,15 @@ export default {
     markets: {
       WETH: {
         adjustFactor: 0.86,
-        floatingCurve: { a: 1.9362e-2, b: -1.787e-3, maxUtilization: 1.003870947 },
-        fixedCurve: { a: 3.8691e-1, b: -3.5319e-1, maxUtilization: 1.031219287 },
         overrides: {
           goerli: {
             rewards: {
               OP: { total: 180_000, debt: 16_000, start: "2023-03-09", period: 32 * 7 * 86_400 },
               EXA: { total: 15_200, debt: 16_000, start: "2023-07-20", period: 8 * 7 * 86_400 },
               esEXA: { total: 150_000, debt: 6_000, start: "2023-10-11", period: 30 * 7 * 86_400 },
+            },
+            interestRateModel: {
+              maxRate: 4.2,
             },
           },
           optimism: {
@@ -124,13 +135,9 @@ export default {
       DAI: {
         networks: ["ethereum", "goerli"],
         adjustFactor: 0.9,
-        floatingCurve: { a: 1.7852e-2, b: -2.789e-3, maxUtilization: 1.003568501 },
-        fixedCurve: { a: 3.6909e-1, b: -3.3415e-1, maxUtilization: 1.02766986 },
       },
       USDC: {
         adjustFactor: 0.91,
-        floatingCurve: { a: 1.4844e-2, b: 1.9964e-4, maxUtilization: 1.002968978 },
-        fixedCurve: { a: 2.5931e-1, b: -2.3207e-1, maxUtilization: 1.008715115 },
         overrides: {
           goerli: {
             rewards: {
@@ -162,8 +169,6 @@ export default {
       },
       WBTC: {
         adjustFactor: 0.85,
-        floatingCurve: { a: 2.7194e-2, b: 3.016e-3, maxUtilization: 1.007776377 },
-        fixedCurve: { a: 4.6586e-1, b: -4.1345e-1, maxUtilization: 1.050553997 },
         overrides: {
           ethereum: { priceFeed: "double" },
           goerli: { priceFeed: "double" },
@@ -172,8 +177,6 @@ export default {
       },
       wstETH: {
         adjustFactor: 0.82,
-        floatingCurve: { a: 1.9362e-2, b: -1.787e-3, maxUtilization: 1.003870947 },
-        fixedCurve: { a: 3.8691e-1, b: -3.5319e-1, maxUtilization: 1.031219287 },
         priceFeed: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
         overrides: {
           goerli: {
@@ -237,8 +240,6 @@ export default {
       OP: {
         networks: ["optimism"],
         adjustFactor: 0.58,
-        floatingCurve: { a: 2.8487e-2, b: -5.8259e-3, maxUtilization: 1.005690787 },
-        fixedCurve: { a: 2.8574e-1, b: -2.4204e-1, maxUtilization: 1.013118138 },
         overrides: {
           optimism: {
             rewards: {
@@ -343,6 +344,7 @@ extendConfig((hardhatConfig, { finance }) => {
                 Object.entries(config.rewards).map(([asset, rewards]) => [asset, { ...finance.rewards, ...rewards }]),
               );
             }
+            config.interestRateModel = { ...finance.interestRateModel, ...config.interestRateModel };
             return [name, config];
           }),
       ),
@@ -363,6 +365,7 @@ declare module "hardhat/types/config" {
     earningsAccumulatorSmoothFactor: number;
     rewards: RewardsParameters;
     escrow: EscrowParameters;
+    interestRateModel: Partial<IRMParameters>;
     markets: { [asset: string]: MarketUserConfig };
     periphery: PeripheryConfig;
   }
@@ -388,9 +391,8 @@ declare module "hardhat/types/config" {
 
   export interface MarketConfig {
     adjustFactor: number;
-    fixedCurve: Curve;
-    floatingCurve: Curve;
     priceFeed?: "double" | { wrapper: string; fn: string; baseUnit: bigint };
+    interestRateModel?: Partial<IRMParameters>;
     rewards?: {
       [asset: string]: {
         total: number;
@@ -404,6 +406,17 @@ declare module "hardhat/types/config" {
   export interface MarketUserConfig extends MarketConfig {
     networks?: string[];
     overrides?: { [network: string]: Partial<MarketConfig> };
+  }
+
+  export interface IRMParameters {
+    floatingCurve: Curve;
+    floatingNaturalUtilization: number;
+    sigmoidSpeed: number;
+    growthSpeed: number;
+    maxRate: number;
+    spreadFactor: number;
+    timePreference: number;
+    maturitySpeed: number;
   }
 
   export interface Curve {

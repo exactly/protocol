@@ -41,24 +41,6 @@ const func: DeployFunction = async ({
   const treasuryFeeRate = parseUnits(String(finance.treasuryFeeRate ?? 0));
 
   for (const [symbol, config] of Object.entries(finance.markets)) {
-    const { address: interestRateModel } = await tenderlify(
-      "InterestRateModel",
-      await deploy(`InterestRateModel${symbol}`, {
-        skipIfAlreadyDeployed: !JSON.parse(env[`DEPLOY_IRM_${symbol}`] ?? "false"),
-        contract: "InterestRateModel",
-        args: [
-          parseUnits(String(config.fixedCurve.a)),
-          parseUnits(String(config.fixedCurve.b)),
-          parseUnits(String(config.fixedCurve.maxUtilization)),
-          parseUnits(String(config.floatingCurve.a)),
-          parseUnits(String(config.floatingCurve.b)),
-          parseUnits(String(config.floatingCurve.maxUtilization)),
-        ],
-        from: deployer,
-        log: true,
-      }),
-    );
-
     const asset = await getContract<ERC20>(symbol);
     const marketName = `Market${symbol}`;
     await validateUpgrade(
@@ -82,7 +64,7 @@ const func: DeployFunction = async ({
                 args: [
                   finance.futurePools,
                   earningsAccumulatorSmoothFactor,
-                  interestRateModel,
+                  AddressZero, // irm
                   penaltyRate,
                   backupFeeRate,
                   reserveFactor,
@@ -116,6 +98,31 @@ const func: DeployFunction = async ({
         }),
       );
     }
+
+    const { address: interestRateModel } = await tenderlify(
+      "InterestRateModel",
+      await deploy(`InterestRateModel${symbol}`, {
+        skipIfAlreadyDeployed: !JSON.parse(
+          env[`DEPLOY_IRM_${symbol}`] ?? (await market.interestRateModel()) === AddressZero ? "true" : "false",
+        ),
+        contract: "InterestRateModel",
+        args: [
+          market.address,
+          parseUnits(String(config.interestRateModel?.floatingCurve?.a)),
+          parseUnits(String(config.interestRateModel?.floatingCurve?.b)),
+          parseUnits(String(config.interestRateModel?.floatingCurve?.maxUtilization)),
+          parseUnits(String(config.interestRateModel?.floatingNaturalUtilization)),
+          parseUnits(String(config.interestRateModel?.sigmoidSpeed)),
+          parseUnits(String(config.interestRateModel?.growthSpeed)),
+          parseUnits(String(config.interestRateModel?.maxRate)),
+          parseUnits(String(config.interestRateModel?.spreadFactor)),
+          parseUnits(String(config.interestRateModel?.timePreference)),
+          parseUnits(String(config.interestRateModel?.maturitySpeed)),
+        ],
+        from: deployer,
+        log: true,
+      }),
+    );
 
     if ((await market.maxFuturePools()) !== finance.futurePools) {
       await executeOrPropose(market, "setMaxFuturePools", [finance.futurePools]);
