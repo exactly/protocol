@@ -1,5 +1,17 @@
 # @exactly/protocol
 
+## 0.2.20
+
+### Patch Changes
+
+- d21ffab1: 📌 solidity: relax version and set compiler to `0.8.23`
+- cda9215c: ♻️ market: use new irm interface
+- 839641a7: 🦺 irm: limit parameters range
+- 67f16b13: 👔 irm: new fixed rate model
+- dd057a5b: 👔 irm: new floating rate model
+- 410fbb72: 👔 rewards: use new utilization definition
+- a91c85ab: ⚡️ market: avoid unnecessary cache on `totalAssets`
+
 ## 0.2.19
 
 ### Patch Changes
