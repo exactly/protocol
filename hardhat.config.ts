@@ -92,7 +92,7 @@ export default {
                 debt: 1,
                 start: "2023-04-03T14:00Z",
                 period: 32 * 7 * 86_400,
-                undistributedFactor: 0.3,
+                undistributedFactor: 1_000,
                 compensationFactor: 0.7,
                 transitionFactor: 0.7056,
                 depositAllocationWeightAddend: 0.03,
@@ -166,8 +166,27 @@ export default {
         fixedCurve: { a: 4.6586e-1, b: -4.1345e-1, maxUtilization: 1.050553997 },
         overrides: {
           ethereum: { priceFeed: "double" },
-          goerli: { priceFeed: "double" },
-          optimism: { adjustFactor: 0.78 },
+          goerli: {
+            priceFeed: "double",
+            rewards: {
+              esEXA: { total: 12_000, debt: 0.35, start: "2023-12-20", period: 23 * 7 * 86_400 },
+            },
+          },
+          optimism: {
+            adjustFactor: 0.78,
+            rewards: {
+              esEXA: {
+                total: 12_000,
+                debt: 0.35,
+                undistributedFactor: 0.3,
+                transitionFactor: 0.6,
+                compensationFactor: 0,
+                depositAllocationWeightAddend: 0.06,
+                start: "2023-12-20",
+                period: 23 * 7 * 86_400,
+              },
+            },
+          },
         },
       },
       wstETH: {
@@ -223,7 +242,7 @@ export default {
               },
               esEXA: {
                 total: 70_000,
-                debt: 2.5,
+                debt: 0.05,
                 start: "2023-10-23T14:00Z",
                 period: 30 * 7 * 86_400,
                 compensationFactor: 0,
@@ -247,7 +266,7 @@ export default {
                 debt: 1,
                 start: "2023-07-24T14:00Z",
                 period: 8 * 7 * 86_400,
-                undistributedFactor: 1,
+                undistributedFactor: 1_000,
                 compensationFactor: 0.7,
                 transitionFactor: 0.7056,
                 depositAllocationWeightAddend: 0.03,
