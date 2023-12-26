@@ -83,7 +83,7 @@ const hardhatConfig: Config = {
     },
     escrow: {
       vestingPeriod: 365 * 86_400,
-      reserveRatio: 0.15,
+      reserveRatio: 0.25,
     },
     markets: {
       WETH: {
