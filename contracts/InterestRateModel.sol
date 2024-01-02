@@ -90,8 +90,8 @@ contract InterestRateModel {
   }
 
   struct FixedVars {
+    uint256 sqFNatPools;
     uint256 fNatPools;
-    uint256 auxFNatPools;
     uint256 fixedFactor;
     int256 natPools;
   }
@@ -115,10 +115,10 @@ contract InterestRateModel {
     if (uFixed == 0) return floatingRate(uFloating, uGlobal);
 
     FixedVars memory v;
-    v.fNatPools = (maxPools * 1e18).divWadDown(fixedNaturalUtilization);
-    v.auxFNatPools = (v.fNatPools * 1e18).sqrt();
+    v.sqFNatPools = (maxPools * 1e18).divWadDown(fixedNaturalUtilization);
+    v.fNatPools = (v.sqFNatPools * 1e18).sqrt();
     v.fixedFactor = (maxPools * uFixed).mulDivDown(1e36, uGlobal * fixedNaturalUtilization);
-    v.natPools = ((2e18 - int256(v.fNatPools)) * 1e36) / (int256(v.auxFNatPools) * (1e18 - int256(v.auxFNatPools)));
+    v.natPools = ((2e18 - int256(v.sqFNatPools)) * 1e36) / (int256(v.fNatPools) * (1e18 - int256(v.fNatPools)));
 
     uint256 spread = uint256(
       1e18 +
