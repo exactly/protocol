@@ -265,7 +265,7 @@ contract InterestRateModel {
     uint256 floatingDebt,
     uint256 backupBorrowed
   ) internal pure returns (uint256) {
-    return floatingAssets != 0 ? 1e18 - (floatingAssets - floatingDebt - backupBorrowed).divWadDown(floatingAssets) : 0;
+    return floatingAssets != 0 ? (floatingDebt + backupBorrowed).divWadUp(floatingAssets) : 0;
   }
 
   function fixedUtilization(

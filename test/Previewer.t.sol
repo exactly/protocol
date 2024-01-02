@@ -1319,8 +1319,6 @@ contract PreviewerTest is Test {
       assertEq(data[0].fixedPools[i].available, floatingAssetsAverage);
     }
     floatingAssetsAverage = previewFloatingAssetsAverage(FixedLib.INTERVAL);
-    vm.expectRevert(stdError.arithmeticError);
-    market.borrowAtMaturity(FixedLib.INTERVAL, floatingAssetsAverage + 1, 50 ether, address(this), address(this));
 
     // borrowing exactly floatingAssetsAverage doesn't revert
     market.borrowAtMaturity(FixedLib.INTERVAL, floatingAssetsAverage, 50 ether, address(this), address(this));
