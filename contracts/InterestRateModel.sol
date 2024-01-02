@@ -17,13 +17,21 @@ contract InterestRateModel {
   /// @notice Asymptote of the floating curve.
   uint256 public immutable floatingMaxUtilization;
 
+  /// @notice natural level of floating utilization, represented with 18 decimals.
   uint256 public immutable floatingNaturalUtilization;
+  /// @notice natural level of fixed utilization, represented with 18 decimals.
   uint256 public immutable fixedNaturalUtilization;
+  /// @notice speed of growth for the base rate, represented with 18 decimals.
   int256 public immutable growthSpeed;
+  /// @notice speed of the sigmoid curve, represented with 18 decimals.
   int256 public immutable sigmoidSpeed;
+  /// @notice maximum interest rate, represented with 18 decimals.
   uint256 public immutable maxRate;
+  /// @notice spread factor for the fixed rate, represented with 18 decimals.
   int256 public immutable spreadFactor;
+  /// @notice time preference for the fixed rate, represented with 18 decimals.
   int256 public immutable timePreference;
+  /// @notice speed of maturity for the fixed rate, represented with 18 decimals.
   uint256 public immutable maturitySpeed;
 
   /// @dev auxiliary variable to save an extra operation.
@@ -88,6 +96,13 @@ contract InterestRateModel {
     int256 natPools;
   }
 
+  /// @notice fixed rate with given conditions, represented with 18 decimals.
+  /// @param maturity maturity of the pool.
+  /// @param maxPools number of pools available in the time horizon.
+  /// @param uFixed fixed utilization of the pool.
+  /// @param uFloating floating utilization of the pool.
+  /// @param uGlobal global utilization of the pool.
+  /// @return the minimum between `floatingRate` and `maxRate` with given conditions.
   function fixedRate(
     uint256 maturity,
     uint256 maxPools,
@@ -129,6 +144,10 @@ contract InterestRateModel {
     return base.mulWadUp(spread);
   }
 
+  /// @notice base rate with given conditions, represented with 18 decimals.
+  /// @param uFloating floating utilization of the pool.
+  /// @param uGlobal global utilization of the pool.
+  /// @return the base rate, without capping.
   function baseRate(uint256 uFloating, uint256 uGlobal) public view returns (uint256) {
     if (uFloating > uGlobal) revert UtilizationExceeded();
     if (uGlobal >= 1e18) return type(uint256).max;
@@ -158,6 +177,10 @@ contract InterestRateModel {
     return uint256(r).mulWadUp(globalFactor);
   }
 
+  /// @notice floating rate with given conditions, represented with 18 decimals.
+  /// @param uFloating floating utilization of the pool.
+  /// @param uGlobal global utilization of the pool.
+  /// @return the minimum between `baseRate` and `maxRate` with given conditions.
   function floatingRate(uint256 uFloating, uint256 uGlobal) public view returns (uint256) {
     return Math.min(baseRate(uFloating, uGlobal), maxRate);
   }
