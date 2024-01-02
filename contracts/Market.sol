@@ -1011,7 +1011,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Retrieves fixed utilization of the floating pool.
   /// @dev Internal function to avoid code duplication.
   function fixedUtilization(uint256 supplied, uint256 borrowed, uint256 assets) internal pure returns (uint256) {
-    return assets > 0 && borrowed > supplied ? (borrowed - supplied).divWadUp(assets) : 0;
+    return assets != 0 && borrowed > supplied ? (borrowed - supplied).divWadUp(assets) : 0;
   }
 
   /// @notice Retrieves global utilization of the floating pool.
@@ -1023,7 +1023,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Retrieves floating utilization of the floating pool.
   /// @dev Internal function to avoid code duplication.
   function floatingUtilization(uint256 assets, uint256 debt) internal pure returns (uint256) {
-    return assets > 0 ? debt.divWadUp(assets) : 0;
+    return assets != 0 ? debt.divWadUp(assets) : 0;
   }
 
   /// @notice Emits MarketUpdate event.
