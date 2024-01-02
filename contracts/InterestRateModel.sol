@@ -148,7 +148,7 @@ contract InterestRateModel {
   /// @param uFloating floating utilization of the pool.
   /// @param uGlobal global utilization of the pool.
   /// @return the base rate, without capping.
-  function baseRate(uint256 uFloating, uint256 uGlobal) public view returns (uint256) {
+  function baseRate(uint256 uFloating, uint256 uGlobal) internal view returns (uint256) {
     if (uFloating > uGlobal) revert UtilizationExceeded();
     if (uGlobal >= 1e18) return type(uint256).max;
 
