@@ -32,7 +32,7 @@ contract InterestRateModel {
   /// @notice time preference for the fixed rate, represented with 18 decimals.
   int256 public immutable timePreference;
   /// @notice speed of maturity for the fixed rate, represented with 18 decimals.
-  uint256 public immutable maturitySpeed;
+  int256 public immutable maturitySpeed;
 
   /// @dev auxiliary variable to save an extra operation.
   int256 internal immutable auxUNat;
@@ -48,19 +48,19 @@ contract InterestRateModel {
     uint256 maxRate_,
     int256 spreadFactor_,
     int256 timePreference_,
-    uint256 maturitySpeed_
+    int256 maturitySpeed_
   ) {
     assert(
       curveA_ != 0 &&
         maxUtilization_ > 1e18 &&
         floatingNaturalUtilization_ != 0 &&
         floatingNaturalUtilization_ < 1e18 &&
-        sigmoidSpeed_ != 0 &&
-        growthSpeed_ != 0 &&
+        sigmoidSpeed_ > 0 &&
+        growthSpeed_ > 0 &&
         maxRate_ != 0 &&
         maxRate_ <= 15_000e16 &&
-        spreadFactor_ != 0 &&
-        maturitySpeed_ != 0
+        spreadFactor_ > 0 &&
+        maturitySpeed_ > 0
     );
 
     market = market_;
@@ -122,7 +122,7 @@ contract InterestRateModel {
 
     uint256 spread = uint256(
       1e18 +
-        (((int256(maturitySpeed) *
+        (((maturitySpeed *
           int256(
             (maturity - block.timestamp).divWadDown(
               maxPools * FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)

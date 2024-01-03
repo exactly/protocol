@@ -288,7 +288,7 @@ contract InterestRateModelHarness is InterestRateModel {
     uint256 maxRate_,
     int256 spreadFactor_,
     int256 timePreference_,
-    uint256 maturitySpeed_
+    int256 maturitySpeed_
   )
     InterestRateModel(
       market_,
