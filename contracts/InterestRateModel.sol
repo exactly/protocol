@@ -2,6 +2,7 @@
 pragma solidity ^0.8.17;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Market } from "./Market.sol";
@@ -9,6 +10,8 @@ import { Market } from "./Market.sol";
 contract InterestRateModel {
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for int256;
+  using SafeCast for uint256;
+  using SafeCast for int256;
 
   /// @notice Scale factor of the floating curve.
   uint256 public immutable floatingCurveA;
@@ -76,7 +79,7 @@ contract InterestRateModel {
     floatingNaturalUtilization = floatingNaturalUtilization_;
     fixedNaturalUtilization = 1e18 - floatingNaturalUtilization;
 
-    auxUNat = int256(floatingNaturalUtilization.divWadDown(fixedNaturalUtilization)).lnWad();
+    auxUNat = (floatingNaturalUtilization.divWadDown(fixedNaturalUtilization)).toInt256().lnWad();
     sigmoidSpeed = sigmoidSpeed_;
     growthSpeed = growthSpeed_;
     maxRate = maxRate_;
@@ -94,6 +97,7 @@ contract InterestRateModel {
     uint256 fNatPools;
     uint256 fixedFactor;
     int256 natPools;
+    uint256 maturityFactor;
   }
 
   /// @notice fixed rate with given conditions, represented with 18 decimals.
@@ -118,26 +122,24 @@ contract InterestRateModel {
     v.sqFNatPools = (maxPools * 1e18).divWadDown(fixedNaturalUtilization);
     v.fNatPools = (v.sqFNatPools * 1e18).sqrt();
     v.fixedFactor = (maxPools * uFixed).mulDivDown(1e36, uGlobal * fixedNaturalUtilization);
-    v.natPools = ((2e18 - int256(v.sqFNatPools)) * 1e36) / (int256(v.fNatPools) * (1e18 - int256(v.fNatPools)));
-
-    uint256 spread = uint256(
-      1e18 +
-        (((maturitySpeed *
-          int256(
-            (maturity - block.timestamp).divWadDown(
-              maxPools * FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)
-            )
-          ).lnWad()) / 1e18).expWad() *
-          (timePreference +
-            (spreadFactor *
-              ((v.natPools * int256((v.fixedFactor * 1e18).sqrt())) /
-                1e18 +
-                ((1e18 - v.natPools) * int256(v.fixedFactor)) /
-                1e18 -
-                1e18)) /
-            1e18)) /
-        1e18
+    v.natPools =
+      ((2e18 - v.sqFNatPools.toInt256()) * 1e36) /
+      (v.fNatPools.toInt256() * (1e18 - v.fNatPools.toInt256()));
+    v.maturityFactor = (maturity - block.timestamp).divWadDown(
+      maxPools * FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)
     );
+
+    uint256 spread = (1e18 +
+      (((maturitySpeed * (v.maturityFactor).toInt256().lnWad()) / 1e18).expWad() *
+        (timePreference +
+          (spreadFactor *
+            ((v.natPools * (v.fixedFactor * 1e18).sqrt().toInt256()) /
+              1e18 +
+              ((1e18 - v.natPools) * v.fixedFactor.toInt256()) /
+              1e18 -
+              1e18)) /
+          1e18)) /
+      1e18).toUint256();
     uint256 base = baseRate(uFloating, uGlobal);
 
     if (base >= maxRate.divWadDown(spread)) return maxRate;
@@ -152,29 +154,22 @@ contract InterestRateModel {
     if (uFloating > uGlobal) revert UtilizationExceeded();
     if (uGlobal >= 1e18) return type(uint256).max;
 
-    int256 r = int256(floatingCurveA.divWadDown(floatingMaxUtilization - uFloating)) + floatingCurveB;
-    assert(r >= 0);
+    uint256 r = ((floatingCurveA.divWadDown(floatingMaxUtilization - uFloating)).toInt256() + floatingCurveB)
+      .toUint256();
 
-    if (uGlobal == 0) return uint256(r);
+    if (uGlobal == 0) return r;
 
-    uint256 globalFactor = uint256(
+    int256 sigmoid = (-((sigmoidSpeed * ((uGlobal.divWadDown(1e18 - uGlobal)).toInt256().lnWad() - auxUNat)) / 1e18))
+      .expWad();
+    uint256 globalFactor = (
       ((-growthSpeed *
-        int256(
-          1e18 -
-            uint256(1e18)
-              .divWadDown(
-                uint256(
-                  1e18 +
-                    (-((sigmoidSpeed * (int256(uGlobal.divWadDown(1e18 - uGlobal)).lnWad() - auxUNat)) / 1e18)).expWad()
-                )
-              )
-              .mulWadDown(uGlobal)
-        ).lnWad()) / 1e18).expWad()
-    );
+        (1e18 - uint256(1e18).divWadDown((1e18 + sigmoid).toUint256()).mulWadDown(uGlobal)).toInt256().lnWad()) / 1e18)
+        .expWad()
+    ).toUint256();
 
-    if (globalFactor > type(uint256).max / uint256(r)) return type(uint256).max;
+    if (globalFactor > type(uint256).max / r) return type(uint256).max;
 
-    return uint256(r).mulWadUp(globalFactor);
+    return r.mulWadUp(globalFactor);
   }
 
   /// @notice floating rate with given conditions, represented with 18 decimals.
@@ -254,16 +249,14 @@ contract InterestRateModel {
     uint256 memFloatingAssets = market.floatingAssets() +
       pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual);
     uint256 memFloatingAssetsAverage = market.floatingAssetsAverage();
-    uint256 averageFactor = uint256(
-      1e18 -
-        (
-          -int256(
-            memFloatingAssets < memFloatingAssetsAverage
-              ? market.dampSpeedDown()
-              : market.dampSpeedUp() * (block.timestamp - market.lastAverageUpdate())
-          )
-        ).expWad()
-    );
+    uint256 averageFactor = (1e18 -
+      (
+        -(
+          memFloatingAssets < memFloatingAssetsAverage
+            ? market.dampSpeedDown()
+            : market.dampSpeedUp() * (block.timestamp - market.lastAverageUpdate())
+        ).toInt256()
+      ).expWad()).toUint256();
     return memFloatingAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(memFloatingAssets);
   }
 
