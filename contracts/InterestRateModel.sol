@@ -88,8 +88,8 @@ contract InterestRateModel {
     maturitySpeed = maturitySpeed_;
 
     // reverts if it's an invalid curve (such as one yielding a negative interest rate).
-    fixedRate(block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL), 1, 0, 0, 0);
-    baseRate(0, 0);
+    fixedRate(block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL), 1, 1, 1, 2);
+    baseRate(1e18 - 1, 1e18 - 1);
   }
 
   struct FixedVars {
