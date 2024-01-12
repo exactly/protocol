@@ -37,6 +37,8 @@ contract InterestRateModel {
   /// @notice speed of maturity for the fixed rate, represented with 18 decimals.
   int256 public immutable maturitySpeed;
 
+  /// @dev maximum input value for expWad, ~ln(2^256), represented with 18 decimals.
+  int256 internal constant EXP_THRESHOLD = 135305999368893231588;
   /// @dev auxiliary variable to save an extra operation.
   int256 internal immutable auxUNat;
 
@@ -159,13 +161,12 @@ contract InterestRateModel {
 
     if (uGlobal == 0) return r;
 
-    int256 sigmoid = (-((sigmoidSpeed * ((uGlobal.divWadDown(1e18 - uGlobal)).toInt256().lnWad() - auxUNat)) / 1e18))
-      .expWad();
-    uint256 globalFactor = (
-      ((-growthSpeed *
-        (1e18 - uint256(1e18).divWadDown((1e18 + sigmoid).toUint256()).mulWadDown(uGlobal)).toInt256().lnWad()) / 1e18)
-        .expWad()
-    ).toUint256();
+    int256 x = -((sigmoidSpeed * ((uGlobal.divWadDown(1e18 - uGlobal)).toInt256().lnWad() - auxUNat)) / 1e18);
+    uint256 sigmoid = x > EXP_THRESHOLD ? 1e18 : x.expWad().toUint256();
+    x =
+      (-growthSpeed * (1e18 - uint256(1e18).divWadDown(1e18 + sigmoid).mulWadDown(uGlobal)).toInt256().lnWad()) /
+      1e18;
+    uint256 globalFactor = ((x > EXP_THRESHOLD ? EXP_THRESHOLD : x).expWad()).toUint256();
 
     if (globalFactor > type(uint256).max / r) return type(uint256).max;
 
