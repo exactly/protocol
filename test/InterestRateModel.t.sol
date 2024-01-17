@@ -2,6 +2,7 @@
 pragma solidity ^0.8.17;
 
 import { Test } from "forge-std/Test.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
@@ -11,6 +12,7 @@ import { Auditor } from "../contracts/Auditor.sol";
 
 contract InterestRateModelTest is Test {
   using FixedPointMathLib for uint256;
+  using FixedPointMathLib for int256;
 
   InterestRateModelHarness internal irm;
 
@@ -40,23 +42,48 @@ contract InterestRateModelTest is Test {
     );
   }
 
-  function testFuzzReferenceRateFloating(uint256 uFloating, uint256 uGlobal) external {
+  function testFuzzReferenceRateFloating(uint256 uFloating, uint256 uGlobal, FloatingParameters memory p) external {
     uFloating = _bound(uFloating, 0, 1.01e18);
     uGlobal = _bound(uGlobal, uFloating, 1.01e18);
+    p.maxUtilization = _bound(p.maxUtilization, 1.01e18 + 1, 2e18);
+    p.naturalUtilization = _bound(p.naturalUtilization, 0.4e18, 0.9e18);
+    p.growthSpeed = _bound(p.growthSpeed, 1, 5e18);
+    (p.curveA, p.curveB) = boundCurve(
+      p.curveA,
+      uint256(p.curveB),
+      p.naturalUtilization,
+      p.maxUtilization,
+      p.growthSpeed
+    );
+    p.sigmoidSpeed = _bound(p.sigmoidSpeed, 1, 10e18);
+    p.maxRate = _bound(p.maxRate, 100e16, 10_000e16);
 
-    irm = deployDefault();
+    irm = new InterestRateModelHarness(
+      Market(address(0)),
+      p.curveA,
+      p.curveB,
+      p.maxUtilization,
+      p.naturalUtilization,
+      p.growthSpeed,
+      p.sigmoidSpeed,
+      0.2e18,
+      0.5e18,
+      0.01e18,
+      0.6e18,
+      p.maxRate
+    );
 
     string[] memory ffi = new string[](2);
     ffi[0] = "scripts/irm-floating.sh";
     ffi[1] = encodeHex(
       abi.encode(
-        irm.floatingCurveA(),
-        irm.floatingCurveB(),
-        irm.floatingMaxUtilization(),
-        irm.naturalUtilization(),
-        irm.growthSpeed(),
-        irm.sigmoidSpeed(),
-        irm.maxRate(),
+        p.curveA,
+        p.curveB,
+        p.maxUtilization,
+        p.naturalUtilization,
+        p.growthSpeed,
+        p.sigmoidSpeed,
+        p.maxRate,
         uFloating,
         uGlobal
       )
@@ -64,8 +91,8 @@ contract InterestRateModelTest is Test {
     uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
     uint256 rate = irm.floatingRate(uFloating, uGlobal);
 
-    assertApproxEqRel(rate, refRate, 1e4, "rate != expected");
-    assertLe(rate, irm.maxRate(), "rate > maxRate");
+    assertLe(rate, p.maxRate, "rate > maxRate");
+    assertApproxEqRel(rate, refRate, 0.002e16, "rate != refRate");
   }
 
   function testFuzzReferenceRateFixed(
@@ -73,26 +100,56 @@ contract InterestRateModelTest is Test {
     uint256 maxPools,
     uint256 uFixed,
     uint256 uFloating,
-    uint256 uGlobal
+    uint256 uGlobal,
+    FixedParameters memory p
   ) external {
     maxPools = _bound(maxPools, 6, 24);
     maturity = _bound(maturity, 1, maxPools) * FixedLib.INTERVAL;
     uFixed = _bound(uFixed, 0, 1.01e18);
     uFloating = _bound(uFloating, 0, 1.01e18 - uFixed);
     uGlobal = _bound(uGlobal, uFixed + uFloating, 1.01e18);
+    p.maxUtilization = _bound(p.maxUtilization, 1.01e18 + 1, 2e18);
+    p.naturalUtilization = _bound(p.naturalUtilization, 0.4e18, 0.9e18);
+    p.growthSpeed = _bound(p.growthSpeed, 1, 5e18);
+    (p.curveA, p.curveB) = boundCurve(
+      p.curveA,
+      uint256(p.curveB),
+      p.naturalUtilization,
+      p.maxUtilization,
+      p.growthSpeed
+    );
+    p.sigmoidSpeed = _bound(p.sigmoidSpeed, 1, 10e18);
+    p.spreadFactor = _bound(p.spreadFactor, 1, 0.5e18);
+    p.maturitySpeed = _bound(p.maturitySpeed, 1, 5e18);
+    p.timePreference = _bound(p.timePreference, -0.1e18, 0.1e18);
+    p.fixedAllocation = _bound(p.fixedAllocation, 0.01e18, 1e18);
+    p.maxRate = _bound(p.maxRate, 100e16, 10_000e16);
 
-    irm = deployDefault();
+    irm = new InterestRateModelHarness(
+      Market(address(0)),
+      p.curveA,
+      p.curveB,
+      p.maxUtilization,
+      p.naturalUtilization,
+      p.growthSpeed,
+      p.sigmoidSpeed,
+      p.spreadFactor,
+      p.maturitySpeed,
+      p.timePreference,
+      p.fixedAllocation,
+      p.maxRate
+    );
 
     string[] memory ffi = new string[](2);
     ffi[0] = "scripts/irm-fixed.sh";
     ffi[1] = encodeHex(
       abi.encode(
         irm.base(uFloating, uGlobal),
-        irm.spreadFactor(),
-        irm.maturitySpeed(),
-        irm.timePreference(),
-        irm.fixedAllocation(),
-        irm.maxRate(),
+        p.spreadFactor,
+        p.maturitySpeed,
+        p.timePreference,
+        p.fixedAllocation,
+        p.maxRate,
         maturity,
         maxPools,
         uFixed,
@@ -103,8 +160,8 @@ contract InterestRateModelTest is Test {
     uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
     uint256 rate = irm.fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal);
 
-    assertLe(rate, irm.maxRate(), "rate > maxRate");
-    assertApproxEqRel(rate, refRate, 1e12, "rate != expected");
+    assertLe(rate, p.maxRate, "rate > maxRate");
+    assertApproxEqRel(rate, refRate, 0.00000002e16, "rate != refRate");
   }
 
   function testFuzzReferenceLegacyRateFixed(
@@ -199,6 +256,33 @@ contract InterestRateModelTest is Test {
     assertEq(v.rate, v.refRate, "rate != refRate");
   }
 
+  function boundCurve(
+    uint256 minRate,
+    uint256 naturalRate,
+    uint256 naturalUtilization,
+    uint256 maxUtilization,
+    int256 growthSpeed
+  ) internal pure returns (uint256 curveA, int256 curveB) {
+    minRate = _bound(minRate, 1e16, 10e16);
+    uint256 minNaturalRate = minRate.mulWadUp(
+      uint256(((-growthSpeed * (1e18 - int256(naturalUtilization / 2)).lnWad()) / 1e18).expWad())
+    ) + 50;
+    naturalRate = _bound(
+      naturalRate,
+      Math.max(minNaturalRate, minRate.mulWadUp(1.2e18)),
+      Math.max(minNaturalRate, minRate.mulWadUp(2e18))
+    );
+
+    curveA =
+      ((naturalRate.mulWadUp(
+        uint256(((growthSpeed * (1e18 - int256(naturalUtilization / 2)).lnWad()) / 1e18).expWad())
+      ) - minRate) *
+        (maxUtilization - naturalUtilization) *
+        (maxUtilization)) /
+      (naturalUtilization * 1e18);
+    curveB = int256(minRate) - int256(curveA.divWadDown(maxUtilization));
+  }
+
   function encodeHex(bytes memory raw) internal pure returns (string memory) {
     bytes16 symbols = "0123456789abcdef";
     bytes memory buffer = new bytes(2 * raw.length + 2);
@@ -291,6 +375,30 @@ contract InterestRateModelHarness is InterestRateModel {
   function base(uint256 uFloating, uint256 uGlobal) external view returns (uint256) {
     return baseRate(uFloating, uGlobal);
   }
+}
+
+struct FloatingParameters {
+  uint256 curveA;
+  int256 curveB;
+  uint256 maxUtilization;
+  uint256 naturalUtilization;
+  int256 growthSpeed;
+  int256 sigmoidSpeed;
+  uint256 maxRate;
+}
+
+struct FixedParameters {
+  uint256 curveA;
+  int256 curveB;
+  uint256 maxUtilization;
+  uint256 naturalUtilization;
+  uint256 fixedAllocation;
+  int256 growthSpeed;
+  int256 sigmoidSpeed;
+  int256 spreadFactor;
+  int256 timePreference;
+  int256 maturitySpeed;
+  uint256 maxRate;
 }
 
 struct Vars {

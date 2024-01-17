@@ -2,7 +2,7 @@
 
 read -ra input <<< "$(cast abi-decode "_()(uint256,int256,int256,int256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)" "$1" | sed 's/ .*//' | xargs)"
 
-rate=$(bc -l <<< "
+rate=$(BC_LINE_LENGTH=666 bc -l <<< "
   scale     = 2 * 18
 
   wad       = 1000000000000000000
