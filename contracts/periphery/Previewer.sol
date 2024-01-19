@@ -41,6 +41,8 @@ contract Previewer {
     RewardRate[] rewardRates;
     uint256 floatingBorrowRate;
     uint256 floatingUtilization;
+    uint256 floatingAssets;
+    uint256 floatingDebt;
     uint256 floatingBackupBorrowed;
     uint256 floatingAvailableAssets;
     uint256 totalFloatingBorrowAssets;
@@ -82,6 +84,12 @@ contract Previewer {
     int256 curveB;
     uint256 maxUtilization;
     uint256 floatingNaturalUtilization;
+    int256 sigmoidSpeed;
+    int256 growthSpeed;
+    uint256 maxRate;
+    int256 spreadFactor;
+    int256 timePreference;
+    int256 maturitySpeed;
   }
 
   struct FixedPosition {
@@ -144,7 +152,13 @@ contract Previewer {
           curveA: irm.floatingCurveA(),
           curveB: irm.floatingCurveB(),
           maxUtilization: irm.floatingMaxUtilization(),
-          floatingNaturalUtilization: irm.floatingNaturalUtilization()
+          floatingNaturalUtilization: irm.floatingNaturalUtilization(),
+          sigmoidSpeed: irm.sigmoidSpeed(),
+          growthSpeed: irm.growthSpeed(),
+          maxRate: irm.maxRate(),
+          spreadFactor: irm.spreadFactor(),
+          timePreference: irm.timePreference(),
+          maturitySpeed: irm.maturitySpeed()
         }),
         usdPrice: auditor.assetPrice(m.priceFeed).mulWadDown(basePrice),
         penaltyRate: market.penaltyRate(),
@@ -156,6 +170,8 @@ contract Previewer {
         floatingUtilization: market.floatingAssets() > 0
           ? Math.min(market.floatingDebt().divWadUp(market.floatingAssets()), 1e18)
           : 0,
+        floatingAssets: market.floatingAssets(),
+        floatingDebt: market.floatingDebt(),
         floatingBackupBorrowed: market.floatingBackupBorrowed(),
         floatingAvailableAssets: floatingAvailableAssets(market),
         totalFloatingBorrowAssets: market.totalFloatingBorrowAssets(),
