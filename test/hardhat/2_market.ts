@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { BigNumber } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, InterestRateModel, Market, MockERC20, WETH } from "../../types";
+import type { Auditor, Market, MockERC20, MockInterestRateModel, WETH } from "../../types";
 import decodeMaturities from "./utils/decodeMaturities";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
@@ -23,7 +23,7 @@ describe("Market", function () {
   let auditor: Auditor;
   let marketDAI: Market;
   let marketWETH: Market;
-  let irm: InterestRateModel;
+  let irm: MockInterestRateModel;
 
   let maria: SignerWithAddress;
   let john: SignerWithAddress;
@@ -45,11 +45,8 @@ describe("Market", function () {
     marketWETH = await getContract<Market>("MarketWETH", maria);
     penaltyRate = await marketDAI.penaltyRate();
 
-    await deploy("InterestRateModel", {
-      args: [AddressZero, 0, 0, parseUnits("6"), parseUnits("0.7")],
-      from: owner.address,
-    });
-    irm = await getContract<InterestRateModel>("InterestRateModel", maria);
+    await deploy("MockInterestRateModel", { args: [0], from: owner.address });
+    irm = await getContract<MockInterestRateModel>("MockInterestRateModel", maria);
 
     await timelockExecute(owner, marketDAI, "setBackupFeeRate", [0]);
     await timelockExecute(owner, marketWETH, "setBackupFeeRate", [0]);
@@ -61,6 +58,7 @@ describe("Market", function () {
       await weth.deposit({ value: parseUnits("10") });
       await weth.approve(marketWETH.address, parseUnits("10"));
     }
+    await provider.send("evm_increaseTime", [9_011]);
   });
 
   describe("small positions", () => {
@@ -69,6 +67,7 @@ describe("Market", function () {
         await marketDAI.deposit(3, maria.address);
         // add liquidity to the maturity
         await marketDAI.depositAtMaturity(futurePools(1)[0], 3, 0, maria.address);
+        await provider.send("evm_increaseTime", [9_011]);
       });
       it("THEN the Market registers a supply of 3 wei DAI for the account (exposed via accountSnapshot)", async () => {
         expect(await marketDAI.maxWithdraw(maria.address)).to.equal(3);
@@ -416,11 +415,25 @@ describe("Market", function () {
   describe("GIVEN an interest rate of 2%", () => {
     beforeEach(async () => {
       const { address } = await deploy("InterestRateModel", {
-        args: [AddressZero, 0, parseUnits("0.02"), parseUnits("6"), parseUnits("0.7")],
+        args: [
+          AddressZero,
+          parseUnits("0.02"),
+          parseUnits("0.02"),
+          parseUnits("6"),
+          parseUnits("0.7"),
+          parseUnits("2.5"),
+          parseUnits("1"),
+          parseUnits("0.2"),
+          parseUnits("0.2"),
+          parseUnits("0"),
+          parseUnits("0.5"),
+          parseUnits("10"),
+        ],
         from: owner.address,
       });
       await timelockExecute(owner, marketDAI, "setInterestRateModel", [address]);
       await marketDAI.deposit(parseUnits("1"), maria.address);
+      await provider.send("evm_increaseTime", [9_011]);
       await auditor.enterMarket(marketDAI.address);
       // add liquidity to the maturity
       await marketDAI.depositAtMaturity(futurePools(1)[0], parseUnits("1"), parseUnits("1"), maria.address);
@@ -452,16 +465,11 @@ describe("Market", function () {
       await marketWETH.deposit(parseUnits("10"), maria.address);
       await auditor.enterMarket(marketWETH.address);
 
-      const { address } = await deploy("InterestRateModel", {
-        args: [AddressZero, 0, 0, parseUnits("1.1"), parseUnits("0.7")],
-        from: owner.address,
-      });
-      await timelockExecute(owner, marketDAI, "setInterestRateModel", [address]);
       await marketDAI.connect(john).deposit(parseUnits("12"), john.address);
-      await provider.send("evm_increaseTime", [9011]);
+      await provider.send("evm_increaseTime", [9_011]);
 
       await marketDAI.borrowAtMaturity(
-        futurePools(1)[0],
+        futurePools(2)[1],
         parseUnits("6"),
         parseUnits("6"),
         maria.address,
@@ -471,7 +479,7 @@ describe("Market", function () {
     it("WHEN Maria tries to borrow 5.99 more DAI on the same maturity, THEN it does not revert", async () => {
       await expect(
         marketDAI.borrowAtMaturity(
-          futurePools(1)[0],
+          futurePools(2)[1],
           parseUnits("5.99"),
           parseUnits("5.99"),
           maria.address,
@@ -484,7 +492,7 @@ describe("Market", function () {
     });
     it("WHEN Maria tries to borrow 6 more DAI on the same maturity (remaining liquidity), THEN it does not revert", async () => {
       await expect(
-        marketDAI.borrowAtMaturity(futurePools(1)[0], parseUnits("6"), parseUnits("6"), maria.address, maria.address),
+        marketDAI.borrowAtMaturity(futurePools(2)[1], parseUnits("6"), parseUnits("6"), maria.address, maria.address),
       ).to.not.be.reverted;
     });
     it("WHEN Maria tries to borrow 6 more DAI from the smart pool, THEN it does not revert", async () => {
@@ -507,10 +515,10 @@ describe("Market", function () {
         "InsufficientProtocolLiquidity",
       );
     });
-    it("WHEN Maria tries to borrow 12 more DAI on the same maturity, THEN it fails with UtilizationExceeded", async () => {
+    it("WHEN Maria tries to borrow 12 more DAI on the same maturity, THEN it fails with InsufficientProtocolLiquidity", async () => {
       await expect(
-        marketDAI.borrowAtMaturity(futurePools(1)[0], parseUnits("12"), parseUnits("12"), maria.address, maria.address),
-      ).to.be.revertedWithCustomError(irm, "UtilizationExceeded");
+        marketDAI.borrowAtMaturity(futurePools(2)[1], parseUnits("12"), parseUnits("12"), maria.address, maria.address),
+      ).to.be.revertedWithCustomError(marketDAI, "InsufficientProtocolLiquidity");
     });
     it("WHEN Maria tries to borrow 12 more DAI from the smart pool, THEN it fails with InsufficientProtocolLiquidity", async () => {
       await expect(marketDAI.borrow(parseUnits("12"), maria.address, maria.address)).to.be.revertedWithCustomError(
@@ -574,16 +582,16 @@ describe("Market", function () {
         await marketDAI.connect(john).deposit(parseUnits("2388"), maria.address);
         await provider.send("evm_increaseTime", [9011]);
       });
-      it("WHEN Maria tries to borrow 2500 DAI from a maturity, THEN it fails with UtilizationExceeded", async () => {
+      it("WHEN Maria tries to borrow 2500 DAI from a maturity, THEN it fails with InsufficientProtocolLiquidity", async () => {
         await expect(
           marketDAI.borrowAtMaturity(
-            futurePools(1)[0],
+            futurePools(2)[1],
             parseUnits("2500"),
             parseUnits("5000"),
             maria.address,
             maria.address,
           ),
-        ).to.be.revertedWithCustomError(irm, "UtilizationExceeded");
+        ).to.be.revertedWithCustomError(marketDAI, "InsufficientProtocolLiquidity");
       });
       it("WHEN Maria tries to borrow 2500 DAI from the smart pool, THEN it fails with InsufficientProtocolLiquidity", async () => {
         await expect(marketDAI.borrow(parseUnits("2500"), maria.address, maria.address)).to.be.revertedWithCustomError(
@@ -612,7 +620,7 @@ describe("Market", function () {
           .connect(john)
           .depositAtMaturity(futurePools(1)[0], parseUnits("100"), parseUnits("100"), john.address);
       });
-      it("WHEN Maria tries to borrow 150 DAI, THEN it fails with UtilizationExceeded", async () => {
+      it("WHEN Maria tries to borrow 150 DAI, THEN it fails with InsufficientProtocolLiquidity", async () => {
         await expect(
           marketDAI.borrowAtMaturity(
             futurePools(1)[0],
@@ -621,7 +629,7 @@ describe("Market", function () {
             maria.address,
             maria.address,
           ),
-        ).to.be.revertedWithCustomError(irm, "UtilizationExceeded");
+        ).to.be.revertedWithCustomError(marketDAI, "InsufficientProtocolLiquidity");
       });
       describe("AND John deposited 1200 DAI to the smart pool", () => {
         beforeEach(async () => {
@@ -629,7 +637,7 @@ describe("Market", function () {
             .connect(john)
             .depositAtMaturity(futurePools(1)[0], parseUnits("1200"), parseUnits("1200"), john.address);
         });
-        it("WHEN Maria tries to borrow 1350 DAI, THEN it fails with UtilizationExceeded", async () => {
+        it("WHEN Maria tries to borrow 1350 DAI, THEN it fails with InsufficientProtocolLiquidity", async () => {
           await expect(
             marketDAI.borrowAtMaturity(
               futurePools(1)[0],
@@ -638,7 +646,7 @@ describe("Market", function () {
               maria.address,
               maria.address,
             ),
-          ).to.be.revertedWithCustomError(irm, "UtilizationExceeded");
+          ).to.be.revertedWithCustomError(marketDAI, "InsufficientProtocolLiquidity");
         });
         it("WHEN Maria tries to borrow 200 DAI, THEN it succeeds", async () => {
           await expect(
@@ -1090,6 +1098,7 @@ describe("Market", function () {
             });
             it("AND WHEN a supply of 30 is added to the sp, THEN the withdraw of 30 is not reverted", async () => {
               await marketDAI.deposit(parseUnits("30"), maria.address);
+              await provider.send("evm_increaseTime", [9_011]);
               await expect(
                 marketDAI.withdrawAtMaturity(
                   futurePools(1)[0],
@@ -1115,6 +1124,7 @@ describe("Market", function () {
             describe("AND GIVEN a smart pool supply of 30 AND a flexible borrow of 15", () => {
               beforeEach(async () => {
                 await marketDAI.deposit(parseUnits("30"), maria.address);
+                await provider.send("evm_increaseTime", [9_011]);
                 await marketDAI.borrow(parseUnits("15"), maria.address, maria.address);
               });
               it("WHEN a withdraw of 15 is made to the first mp, THEN it should not revert", async () => {
@@ -1141,6 +1151,7 @@ describe("Market", function () {
               });
               it("AND WHEN a supply of 0.01 is added to the sp, THEN the withdraw of 15.01 is not reverted", async () => {
                 await marketDAI.deposit(parseUnits("0.01"), maria.address);
+                await provider.send("evm_increaseTime", [9_011]);
                 await expect(
                   marketDAI.withdrawAtMaturity(
                     futurePools(1)[0],

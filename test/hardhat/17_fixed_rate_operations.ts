@@ -103,14 +103,15 @@ describe("Fixed Rate Operations", () => {
         AddressZero,
         parseUnits("0.75"),
         parseUnits("-0.105"),
-        parseUnits("6"),
+        parseUnits("1.1"),
         parseUnits("0.7"),
         parseUnits("2.5"),
         parseUnits("2.5"),
-        parseUnits("10"),
         parseUnits("0.2"),
-        parseUnits("0"),
         parseUnits("0.5"),
+        parseUnits("0.01"),
+        parseUnits("0.5"),
+        parseUnits("10"),
       );
       await newInterestRateModel.deployed();
     });

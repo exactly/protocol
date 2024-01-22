@@ -292,6 +292,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         await weth.deposit({ value: parseUnits("60") });
         await marketWETH.deposit(parseUnits("60"), alice.address);
         await auditor.enterMarket(marketWETH.address);
+        await provider.send("evm_increaseTime", [9_011]);
       });
       describe("WHEN borrowing with ETH (native)", () => {
         let tx: ContractTransaction;
@@ -630,6 +631,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         await weth.deposit({ value: parseUnits("60") });
         await marketWETH.deposit(parseUnits("60"), alice.address);
         await auditor.enterMarket(marketWETH.address);
+        await provider.send("evm_increaseTime", [9_011]);
         tx = routerETH.borrowAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("5"));
       });
       it("THEN the tx should revert with Disagreement", async () => {
@@ -650,6 +652,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         await weth.deposit({ value: parseUnits("60") });
         await marketWETH.deposit(parseUnits("60"), alice.address);
         await auditor.enterMarket(marketWETH.address);
+        await provider.send("evm_increaseTime", [9_011]);
         await routerETH.borrowAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("10"));
         tx = routerETH.repayAtMaturity(futurePools(1)[0], parseUnits("5"), { value: parseUnits("4") });
       });

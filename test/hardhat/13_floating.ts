@@ -120,6 +120,7 @@ describe("Smart Pool", function () {
       await wbtc.connect(bob).approve(marketWBTC.address, parseUnits("1", 8));
       await marketWBTC.connect(bob).approve(john.address, parseUnits("1", 8));
       await marketWBTC.connect(bob).deposit(parseUnits("1", 8), bob.address);
+      await ethers.provider.send("evm_increaseTime", [9_011]);
     });
     it("THEN bob's eWBTC balance is 1", async () => {
       expect(await marketWBTC.balanceOf(bob.address)).to.equal(parseUnits("1", 8));

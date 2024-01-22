@@ -106,12 +106,13 @@ export class DefaultEnv {
       parseUnits("-0.025"),
       parseUnits("1.1"),
       parseUnits("0.7"),
+      parseUnits("1.1"),
       parseUnits("2.5"),
-      parseUnits("2.5"),
-      parseUnits("10"),
       parseUnits("0.2"),
-      parseUnits("0"),
       parseUnits("0.5"),
+      parseUnits("0.01"),
+      parseUnits("0.6"),
+      parseUnits("10"),
     );
 
     const interestRateModel = config?.useRealInterestRateModel
@@ -301,30 +302,33 @@ export class DefaultEnv {
   }
 
   public async setIRMParameters(
+    marketAddress: string,
     a: BigNumber,
     b: BigNumber,
     maxU: BigNumber,
     natU: BigNumber,
-    sigmoidSpeed: BigNumber,
     growthSpeed: BigNumber,
+    sigmoidSpeed: BigNumber,
+    spreadFactor: BigNumber,
+    maturitySpeed: BigNumber,
+    timePreference: BigNumber,
+    fixedAllocation: BigNumber,
     maxRate: BigNumber,
-    a0: BigNumber,
-    a1: BigNumber,
-    eta: BigNumber,
   ) {
     const irmFactory = (await getContractFactory("InterestRateModel")) as InterestRateModel__factory;
     const newIRM = await irmFactory.deploy(
-      AddressZero,
+      marketAddress,
       a,
       b,
       maxU,
       natU,
-      sigmoidSpeed,
       growthSpeed,
+      sigmoidSpeed,
+      spreadFactor,
+      maturitySpeed,
+      timePreference,
+      fixedAllocation,
       maxRate,
-      a0,
-      a1,
-      eta,
     );
 
     this.interestRateModel = newIRM;

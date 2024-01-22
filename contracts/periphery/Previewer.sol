@@ -81,7 +81,7 @@ contract Previewer {
     uint256 curveA;
     int256 curveB;
     uint256 maxUtilization;
-    uint256 floatingNaturalUtilization;
+    uint256 naturalUtilization;
   }
 
   struct FixedPosition {
@@ -144,7 +144,7 @@ contract Previewer {
           curveA: irm.floatingCurveA(),
           curveB: irm.floatingCurveB(),
           maxUtilization: irm.floatingMaxUtilization(),
-          floatingNaturalUtilization: irm.floatingNaturalUtilization()
+          naturalUtilization: irm.naturalUtilization()
         }),
         usdPrice: auditor.assetPrice(m.priceFeed).mulWadDown(basePrice),
         penaltyRate: market.penaltyRate(),

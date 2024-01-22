@@ -9,6 +9,7 @@ import futurePools from "./utils/futurePools";
 const {
   constants: { MaxUint256 },
   utils: { parseUnits },
+  provider,
 } = ethers;
 const nextPoolID = futurePools(3)[2].toNumber();
 
@@ -65,6 +66,7 @@ describe("Liquidations", function () {
       await exactlyEnv.depositMP("DAI", nextPoolID, "65000");
       await dai.connect(bob).approve(marketDAI.address, parseUnits("200000"));
       await dai.connect(john).approve(marketDAI.address, parseUnits("10000"));
+      await provider.send("evm_increaseTime", [9_011]);
     });
 
     describe("AND GIVEN Alice takes the biggest loan she can (31920 DAI), 31920/0.8=39900", () => {
@@ -316,18 +318,21 @@ describe("Liquidations", function () {
 
       await exactlyEnv.depositSP("WETH", "10");
       await exactlyEnv.enterMarket("WETH");
+      await provider.send("evm_increaseTime", [9_011]);
     });
     describe("AND GIVEN alice deposits 10k DAI to the smart pool AND borrows USD8k worth of WETH (80% collateralization rate)", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(alice);
         await exactlyEnv.depositSP("DAI", "10000");
         await exactlyEnv.enterMarket("DAI");
+        await provider.send("evm_increaseTime", [9_011]);
 
         await exactlyEnv.borrowMP("WETH", futurePools(1)[0].toNumber(), "0.93");
         await exactlyEnv.borrowMP("WETH", futurePools(2)[1].toNumber(), "0.93");
       });
       describe("WHEN WETH price doubles AND john borrows 10k DAI from a maturity pool (all liquidity in smart pool)", () => {
         beforeEach(async () => {
+          await provider.send("evm_increaseTime", [3_600 * 2]);
           await exactlyEnv.setPrice(marketETH.address, parseUnits("8000", 8));
           exactlyEnv.switchWallet(john);
           await exactlyEnv.borrowMP("DAI", futurePools(1)[0].toNumber(), "10000");
@@ -345,6 +350,7 @@ describe("Liquidations", function () {
             await dai.mint(john.address, parseUnits("10000"));
             await exactlyEnv.depositSP("DAI", "10000");
             await eth.connect(john).approve(marketETH.address, parseUnits("1"));
+            await provider.send("evm_increaseTime", [9_011]);
           });
           it("WHEN both of alice's positions are liquidated THEN it doesn't revert", async () => {
             await expect(marketETH.connect(john).liquidate(alice.address, parseUnits("1"), marketDAI.address)).to.not.be
@@ -376,6 +382,7 @@ describe("Liquidations", function () {
 
         await exactlyEnv.borrowMP("DAI", futurePools(1)[0].toNumber(), "1000");
         await exactlyEnv.borrowMP("DAI", futurePools(2)[1].toNumber(), "6000");
+        await provider.send("evm_increaseTime", [9_011]);
       });
       describe("WHEN 20 days goes by without payment, WETH price halves AND alice's first borrow is liquidated with a higher amount as repayment", () => {
         let johnETHBalanceBefore: BigNumber;
@@ -410,6 +417,7 @@ describe("Liquidations", function () {
           await dai.connect(john).approve(marketDAI.address, MaxUint256);
           await dai.mint(john.address, parseUnits("100000"));
           await marketDAI.connect(john).deposit(parseUnits("100000"), john.address);
+          await provider.send("evm_increaseTime", [9_011]);
 
           // distribute earnings to accumulator
           await exactlyEnv.setBorrowRate("1");

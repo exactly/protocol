@@ -64,10 +64,7 @@ describe("Liquidity computations", function () {
       await auditor.connect(signer).enterMarket(marketWBTC.address);
     }
 
-    const { address: irm } = await deploy("InterestRateModel", {
-      args: [AddressZero, 0, 0, parseUnits("6"), parseUnits("0.7")],
-      from: bob.address,
-    });
+    const { address: irm } = await deploy("MockInterestRateModel", { args: [0], from: bob.address });
     await timelockExecute(multisig, marketDAI, "setInterestRateModel", [irm]);
     await timelockExecute(multisig, marketUSDC, "setInterestRateModel", [irm]);
     await timelockExecute(multisig, marketWBTC, "setInterestRateModel", [irm]);
@@ -83,6 +80,7 @@ describe("Liquidity computations", function () {
     describe("GIVEN laura deposits 1k dai to a smart pool", () => {
       beforeEach(async () => {
         await marketDAI.deposit(parseUnits("1000"), laura.address);
+        await provider.send("evm_increaseTime", [9_011]);
       });
 
       it("THEN lauras liquidity is adjustFactor*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
@@ -99,8 +97,8 @@ describe("Liquidity computations", function () {
       });
       describe("AND GIVEN a 1% borrow interest rate", () => {
         beforeEach(async () => {
-          const { address: irm } = await deploy("InterestRateModel", {
-            args: [AddressZero, 0, parseUnits("0.01"), parseUnits("6"), parseUnits("0.7")],
+          const { address: irm } = await deploy("MockInterestRateModel", {
+            args: [parseUnits("0.01")],
             from: bob.address,
           });
           await timelockExecute(multisig, marketDAI, "setInterestRateModel", [irm]);

@@ -1,182 +1,145 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
+import { Test } from "forge-std/Test.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { Test, stdError } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { Market, InterestRateModel, UtilizationExceeded } from "../contracts/InterestRateModel.sol";
+import { Market, InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
 import { Auditor } from "../contracts/Auditor.sol";
 
 contract InterestRateModelTest is Test {
   using FixedPointMathLib for uint256;
-  using FixedPointMathLib for uint32;
 
   InterestRateModelHarness internal irm;
 
-  function setUp() external {
-    irm = new InterestRateModelHarness(
-      Market(address(0)),
-      1.3829e16,
-      1.7429e16,
-      1.1e18,
-      7e17,
-      2.5e18,
-      1e18,
-      15_000e16,
-      0.2e18,
-      0,
-      0.5e18
-    );
-  }
-
   function testFixedBorrowRate() external {
-    uint256 rate = irm.fixedRate(FixedLib.INTERVAL, 6, 0.5e18, 0, 0.5e18);
-    assertEq(rate, 34290689491520350);
+    assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18), 63725347776211630);
   }
 
   function testFloatingBorrowRate() external {
-    uint256 rate = irm.floatingRate(0.5e18, 0.5e18);
-    assertEq(rate, 42772870834956443);
+    assertEq(deployDefault().floatingRate(0.75e18, 0.75e18), 79997731751740314);
   }
 
   function testRevertMaxUtilizationLowerThanWad() external {
     vm.expectRevert();
     new InterestRateModel(
       Market(address(0)),
-      0.023e18,
-      -0.0025e18,
+      1.2111e16,
+      2.5683e16,
       1e18 - 1,
-      7e17,
-      1.5e18,
-      1.5e18,
-      15_000e16,
+      0.75e18,
+      1.1e18,
+      2.5e18,
       0.2e18,
-      0,
-      0.5e18
+      0.5e18,
+      0.01e18,
+      0.6e18,
+      15_000e16
     );
   }
 
-  function testFuzzReferenceFloatingRate(uint64 uFloating, uint64 uGlobal) external {
-    uFloating = uint64(_bound(uFloating, 0, 1e18));
-    uGlobal = uint64(_bound(uGlobal, 0, 1e18));
+  function testFuzzReferenceRateFloating(uint256 uFloating, uint256 uGlobal) external {
+    uFloating = _bound(uFloating, 0, 1.01e18);
+    uGlobal = _bound(uGlobal, uFloating, 1.01e18);
 
-    uint256 refRate;
-    if (uFloating > uGlobal) {
-      vm.expectRevert(UtilizationExceeded.selector);
-    } else if (uGlobal >= 1e18) {
-      refRate = irm.maxRate();
-    } else {
-      string[] memory ffi = new string[](2);
-      ffi[0] = "scripts/irm-floating.sh";
-      ffi[1] = encodeHex(
-        abi.encode(
-          uFloating,
-          uGlobal,
-          irm.floatingNaturalUtilization(),
-          irm.floatingCurveA(),
-          irm.floatingCurveB(),
-          irm.floatingMaxUtilization(),
-          irm.sigmoidSpeed(),
-          irm.growthSpeed()
-        )
-      );
-      refRate = abi.decode(vm.ffi(ffi), (uint256));
-      if (refRate > irm.maxRate()) refRate = irm.maxRate();
-    }
+    irm = deployDefault();
+
+    string[] memory ffi = new string[](2);
+    ffi[0] = "scripts/irm-floating.sh";
+    ffi[1] = encodeHex(
+      abi.encode(
+        irm.floatingCurveA(),
+        irm.floatingCurveB(),
+        irm.floatingMaxUtilization(),
+        irm.naturalUtilization(),
+        irm.growthSpeed(),
+        irm.sigmoidSpeed(),
+        irm.maxRate(),
+        uFloating,
+        uGlobal
+      )
+    );
+    uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
     uint256 rate = irm.floatingRate(uFloating, uGlobal);
 
     assertApproxEqRel(rate, refRate, 1e4, "rate != expected");
     assertLe(rate, irm.maxRate(), "rate > maxRate");
   }
 
-  function testFuzzReferenceFixedRate(
-    uint32 maturity,
-    uint8 maxPools,
-    uint64 uFixed,
-    uint64 uFloating,
-    uint64 uGlobal
+  function testFuzzReferenceRateFixed(
+    uint256 maturity,
+    uint256 maxPools,
+    uint256 uFixed,
+    uint256 uFloating,
+    uint256 uGlobal
   ) external {
-    maxPools = uint8(_bound(maxPools, 1, 24));
-    maturity = uint32(_bound(maturity, 1, maxPools) * FixedLib.INTERVAL);
-    uFixed = uint64(_bound(uFixed, 0, 1.01e18));
-    uFloating = uint64(_bound(uFloating, 0, 1.01e18 - uFixed));
-    uGlobal = uint64(_bound(uGlobal, uFixed + uFloating, 1.01e18));
+    maxPools = _bound(maxPools, 6, 24);
+    maturity = _bound(maturity, 1, maxPools) * FixedLib.INTERVAL;
+    uFixed = _bound(uFixed, 0, 1.01e18);
+    uFloating = _bound(uFloating, 0, 1.01e18 - uFixed);
+    uGlobal = _bound(uGlobal, uFixed + uFloating, 1.01e18);
 
-    uint256 refRate;
-    if (uFixed > uGlobal || uFloating > uGlobal) {
-      vm.expectRevert(UtilizationExceeded.selector);
-    } else if (uGlobal >= 1e18) {
-      refRate = irm.maxRate();
-    } else {
-      string[] memory ffi = new string[](2);
-      ffi[0] = "scripts/irm-fixed.sh";
-      ffi[1] = encodeHex(
-        abi.encode(
-          uFixed,
-          uGlobal,
-          irm.fixedNaturalUtilization(),
-          irm.base(uFloating, uGlobal),
-          irm.maturitySpeed(),
-          irm.spreadFactor(),
-          irm.timePreference(),
-          maxPools,
-          maturity,
-          block.timestamp
-        )
-      );
-      refRate = abi.decode(vm.ffi(ffi), (uint256));
-      if (refRate > irm.maxRate()) refRate = irm.maxRate();
-    }
+    irm = deployDefault();
+
+    string[] memory ffi = new string[](2);
+    ffi[0] = "scripts/irm-fixed.sh";
+    ffi[1] = encodeHex(
+      abi.encode(
+        irm.base(uFloating, uGlobal),
+        irm.spreadFactor(),
+        irm.maturitySpeed(),
+        irm.timePreference(),
+        irm.fixedAllocation(),
+        irm.maxRate(),
+        maturity,
+        maxPools,
+        uFixed,
+        uGlobal,
+        block.timestamp
+      )
+    );
+    uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
     uint256 rate = irm.fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal);
 
     assertLe(rate, irm.maxRate(), "rate > maxRate");
     assertApproxEqRel(rate, refRate, 1e12, "rate != expected");
   }
 
-  struct Vars {
-    uint256 rate;
-    uint256 refRate;
-    uint256 uFixed;
-    uint256 uFloating;
-    uint256 uGlobal;
-    uint256 backupBorrowed;
-    uint256 backupAmount;
-  }
-
-  function testFuzzReferenceLegacyFixedRate(
-    uint8 maturity,
+  function testFuzzReferenceLegacyRateFixed(
     uint32 floatingAssets,
-    uint32 floatingDebt,
-    uint32[2] memory fixedBorrows,
-    uint32[2] memory fixedDeposits,
-    uint32 amount
+    uint256 floatingDebt,
+    uint256[2] memory fixedBorrows,
+    uint256[2] memory fixedDeposits,
+    uint256 maturity,
+    uint256 amount
   ) external {
-    maturity = uint8(_bound(maturity, 0, 1));
-    floatingDebt = uint32(_bound(floatingDebt, 0, floatingAssets));
-    fixedBorrows[0] = uint32(_bound(fixedBorrows[0], 0, floatingAssets - floatingDebt));
-    fixedBorrows[1] = uint32(_bound(fixedBorrows[1], 0, floatingAssets - floatingDebt - fixedBorrows[0]));
-    fixedDeposits[0] = uint32(_bound(fixedDeposits[0], 0, fixedBorrows[0]));
-    fixedDeposits[1] = uint32(_bound(fixedDeposits[1], 0, fixedBorrows[1]));
-    amount = uint32(_bound(amount, 0, floatingAssets - floatingDebt - fixedBorrows[0] - fixedBorrows[1]));
+    floatingDebt = _bound(floatingDebt, 0, floatingAssets);
+    fixedBorrows[0] = _bound(fixedBorrows[0], 0, floatingAssets - floatingDebt);
+    fixedBorrows[1] = _bound(fixedBorrows[1], 0, floatingAssets - floatingDebt - fixedBorrows[0]);
+    fixedDeposits[0] = _bound(fixedDeposits[0], 0, fixedBorrows[0]);
+    fixedDeposits[1] = _bound(fixedDeposits[1], 0, fixedBorrows[1]);
+    maturity = _bound(maturity, 0, 1);
+    amount = _bound(amount, 0, floatingAssets - floatingDebt - fixedBorrows[0] - fixedBorrows[1]);
 
-    MockERC20 asset = new MockERC20("DAI", "DAI", 18);
+    MockERC20 asset = new MockERC20("", "", 18);
     Market market = Market(
       address(new ERC1967Proxy(address(new Market(asset, Auditor(address(new MockAuditor())))), ""))
     );
     irm = new InterestRateModelHarness(
       market,
-      6.8361e15,
-      2.3785e16,
+      1.2111e16,
+      2.5683e16,
+      1.3e18,
+      0.75e18,
       1.1e18,
-      7e17,
       2.5e18,
-      2.5e18,
-      15_000e16,
       0.2e18,
-      0,
-      0.5e18
+      0.5e18,
+      0.01e18,
+      0.6e18,
+      15_000e16
     );
     market.initialize(uint8(fixedBorrows.length), 2e18, irm, 0.02e18 / uint256(1 days), 1e17, 0, 0.0046e18, 0.42e18);
     asset.mint(address(this), type(uint128).max);
@@ -267,6 +230,24 @@ contract InterestRateModelTest is Test {
   function floatingUtilization(uint256 floatingAssets, uint256 floatingDebt) internal pure returns (uint256) {
     return floatingAssets > 0 ? floatingDebt.divWadUp(floatingAssets) : 0;
   }
+
+  function deployDefault() internal returns (InterestRateModelHarness) {
+    return
+      new InterestRateModelHarness(
+        Market(address(0)),
+        1.2111e16,
+        2.5683e16,
+        1.3e18,
+        0.75e18,
+        1.1e18,
+        2.5e18,
+        0.2e18,
+        0.5e18,
+        0.01e18,
+        0.6e18,
+        15_000e16
+      );
+  }
 }
 
 contract MockAuditor {
@@ -282,30 +263,42 @@ contract InterestRateModelHarness is InterestRateModel {
     uint256 curveA_,
     int256 curveB_,
     uint256 maxUtilization_,
-    uint256 floatingNaturalUtilization_,
-    int256 sigmoidSpeed_,
+    uint256 naturalUtilization_,
     int256 growthSpeed_,
-    uint256 maxRate_,
+    int256 sigmoidSpeed_,
     int256 spreadFactor_,
+    int256 maturitySpeed_,
     int256 timePreference_,
-    int256 maturitySpeed_
+    uint256 fixedAllocation_,
+    uint256 maxRate_
   )
     InterestRateModel(
       market_,
       curveA_,
       curveB_,
       maxUtilization_,
-      floatingNaturalUtilization_,
-      sigmoidSpeed_,
+      naturalUtilization_,
       growthSpeed_,
-      maxRate_,
+      sigmoidSpeed_,
       spreadFactor_,
+      maturitySpeed_,
       timePreference_,
-      maturitySpeed_
+      fixedAllocation_,
+      maxRate_
     )
   {} //solhint-disable-line no-empty-blocks
 
   function base(uint256 uFloating, uint256 uGlobal) external view returns (uint256) {
     return baseRate(uFloating, uGlobal);
   }
+}
+
+struct Vars {
+  uint256 rate;
+  uint256 refRate;
+  uint256 uFixed;
+  uint256 uFloating;
+  uint256 uGlobal;
+  uint256 backupBorrowed;
+  uint256 backupAmount;
 }
