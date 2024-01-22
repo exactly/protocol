@@ -69,16 +69,17 @@ contract ProtocolTest is Test {
       Market market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
       InterestRateModel irm = new InterestRateModel(
         market,
-        0.023e18,
-        -0.0025e18,
-        1.02e18,
-        7e17,
-        1.5e18,
-        1.5e18,
-        15_000e16,
+        1.2111e16,
+        2.5683e16,
+        1.3e18,
+        0.75e18,
+        1.1e18,
+        2.5e18,
         0.2e18,
-        0,
-        0.5e18
+        0.5e18,
+        0.01e18,
+        0.6e18,
+        15_000e16
       );
       market.initialize(MAX_FUTURE_POOLS, 2e18, irm, PENALTY_RATE, 1e17, RESERVE_FACTOR, 0.0046e18, 0.42e18);
       vm.label(address(market), string.concat("Market", i.toString()));

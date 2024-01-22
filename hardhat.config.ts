@@ -60,14 +60,17 @@ export default {
     futurePools: 6,
     earningsAccumulatorSmoothFactor: 2,
     interestRateModel: {
-      floatingCurve: { a: 1.3829e-2, b: 1.7429e-2, maxUtilization: 1.1 },
-      floatingNaturalUtilization: 0.7,
+      curveA: 1.4293e-2,
+      curveB: 9.0055e-3,
+      maxUtilization: 1.3,
+      naturalUtilization: 0.7,
+      growthSpeed: 1.1,
       sigmoidSpeed: 2.5,
-      growthSpeed: 1,
-      maxRate: 0.1,
       spreadFactor: 0.2,
-      timePreference: 0,
       maturitySpeed: 0.5,
+      timePreference: 0.01,
+      fixedAllocation: 0.6,
+      maxRate: 0.1,
     },
     rewards: {
       undistributedFactor: 0.5,
@@ -85,15 +88,13 @@ export default {
     markets: {
       WETH: {
         adjustFactor: 0.86,
+        interestRateModel: { maxRate: 4.2 },
         overrides: {
           goerli: {
             rewards: {
               OP: { total: 180_000, debt: 16_000, start: "2023-03-09", period: 32 * 7 * 86_400 },
               EXA: { total: 15_200, debt: 16_000, start: "2023-07-20", period: 8 * 7 * 86_400 },
               esEXA: { total: 150_000, debt: 6_000, start: "2023-10-11", period: 30 * 7 * 86_400 },
-            },
-            interestRateModel: {
-              maxRate: 4.2,
             },
           },
           optimism: {
@@ -337,14 +338,17 @@ extendConfig((hardhatConfig, { finance }) => {
       markets: Object.fromEntries(
         Object.entries(finance.markets)
           .filter(([, { networks }]) => !live || !networks || networks.includes(networkName))
-          .map(([name, { networks, overrides, ...market }]) => {
-            const config = { ...market, ...overrides?.[live ? networkName : Object.keys(overrides)[0]] };
+          .map(([name, { networks, overrides, interestRateModel, ...market }]) => {
+            const config = {
+              ...market,
+              ...overrides?.[live ? networkName : Object.keys(overrides)[0]],
+              interestRateModel: { ...finance.interestRateModel, ...interestRateModel },
+            };
             if (config.rewards) {
               config.rewards = Object.fromEntries(
                 Object.entries(config.rewards).map(([asset, rewards]) => [asset, { ...finance.rewards, ...rewards }]),
               );
             }
-            config.interestRateModel = { ...finance.interestRateModel, ...config.interestRateModel };
             return [name, config];
           }),
       ),
@@ -365,13 +369,15 @@ declare module "hardhat/types/config" {
     earningsAccumulatorSmoothFactor: number;
     rewards: RewardsParameters;
     escrow: EscrowParameters;
-    interestRateModel: Partial<IRMParameters>;
-    markets: { [asset: string]: MarketUserConfig };
+    interestRateModel: IRMParameters;
+    markets: { [asset: string]: MarketConfig };
     periphery: PeripheryConfig;
   }
 
-  export interface FinanceUserConfig extends Omit<FinanceConfig, "periphery"> {
+  export interface FinanceUserConfig extends Omit<FinanceConfig, "markets" | "periphery" | "interestRateModel"> {
+    markets: { [asset: string]: MarketUserConfig };
     periphery: { [network: string]: PeripheryConfig };
+    interestRateModel: IRMParameters;
   }
 
   export interface RewardsParameters {
@@ -392,7 +398,7 @@ declare module "hardhat/types/config" {
   export interface MarketConfig {
     adjustFactor: number;
     priceFeed?: "double" | { wrapper: string; fn: string; baseUnit: bigint };
-    interestRateModel?: Partial<IRMParameters>;
+    interestRateModel: IRMParameters;
     rewards?: {
       [asset: string]: {
         total: number;
@@ -403,26 +409,24 @@ declare module "hardhat/types/config" {
     };
   }
 
-  export interface MarketUserConfig extends MarketConfig {
+  export interface MarketUserConfig extends Omit<MarketConfig, "interestRateModel"> {
     networks?: string[];
-    overrides?: { [network: string]: Partial<MarketConfig> };
+    overrides?: { [network: string]: Partial<MarketUserConfig> };
+    interestRateModel?: Partial<IRMParameters>;
   }
 
   export interface IRMParameters {
-    floatingCurve: Curve;
-    floatingNaturalUtilization: number;
-    sigmoidSpeed: number;
-    growthSpeed: number;
-    maxRate: number;
-    spreadFactor: number;
-    timePreference: number;
-    maturitySpeed: number;
-  }
-
-  export interface Curve {
-    a: number;
-    b: number;
+    curveA: number;
+    curveB: number;
     maxUtilization: number;
+    naturalUtilization: number;
+    growthSpeed: number;
+    sigmoidSpeed: number;
+    spreadFactor: number;
+    maturitySpeed: number;
+    timePreference: number;
+    fixedAllocation: number;
+    maxRate: number;
   }
 
   export interface PeripheryConfig {

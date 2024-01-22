@@ -920,14 +920,15 @@ contract MarketTest is Test {
         Market(address(0)),
         0.023e18,
         -0.0025e18,
-        1e18 + 1,
-        7e17,
-        1.5e18,
-        1.5e18,
-        15_000e16,
+        1.1e18,
+        0.75e18,
+        1.1e18,
+        2.5e18,
         0.2e18,
-        0,
-        0.5e18
+        0.5e18,
+        0.01e18,
+        0.6e18,
+        15_000e16
       )
     );
     // assertGt(market.floatingDebt(), floatingDebtBefore);
@@ -949,14 +950,15 @@ contract MarketTest is Test {
         Market(address(0)),
         0.023e18,
         -0.0025e18,
-        1e18 + 1,
-        7e17,
-        1.5e18,
-        1.5e18,
-        15_000e16,
+        1.1e18,
+        0.75e18,
+        1.1e18,
+        2.5e18,
         0.2e18,
-        0,
-        0.5e18
+        0.5e18,
+        0.01e18,
+        0.6e18,
+        15_000e16
       )
     );
     assertEq(market.floatingDebt(), floatingDebtBefore);
@@ -2326,22 +2328,40 @@ contract MarketTest is Test {
 
   function testEarlyRepaymentWithExcessiveAmountOfFees() external {
     market.setInterestRateModel(
-      new InterestRateModel(market, 0.023e18, -0.0025e18, 1e18 + 1, 7e17, 1.5e18, 1.5e18, 1e18, 0.2e18, 0, 0.5e18)
+      new InterestRateModel(
+        market,
+        0.023e18,
+        -0.0025e18,
+        1e18 + 1,
+        0.7e18,
+        1.5e18,
+        1.5e18,
+        1e18,
+        0.5e18,
+        0,
+        0.3e18,
+        100e16
+      )
     );
 
     market.deposit(1_000_000 ether, address(this));
-    marketWETH.deposit(10_000 ether, BOB);
+    marketWETH.deposit(100_000 ether, BOB);
     daiPriceFeed.setPrice(0.0002e18);
     vm.prank(BOB);
     auditor.enterMarket(marketWETH);
 
     vm.warp(66_666);
+    emit log("1");
     market.borrowAtMaturity(FixedLib.INTERVAL, 100, type(uint256).max, address(this), address(this));
     vm.prank(BOB);
+    emit log("2");
     market.borrowAtMaturity(FixedLib.INTERVAL, 1_000_000 ether - 100, type(uint256).max, BOB, BOB);
 
+    emit log("3");
     // contract can cover all debt by repaying less than initial amount borrowed (93 < 100)
     (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    emit log_named_decimal_uint("principal", principal, 18);
+    emit log_named_decimal_uint("fee      ", fee, 18);
     market.repayAtMaturity(FixedLib.INTERVAL, principal + fee, 93, address(this));
   }
 

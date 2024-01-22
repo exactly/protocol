@@ -20,22 +20,22 @@ contract InterestRateModel {
   /// @notice Asymptote of the floating curve.
   uint256 public immutable floatingMaxUtilization;
 
-  /// @notice natural level of floating utilization, represented with 18 decimals.
-  uint256 public immutable floatingNaturalUtilization;
-  /// @notice natural level of fixed utilization, represented with 18 decimals.
-  uint256 public immutable fixedNaturalUtilization;
+  /// @notice natural level of utilization, represented with 18 decimals.
+  uint256 public immutable naturalUtilization;
   /// @notice speed of growth for the base rate, represented with 18 decimals.
   int256 public immutable growthSpeed;
   /// @notice speed of the sigmoid curve, represented with 18 decimals.
   int256 public immutable sigmoidSpeed;
-  /// @notice maximum interest rate, represented with 18 decimals.
-  uint256 public immutable maxRate;
   /// @notice spread factor for the fixed rate, represented with 18 decimals.
   int256 public immutable spreadFactor;
-  /// @notice time preference for the fixed rate, represented with 18 decimals.
-  int256 public immutable timePreference;
   /// @notice speed of maturity for the fixed rate, represented with 18 decimals.
   int256 public immutable maturitySpeed;
+  /// @notice time preference for the fixed rate, represented with 18 decimals.
+  int256 public immutable timePreference;
+  /// @notice liquidity naturally designated to fixed pools, represented with 18 decimals.
+  uint256 public immutable fixedAllocation;
+  /// @notice maximum interest rate, represented with 18 decimals.
+  uint256 public immutable maxRate;
 
   /// @dev maximum input value for expWad, ~ln((2^255 - 1) / 1e18), represented with 18 decimals.
   int256 internal constant EXP_THRESHOLD = 135305999368893231588;
@@ -47,25 +47,25 @@ contract InterestRateModel {
     uint256 curveA_,
     int256 curveB_,
     uint256 maxUtilization_,
-    uint256 floatingNaturalUtilization_,
-    int256 sigmoidSpeed_,
+    uint256 naturalUtilization_,
     int256 growthSpeed_,
-    uint256 maxRate_,
+    int256 sigmoidSpeed_,
     int256 spreadFactor_,
+    int256 maturitySpeed_,
     int256 timePreference_,
-    int256 maturitySpeed_
+    uint256 fixedAllocation_,
+    uint256 maxRate_
   ) {
     assert(
-      curveA_ != 0 &&
-        maxUtilization_ > 1e18 &&
-        floatingNaturalUtilization_ != 0 &&
-        floatingNaturalUtilization_ < 1e18 &&
-        sigmoidSpeed_ > 0 &&
+      maxUtilization_ > 1e18 &&
+        naturalUtilization_ > 0 &&
+        naturalUtilization_ < 1e18 &&
         growthSpeed_ > 0 &&
-        maxRate_ != 0 &&
-        maxRate_ <= 15_000e16 &&
+        sigmoidSpeed_ > 0 &&
         spreadFactor_ > 0 &&
-        maturitySpeed_ > 0
+        maturitySpeed_ > 0 &&
+        maxRate_ > 0 &&
+        maxRate_ <= 15_000e16
     );
 
     market = market_;
@@ -77,29 +77,21 @@ contract InterestRateModel {
     floatingCurveA = curveA_;
     floatingCurveB = curveB_;
     floatingMaxUtilization = maxUtilization_;
+    naturalUtilization = naturalUtilization_;
 
-    floatingNaturalUtilization = floatingNaturalUtilization_;
-    fixedNaturalUtilization = 1e18 - floatingNaturalUtilization;
-
-    auxSigmoid = int256(floatingNaturalUtilization.divWadDown(fixedNaturalUtilization)).lnWad();
-    sigmoidSpeed = sigmoidSpeed_;
     growthSpeed = growthSpeed_;
-    maxRate = maxRate_;
+    sigmoidSpeed = sigmoidSpeed_;
     spreadFactor = spreadFactor_;
-    timePreference = timePreference_;
     maturitySpeed = maturitySpeed_;
+    timePreference = timePreference_;
+    fixedAllocation = fixedAllocation_;
+    maxRate = maxRate_;
+
+    auxSigmoid = int256(naturalUtilization.divWadDown(1e18 - naturalUtilization)).lnWad();
 
     // reverts if it's an invalid curve (such as one yielding a negative interest rate).
     fixedRate(block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL), 1, 1, 1, 2);
     baseRate(1e18 - 1, 1e18 - 1);
-  }
-
-  struct FixedVars {
-    uint256 sqFNatPools;
-    uint256 fNatPools;
-    uint256 fixedFactor;
-    int256 natPools;
-    uint256 maturityFactor;
   }
 
   /// @notice fixed rate with given conditions, represented with 18 decimals.
@@ -121,9 +113,9 @@ contract InterestRateModel {
     if (uFixed == 0) return floatingRate(uFloating, uGlobal);
 
     FixedVars memory v;
-    v.sqFNatPools = (maxPools * 1e18).divWadDown(fixedNaturalUtilization);
+    v.sqFNatPools = (maxPools * 1e18).divWadDown(fixedAllocation);
     v.fNatPools = (v.sqFNatPools * 1e18).sqrt();
-    v.fixedFactor = (maxPools * uFixed).mulDivDown(1e36, uGlobal * fixedNaturalUtilization);
+    v.fixedFactor = (maxPools * uFixed).mulDivDown(1e36, uGlobal * fixedAllocation);
     v.natPools =
       ((2e18 - v.sqFNatPools.toInt256()) * 1e36) /
       (v.fNatPools.toInt256() * (1e18 - v.fNatPools.toInt256()));
@@ -250,11 +242,11 @@ contract InterestRateModel {
     uint256 memFloatingAssetsAverage = market.floatingAssetsAverage();
     uint256 averageFactor = (1e18 -
       (
-        -(
+        -int256(
           memFloatingAssets < memFloatingAssetsAverage
             ? market.dampSpeedDown()
             : market.dampSpeedUp() * (block.timestamp - market.lastAverageUpdate())
-        ).toInt256()
+        )
       ).expWad()).toUint256();
     return memFloatingAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(memFloatingAssets);
   }
@@ -294,3 +286,11 @@ contract InterestRateModel {
 
 error AlreadyMatured();
 error UtilizationExceeded();
+
+struct FixedVars {
+  uint256 sqFNatPools;
+  uint256 fNatPools;
+  uint256 fixedFactor;
+  int256 natPools;
+  uint256 maturityFactor;
+}
