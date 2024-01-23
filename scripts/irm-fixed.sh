@@ -30,7 +30,11 @@ rate=$(bc -l <<< "
 
     ttm       = maturity - timestamp
     interval  = 4 * 7 * 24 * 60 * 60
-    ttmaxm    = timestamp - (timestamp % interval) + maxpools * interval
+
+    scale     = 0
+    modulo    = timestamp % interval
+    scale     = 2 * 18
+    ttmaxm    = timestamp + maxpools * interval - modulo
     
     rate      = base * (1 + e(ttmspeed * l(ttm/ttmaxm)) * (tpref + spreadf * z))
   }
