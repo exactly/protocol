@@ -536,26 +536,7 @@ contract Previewer {
   function claimableRewards(Market market, address account) internal view returns (ClaimableReward[] memory rewards) {
     RewardsController rewardsController = market.rewardsController();
     if (address(rewardsController) != address(0)) {
-      ERC20[] memory rewardList = rewardsController.allRewards();
-
-      rewards = new ClaimableReward[](rewardList.length);
-      RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
-      bool[] memory ops = new bool[](2);
-      ops[0] = true;
-      ops[1] = false;
-      marketOps[0] = RewardsController.MarketOperation({ market: market, operations: ops });
-
-      for (uint256 i = 0; i < rewardList.length; ) {
-        rewards[i] = ClaimableReward({
-          asset: address(rewardList[i]),
-          assetName: rewardList[i].name(),
-          assetSymbol: rewardList[i].symbol(),
-          amount: rewardsController.claimable(marketOps, account, rewardList[i])
-        });
-        unchecked {
-          ++i;
-        }
-      }
+      rewards = new ClaimableReward[](rewardsController.allRewards().length);
     }
   }
 
