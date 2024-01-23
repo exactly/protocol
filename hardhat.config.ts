@@ -64,13 +64,13 @@ const hardhatConfig: Config = {
       naturalRate: 6e-2,
       maxUtilization: 1.3,
       naturalUtilization: 0.7,
-      growthSpeed: 1.1,
+      growthSpeed: 1.4,
       sigmoidSpeed: 2.5,
       spreadFactor: 0.2,
       maturitySpeed: 0.5,
       timePreference: 0.01,
       fixedAllocation: 0.6,
-      maxRate: 0.1,
+      maxRate: 18.25,
     },
     rewards: {
       undistributedFactor: 0.5,
@@ -88,7 +88,6 @@ const hardhatConfig: Config = {
     markets: {
       WETH: {
         adjustFactor: 0.86,
-        interestRateModel: { maxRate: 4.2 },
         overrides: {
           goerli: {
             rewards: {
@@ -139,6 +138,7 @@ const hardhatConfig: Config = {
       },
       USDC: {
         adjustFactor: 0.91,
+        interestRateModel: { minRate: 3.5e-2, naturalRate: 8e-2, naturalUtilization: 0.75, growthSpeed: 1.1 },
         overrides: {
           goerli: {
             rewards: {
@@ -176,6 +176,7 @@ const hardhatConfig: Config = {
       },
       WBTC: {
         adjustFactor: 0.85,
+        interestRateModel: { minRate: 1.75e-2, naturalRate: 9e-2, maxUtilization: 1.5, growthSpeed: 1.2 },
         overrides: {
           ethereum: { priceFeed: "double" },
           goerli: {
@@ -266,6 +267,7 @@ const hardhatConfig: Config = {
       OP: {
         networks: ["optimism"],
         adjustFactor: 0.58,
+        interestRateModel: { minRate: 2.5e-2, naturalRate: 10e-2, maxUtilization: 1.2, growthSpeed: 1.2 },
         overrides: {
           optimism: {
             rewards: {
