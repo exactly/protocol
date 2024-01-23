@@ -96,6 +96,7 @@ contract InterestRateModelTest is Test {
   }
 
   function testFuzzReferenceRateFixed(
+    uint256 timestamp,
     uint256 maturity,
     uint256 maxPools,
     uint256 uFixed,
@@ -103,8 +104,11 @@ contract InterestRateModelTest is Test {
     uint256 uGlobal,
     FixedParameters memory p
   ) external {
+    timestamp = _bound(timestamp, 0, 2 * FixedLib.INTERVAL);
+    vm.warp(timestamp);
+
     maxPools = _bound(maxPools, 6, 24);
-    maturity = _bound(maturity, 1, maxPools) * FixedLib.INTERVAL;
+    maturity = _bound(maturity, 1, maxPools) * FixedLib.INTERVAL + timestamp - (timestamp % FixedLib.INTERVAL);
     uFixed = _bound(uFixed, 0, 1.01e18);
     uFloating = _bound(uFloating, 0, 1.01e18 - uFixed);
     uGlobal = _bound(uGlobal, uFixed + uFloating, 1.01e18);
@@ -169,6 +173,7 @@ contract InterestRateModelTest is Test {
     uint256 floatingDebt,
     uint256[2] memory fixedBorrows,
     uint256[2] memory fixedDeposits,
+    uint256 timestamp,
     uint256 maturity,
     uint256 amount
   ) external {
@@ -177,6 +182,7 @@ contract InterestRateModelTest is Test {
     fixedBorrows[1] = _bound(fixedBorrows[1], 0, floatingAssets - floatingDebt - fixedBorrows[0]);
     fixedDeposits[0] = _bound(fixedDeposits[0], 0, fixedBorrows[0]);
     fixedDeposits[1] = _bound(fixedDeposits[1], 0, fixedBorrows[1]);
+    timestamp = _bound(timestamp, 2, FixedLib.INTERVAL - 1);
     maturity = _bound(maturity, 0, 1);
     amount = _bound(amount, 0, floatingAssets - floatingDebt - fixedBorrows[0] - fixedBorrows[1]);
 
@@ -198,14 +204,11 @@ contract InterestRateModelTest is Test {
       0.6e18,
       15_000e16
     );
-    market.initialize(uint8(fixedBorrows.length), 2e18, irm, 0.02e18 / uint256(1 days), 1e17, 0, 0.0046e18, 0.42e18);
+    market.initialize(2, 2e18, irm, 2e16 / uint256(1 days), 1e17, 0, type(uint128).max, type(uint128).max);
     asset.mint(address(this), type(uint128).max);
     asset.approve(address(market), type(uint128).max);
-
-    if (floatingAssets != 0) {
-      market.deposit(floatingAssets, address(this));
-    }
-    vm.warp(FixedLib.INTERVAL / 2);
+    if (floatingAssets != 0) market.deposit(floatingAssets, address(this));
+    vm.warp(timestamp);
     market.borrow(floatingDebt, address(this), address(this));
 
     Vars memory v;
@@ -226,12 +229,14 @@ contract InterestRateModelTest is Test {
       v.backupBorrowed += fixedBorrows[i] > fixedDeposits[i] ? fixedBorrows[i] - fixedDeposits[i] : 0;
     }
 
-    uint256 fixedBorrowed = fixedBorrows[maturity] > fixedDeposits[maturity]
-      ? fixedDeposits[maturity]
-      : fixedBorrows[maturity];
-    v.backupAmount = fixedBorrowed + amount > fixedDeposits[maturity]
-      ? fixedBorrowed + amount - fixedDeposits[maturity]
-      : 0;
+    {
+      uint256 fixedBorrowed = fixedBorrows[maturity] > fixedDeposits[maturity]
+        ? fixedDeposits[maturity]
+        : fixedBorrows[maturity];
+      v.backupAmount = fixedBorrowed + amount > fixedDeposits[maturity]
+        ? fixedBorrowed + amount - fixedDeposits[maturity]
+        : 0;
+    }
 
     v.uFixed = fixedUtilization(fixedDeposits[maturity], fixedBorrows[maturity] + amount, floatingAssets);
     v.uFloating = floatingAssets > 0 ? floatingDebt.divWadUp(floatingAssets) : 0;
