@@ -64,13 +64,13 @@ export default {
       curveB: 9.0055e-3,
       maxUtilization: 1.3,
       naturalUtilization: 0.7,
-      growthSpeed: 1.1,
+      growthSpeed: 1.4,
       sigmoidSpeed: 2.5,
       spreadFactor: 0.2,
       maturitySpeed: 0.5,
       timePreference: 0.01,
       fixedAllocation: 0.6,
-      maxRate: 0.1,
+      maxRate: 18.25,
     },
     rewards: {
       undistributedFactor: 0.5,
@@ -88,7 +88,6 @@ export default {
     markets: {
       WETH: {
         adjustFactor: 0.86,
-        interestRateModel: { maxRate: 4.2 },
         overrides: {
           goerli: {
             rewards: {
@@ -139,6 +138,7 @@ export default {
       },
       USDC: {
         adjustFactor: 0.91,
+        interestRateModel: { curveA: 1.2111e-2, curveB: 2.5683e-2, naturalUtilization: 0.75, growthSpeed: 1.1 },
         overrides: {
           goerli: {
             rewards: {
@@ -176,6 +176,7 @@ export default {
       },
       WBTC: {
         adjustFactor: 0.85,
+        interestRateModel: { curveA: 6.2007e-2, curveB: -2.3838e-2, maxUtilization: 1.5, growthSpeed: 1.2 },
         overrides: {
           ethereum: { priceFeed: "double" },
           goerli: {
@@ -266,6 +267,7 @@ export default {
       OP: {
         networks: ["optimism"],
         adjustFactor: 0.58,
+        interestRateModel: { curveA: 2.9687e-2, curveB: 2.6122e-4, maxUtilization: 1.2, growthSpeed: 1.2 },
         overrides: {
           optimism: {
             rewards: {
