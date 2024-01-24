@@ -1,6 +1,5 @@
 import { ethers } from "hardhat";
-import type { BigNumber } from "ethers";
-import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import type {
   Auditor,
   Auditor__factory,
@@ -14,13 +13,7 @@ import type {
   MockPriceFeed__factory,
 } from "../../types";
 
-const {
-  utils: { parseUnits },
-  getContractFactory,
-  getNamedSigner,
-  Contract,
-  provider,
-} = ethers;
+const { parseUnits, getContractFactory, getNamedSigner, Contract, provider } = ethers;
 
 /** @deprecated use deploy fixture */
 export class MarketEnv {
@@ -50,11 +43,13 @@ export class MarketEnv {
   }
 
   public getAllEarnings(fixedPoolState: FixedPoolState) {
-    return fixedPoolState.backupEarnings
-      .add(fixedPoolState.earningsAccumulator)
-      .add(fixedPoolState.earningsMP)
-      .add(fixedPoolState.unassignedEarnings)
-      .add(fixedPoolState.earningsDiscounted);
+    return (
+      fixedPoolState.backupEarnings +
+      fixedPoolState.earningsAccumulator +
+      fixedPoolState.earningsMP +
+      fixedPoolState.unassignedEarnings +
+      fixedPoolState.earningsDiscounted
+    );
   }
 
   static async create() {
@@ -64,51 +59,51 @@ export class MarketEnv {
       "MockInterestRateModel",
     )) as MockInterestRateModel__factory;
     const mockInterestRateModel = await MockInterestRateModelFactory.deploy(0);
-    await mockInterestRateModel.deployed();
+    await mockInterestRateModel.waitForDeployment();
 
     const MockERC20 = (await getContractFactory("MockERC20")) as MockERC20__factory;
     const asset = await MockERC20.deploy("Fake", "F", 18);
-    await asset.deployed();
+    await asset.waitForDeployment();
 
     const Auditor = (await getContractFactory("Auditor")) as Auditor__factory;
     const auditorImpl = await Auditor.deploy(8);
-    await auditorImpl.deployed();
+    await auditorImpl.waitForDeployment();
     const auditorProxy = await ((await getContractFactory("ERC1967Proxy")) as ERC1967Proxy__factory).deploy(
-      auditorImpl.address,
-      [],
+      auditorImpl.target,
+      "0x",
     );
-    await auditorProxy.deployed();
-    const auditor = new Contract(auditorProxy.address, Auditor.interface, owner) as Auditor;
+    await auditorProxy.waitForDeployment();
+    const auditor = new Contract(auditorProxy.target as string, Auditor.interface, owner) as unknown as Auditor;
     await auditor.initialize({ liquidator: parseUnits("0.1"), lenders: 0 });
 
     const MarketHarness = (await getContractFactory("MarketHarness")) as MarketHarness__factory;
     const marketHarness = await MarketHarness.deploy(
-      asset.address,
+      asset.target,
       4,
       parseUnits("1"),
-      auditor.address,
-      mockInterestRateModel.address,
-      parseUnits("0.02").div(86_400),
+      auditor.target,
+      mockInterestRateModel.target,
+      parseUnits("0.02") / 86_400n,
       0, // SP rate if 0 then no fees charged for the mp depositors' yield
       0,
       parseUnits("0.0046"),
       parseUnits("0.42"),
     );
-    await marketHarness.deployed();
+    await marketHarness.waitForDeployment();
     const MockPriceFeed = (await getContractFactory("MockPriceFeed")) as MockPriceFeed__factory;
     const mockPriceFeed = await MockPriceFeed.deploy(8, parseUnits("1", 8));
-    await mockPriceFeed.deployed();
-    await auditor.enableMarket(marketHarness.address, mockPriceFeed.address, parseUnits("0.9"));
+    await mockPriceFeed.waitForDeployment();
+    await auditor.enableMarket(marketHarness.target, mockPriceFeed.target, parseUnits("0.9"));
 
     return new MarketEnv(mockInterestRateModel, marketHarness, asset, owner);
   }
 }
 
 export type FixedPoolState = {
-  borrowFees: BigNumber;
-  unassignedEarnings: BigNumber;
-  backupEarnings: BigNumber;
-  earningsAccumulator: BigNumber;
-  earningsMP: BigNumber;
-  earningsDiscounted: BigNumber;
+  borrowFees: bigint;
+  unassignedEarnings: bigint;
+  backupEarnings: bigint;
+  earningsAccumulator: bigint;
+  earningsMP: bigint;
+  earningsDiscounted: bigint;
 };

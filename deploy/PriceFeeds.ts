@@ -1,10 +1,8 @@
 import { env } from "process";
-import { BigNumber } from "ethers";
-import { Interface } from "@ethersproject/abi";
 import type { DeployFunction } from "hardhat-deploy/types";
 import tenderlify from "./.utils/tenderlify";
 
-const func: DeployFunction = async ({ network, deployments: { deploy, get, getOrNull }, getNamedAccounts }) => {
+const func: DeployFunction = async ({ ethers, network, deployments: { deploy, get, getOrNull }, getNamedAccounts }) => {
   const { deployer } = await getNamedAccounts();
 
   for (const [symbol, { priceFeed }] of Object.entries(network.config.finance.markets)) {
@@ -33,8 +31,8 @@ const func: DeployFunction = async ({ network, deployments: { deploy, get, getOr
           args: [
             (await get(`PriceFeed${symbol}Main`)).address,
             address,
-            new Interface(abi).getSighash(priceFeed.fn),
-            BigNumber.from(priceFeed.baseUnit),
+            new ethers.Interface(abi).getFunction(priceFeed.fn)?.selector,
+            priceFeed.baseUnit,
           ],
           from: deployer,
           log: true,

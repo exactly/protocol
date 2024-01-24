@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers, deployments, network } from "hardhat";
-import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import type {
   Auditor,
   Auditor__factory,
@@ -13,13 +13,7 @@ import type {
 } from "../../types";
 import timelockExecute from "./utils/timelockExecute";
 
-const {
-  utils: { parseUnits },
-  getContractFactory,
-  getNamedSigner,
-  getContractAt,
-  getContract,
-} = ethers;
+const { parseUnits, getContractFactory, getNamedSigner, getContractAt, getContract } = ethers;
 
 const { fixture, get } = deployments;
 
@@ -50,7 +44,7 @@ describe("Auditor Admin", function () {
 
   describe("GIVEN a regular account", () => {
     it("WHEN trying to enable a market, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.enableMarket(marketDAI.address, priceFeedDAI.address, 0)).to.be.revertedWithoutReason();
+      await expect(auditor.enableMarket(marketDAI.target, priceFeedDAI.target, 0)).to.be.revertedWithoutReason();
     });
 
     it("WHEN trying to set liquidation incentive, THEN the transaction should revert with Access Control", async () => {
@@ -59,11 +53,11 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to set a new price feed, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.setPriceFeed(marketDAI.address, priceFeedDAI.address)).to.be.revertedWithoutReason();
+      await expect(auditor.setPriceFeed(marketDAI.target, priceFeedDAI.target)).to.be.revertedWithoutReason();
     });
 
     it("WHEN trying to set adjust factor, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.setAdjustFactor(marketDAI.address, 1)).to.be.revertedWithoutReason();
+      await expect(auditor.setAdjustFactor(marketDAI.target, 1)).to.be.revertedWithoutReason();
     });
   });
 
@@ -79,7 +73,7 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to enable a market for the second time, THEN the transaction should revert with MarketAlreadyListed", async () => {
-      await expect(auditor.enableMarket(marketDAI.address, priceFeedDAI.address, 0)).to.be.revertedWithCustomError(
+      await expect(auditor.enableMarket(marketDAI.target, priceFeedDAI.target, 0)).to.be.revertedWithCustomError(
         auditor,
         "MarketAlreadyListed",
       );
@@ -88,11 +82,11 @@ describe("Auditor Admin", function () {
     it("WHEN trying to set a new market with a different auditor, THEN the transaction should revert with AuditorMismatch", async () => {
       const newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy(8);
       const market = await ((await getContractFactory("Market")) as Market__factory).deploy(
-        dai.address,
-        newAuditor.address,
+        dai.target,
+        newAuditor.target,
       );
       await expect(
-        auditor.enableMarket(market.address, priceFeedDAI.address, parseUnits("0.5")),
+        auditor.enableMarket(market.target, priceFeedDAI.target, parseUnits("0.5")),
       ).to.be.revertedWithCustomError(auditor, "AuditorMismatch");
     });
 
@@ -105,13 +99,10 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to set a new market, THEN the auditor should emit MarketListed event", async () => {
-      const market = await ((await getContractFactory("Market")) as Market__factory).deploy(
-        dai.address,
-        auditor.address,
-      );
-      await expect(auditor.enableMarket(market.address, priceFeedDAI.address, parseUnits("0.5")))
+      const market = await ((await getContractFactory("Market")) as Market__factory).deploy(dai.target, auditor.target);
+      await expect(auditor.enableMarket(market.target, priceFeedDAI.target, parseUnits("0.5")))
         .to.emit(auditor, "MarketListed")
-        .withArgs(market.address, 18);
+        .withArgs(market.target, 18);
     });
 
     it("WHEN setting a new liquidation incentive, THEN the auditor should emit LiquidationIncentiveSet event", async () => {
@@ -121,10 +112,10 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN setting adjust factor, THEN the auditor should emit AdjustFactorSet event", async () => {
-      await expect(auditor.setAdjustFactor(marketDAI.address, parseUnits("0.7")))
+      await expect(auditor.setAdjustFactor(marketDAI.target, parseUnits("0.7")))
         .to.emit(auditor, "AdjustFactorSet")
-        .withArgs(marketDAI.address, parseUnits("0.7"));
-      expect((await auditor.markets(marketDAI.address)).adjustFactor).to.equal(parseUnits("0.7"));
+        .withArgs(marketDAI.target, parseUnits("0.7"));
+      expect((await auditor.markets(marketDAI.target)).adjustFactor).to.equal(parseUnits("0.7"));
     });
   });
 
@@ -134,7 +125,7 @@ describe("Auditor Admin", function () {
     let newAuditor: Auditor;
 
     beforeEach(async () => {
-      proxy = await getContractAt<ITransparentUpgradeableProxy>("ITransparentUpgradeableProxy", auditor.address);
+      proxy = (await getContractAt("ITransparentUpgradeableProxy", auditor.target)) as ITransparentUpgradeableProxy;
       proxyAdmin = await getContract<ProxyAdmin>("ProxyAdmin", deployer);
       newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy(8);
     });
@@ -144,25 +135,23 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN regular user tries to upgrade, THEN the transaction should revert with not found", async () => {
-      await expect(proxy.upgradeTo(newAuditor.address)).to.be.revertedWithoutReason();
-      await expect(proxy.connect(multisig).upgradeTo(newAuditor.address)).to.be.revertedWithoutReason();
+      await expect(proxy.upgradeTo(newAuditor.target)).to.be.revertedWithoutReason();
+      await expect(proxy.connect(multisig).upgradeTo(newAuditor.target)).to.be.revertedWithoutReason();
     });
 
     it("WHEN regular user tries to upgrade through proxy admin, THEN the transaction should revert with Ownable", async () => {
-      await expect(proxyAdmin.upgrade(proxy.address, newAuditor.address)).to.be.revertedWithoutReason();
-      await expect(
-        proxyAdmin.connect(multisig).upgrade(proxy.address, newAuditor.address),
-      ).to.be.revertedWithoutReason();
+      await expect(proxyAdmin.upgrade(proxy.target, newAuditor.target)).to.be.revertedWithoutReason();
+      await expect(proxyAdmin.connect(multisig).upgrade(proxy.target, newAuditor.target)).to.be.revertedWithoutReason();
     });
 
     it("WHEN timelock tries to upgrade directly, THEN the transaction should revert with not found", async () => {
-      await expect(timelockExecute(multisig, proxy, "upgradeTo", [newAuditor.address])).to.be.revertedWithoutReason();
+      await expect(timelockExecute(multisig, proxy, "upgradeTo", [newAuditor.target])).to.be.revertedWithoutReason();
     });
 
     it("WHEN timelock tries to upgrade through proxy admin, THEN the proxy should emit Upgraded event", async () => {
-      await expect(timelockExecute(multisig, proxyAdmin, "upgrade", [proxy.address, newAuditor.address]))
+      await expect(timelockExecute(multisig, proxyAdmin, "upgrade", [proxy.target, newAuditor.target]))
         .to.emit(proxy, "Upgraded")
-        .withArgs(newAuditor.address);
+        .withArgs(newAuditor.target);
     });
   });
 });

@@ -1,11 +1,11 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { parseUnits } from "ethers/lib/utils";
-import type { BigNumber } from "ethers";
-import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import type { Market, MockERC20 } from "../../types";
 import { DefaultEnv } from "./defaultEnv";
 import futurePools from "./utils/futurePools";
+
+const { parseUnits } = ethers;
 
 describe("Smart Pool", function () {
   let exactlyEnv: DefaultEnv;
@@ -16,8 +16,8 @@ describe("Smart Pool", function () {
   let marketWBTC: Market;
   let bob: SignerWithAddress;
   let john: SignerWithAddress;
-  let bobBalancePre: BigNumber;
-  let johnBalancePre: BigNumber;
+  let bobBalancePre: bigint;
+  let johnBalancePre: bigint;
 
   before(() => {
     bobBalancePre = parseUnits("2000");
@@ -42,14 +42,14 @@ describe("Smart Pool", function () {
 
   describe("GIVEN bob and john have 2000DAI in balance, AND deposit 1000DAI each", () => {
     beforeEach(async () => {
-      await dai.connect(bob).approve(marketDAI.address, bobBalancePre);
-      await dai.connect(john).approve(marketDAI.address, johnBalancePre);
+      await dai.connect(bob).approve(marketDAI.target, bobBalancePre);
+      await dai.connect(john).approve(marketDAI.target, johnBalancePre);
 
       await marketDAI.connect(bob).deposit(parseUnits("1000"), bob.address);
       await marketDAI.connect(john).deposit(parseUnits("1000"), john.address);
     });
     it("THEN balance of DAI in contract is 2000", async () => {
-      const balanceOfAssetInContract = await dai.balanceOf(marketDAI.address);
+      const balanceOfAssetInContract = await dai.balanceOf(marketDAI.target);
 
       expect(balanceOfAssetInContract).to.equal(parseUnits("2000"));
     });
@@ -67,7 +67,7 @@ describe("Smart Pool", function () {
         await marketDAI.connect(bob).withdraw(amountToWithdraw, bob.address, bob.address);
       });
       it("THEN balance of DAI in contract is 1500", async () => {
-        const balanceOfAssetInContract = await dai.balanceOf(marketDAI.address);
+        const balanceOfAssetInContract = await dai.balanceOf(marketDAI.target);
 
         expect(balanceOfAssetInContract).to.equal(parseUnits("1500"));
       });
@@ -99,12 +99,12 @@ describe("Smart Pool", function () {
   describe("GIVEN bob has 1WBTC in balance, AND deposit 1WBTC", () => {
     beforeEach(async () => {
       const bobBalance = parseUnits("1", 8);
-      await wbtc.connect(bob).approve(marketWBTC.address, bobBalance);
+      await wbtc.connect(bob).approve(marketWBTC.target, bobBalance);
 
       await marketWBTC.connect(bob).deposit(parseUnits("1", 8), bob.address);
     });
     it("THEN balance of WBTC in contract is 1", async () => {
-      const balanceOfAssetInContract = await wbtc.balanceOf(marketWBTC.address);
+      const balanceOfAssetInContract = await wbtc.balanceOf(marketWBTC.target);
 
       expect(balanceOfAssetInContract).to.equal(parseUnits("1", 8));
     });
@@ -117,7 +117,7 @@ describe("Smart Pool", function () {
 
   describe("GIVEN bob deposits 1WBTC", () => {
     beforeEach(async () => {
-      await wbtc.connect(bob).approve(marketWBTC.address, parseUnits("1", 8));
+      await wbtc.connect(bob).approve(marketWBTC.target, parseUnits("1", 8));
       await marketWBTC.connect(bob).approve(john.address, parseUnits("1", 8));
       await marketWBTC.connect(bob).deposit(parseUnits("1", 8), bob.address);
       await ethers.provider.send("evm_increaseTime", [9_011]);
@@ -141,7 +141,7 @@ describe("Smart Pool", function () {
     describe("AND GIVEN bob borrows 0.35 WBTC from a maturity", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(bob);
-        await exactlyEnv.borrowMP("WBTC", futurePools(3)[2].toNumber(), "0.35");
+        await exactlyEnv.borrowMP("WBTC", futurePools(3)[2], "0.35");
       });
       it("WHEN bob tries to transfer his eWBTC THEN it fails with InsufficientAccountLiquidity error", async () => {
         await expect(
@@ -172,14 +172,14 @@ describe("Smart Pool", function () {
       exactlyEnv.switchWallet(bob);
       await exactlyEnv.depositSP("DAI", "100");
       // add liquidity to the maturity
-      await exactlyEnv.depositMP("DAI", futurePools(3)[2].toNumber(), "60");
+      await exactlyEnv.depositMP("DAI", futurePools(3)[2], "60");
     });
     it("WHEN trying to transfer to another account the entire position (100 eDAI) THEN it should not revert", async () => {
       await expect(marketDAI.connect(bob).transfer(john.address, parseUnits("100"))).to.not.be.reverted;
     });
     describe("AND GIVEN bob borrows 60 DAI from a maturity", () => {
       beforeEach(async () => {
-        await exactlyEnv.borrowMP("DAI", futurePools(3)[2].toNumber(), "60");
+        await exactlyEnv.borrowMP("DAI", futurePools(3)[2], "60");
       });
       it("WHEN trying to transfer to another account the entire position (100 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
         await expect(marketDAI.connect(bob).transfer(john.address, parseUnits("100"))).to.be.revertedWithCustomError(

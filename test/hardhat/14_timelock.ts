@@ -1,16 +1,10 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
-import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import type { Auditor, TimelockController } from "../../types";
 import timelockExecute from "./utils/timelockExecute";
 
-const {
-  constants: { AddressZero, HashZero },
-  getUnnamedSigners,
-  getNamedSigner,
-  getContract,
-  provider,
-} = ethers;
+const { ZeroAddress, ZeroHash, getUnnamedSigners, getNamedSigner, getContract, provider } = ethers;
 
 describe("Timelock - AccessControl", function () {
   let auditor: Auditor;
@@ -47,7 +41,7 @@ describe("Timelock - AccessControl", function () {
       });
       describe("AND WHEN the owner grants the ADMIN role to the Timelock contract address", () => {
         beforeEach(async () => {
-          await auditor.grantRole(await auditor.DEFAULT_ADMIN_ROLE(), timelockController.address);
+          await auditor.grantRole(await auditor.DEFAULT_ADMIN_ROLE(), timelockController.target);
         });
         it("THEN it should still not revert when setting new asset sources with owner address", async () => {
           await expect(auditor.setPriceFeed(marketDAI, priceFeed)).to.not.be.reverted;
@@ -56,24 +50,24 @@ describe("Timelock - AccessControl", function () {
           let calldata: string;
           beforeEach(async () => {
             calldata = auditor.interface.encodeFunctionData("setPriceFeed", [marketDAI, priceFeed]);
-            await timelockController.schedule(auditor.address, 0, calldata, HashZero, HashZero, 3);
+            await timelockController.schedule(auditor.target, 0, calldata, ZeroHash, ZeroHash, 3);
           });
           it("THEN it should revert when executing before delay time", async () => {
             await expect(
-              timelockController.execute(auditor.address, 0, calldata, HashZero, HashZero),
+              timelockController.execute(auditor.target, 0, calldata, ZeroHash, ZeroHash),
             ).to.be.revertedWithoutReason();
           });
           it("THEN it should not revert when executing after delay time", async () => {
             await provider.send("evm_mine", []);
             await provider.send("evm_mine", []);
-            await expect(timelockController.execute(auditor.address, 0, calldata, HashZero, HashZero)).to.not.be
+            await expect(timelockController.execute(auditor.target, 0, calldata, ZeroHash, ZeroHash)).to.not.be
               .reverted;
           });
         });
         it("AND WHEN account tries to schedule a set of new asset sources through the Timelock, THEN it should revert", async () => {
-          const data = auditor.interface.encodeFunctionData("setPriceFeed", [AddressZero, AddressZero]);
+          const data = auditor.interface.encodeFunctionData("setPriceFeed", [ZeroAddress, ZeroAddress]);
           await expect(
-            timelockController.connect(account).schedule(auditor.address, 0, data, HashZero, HashZero, 3),
+            timelockController.connect(account).schedule(auditor.target, 0, data, ZeroHash, ZeroHash, 3),
           ).to.be.revertedWithoutReason();
         });
         describe("AND WHEN the owner revokes his ADMIN role", () => {
@@ -100,19 +94,19 @@ describe("Timelock - AccessControl", function () {
             expect(userHasProposerRole).to.equal(true);
           });
           it("THEN account can schedule and execute transactions through the Timelock", async () => {
-            const data = auditor.interface.encodeFunctionData("setPriceFeed", [AddressZero, priceFeed]);
-            await expect(timelockController.connect(account).schedule(auditor.address, 0, data, HashZero, HashZero, 1))
+            const data = auditor.interface.encodeFunctionData("setPriceFeed", [ZeroAddress, priceFeed]);
+            await expect(timelockController.connect(account).schedule(auditor.target, 0, data, ZeroHash, ZeroHash, 1))
               .to.not.be.reverted;
-            await expect(timelockController.connect(account).execute(auditor.address, 0, data, HashZero, HashZero)).to
+            await expect(timelockController.connect(account).execute(auditor.target, 0, data, ZeroHash, ZeroHash)).to
               .not.be.reverted;
           });
           it("THEN it should revert when account tries to grant another address PROPOSER and EXECUTOR roles for Timelock contract", async () => {
             // Only addresses with TIMELOCK_ADMIN_ROLE can grant these roles
             await expect(
-              timelockController.connect(account).grantRole(PROPOSER_ROLE, AddressZero),
+              timelockController.connect(account).grantRole(PROPOSER_ROLE, ZeroAddress),
             ).to.be.revertedWithoutReason();
             await expect(
-              timelockController.connect(account).grantRole(EXECUTOR_ROLE, AddressZero),
+              timelockController.connect(account).grantRole(EXECUTOR_ROLE, ZeroAddress),
             ).to.be.revertedWithoutReason();
           });
         });

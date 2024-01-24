@@ -1,11 +1,11 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import type { Market } from "../../types";
 import { DefaultEnv } from "./defaultEnv";
 import futurePools from "./utils/futurePools";
 
-const nextPoolId = futurePools(1)[0].toNumber();
+const nextPoolId = futurePools(1)[0];
 
 describe("Market - Pausable", function () {
   let exactlyEnv: DefaultEnv;
@@ -45,7 +45,7 @@ describe("Market - Pausable", function () {
     });
     describe("AND GIVEN a pause for all actions that have whenNotPaused modifier", () => {
       beforeEach(async () => {
-        await exactlyEnv.getUnderlying("DAI").approve(market.address, ethers.constants.MaxUint256);
+        await exactlyEnv.getUnderlying("DAI").approve(market.target, ethers.MaxUint256);
         await market.pause();
       });
       it("THEN it should revert when trying to deposit to a smart pool", async () => {
@@ -63,7 +63,7 @@ describe("Market - Pausable", function () {
         await expect(market.repayAtMaturity(nextPoolId, "0", "0", owner.address)).to.be.revertedWithoutReason();
       });
       it("THEN it should revert when trying to liquidate a maturity pool position", async () => {
-        await expect(market.liquidate(owner.address, "0", market.address)).to.be.revertedWithoutReason();
+        await expect(market.liquidate(owner.address, "0", market.target)).to.be.revertedWithoutReason();
       });
       it("THEN it should revert when trying to seize a maturity pool position", async () => {
         await expect(market.seize(owner.address, owner.address, "0")).to.be.revertedWithoutReason();

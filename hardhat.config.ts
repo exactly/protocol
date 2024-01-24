@@ -1,13 +1,13 @@
 import "dotenv/config";
-import "hardhat-deploy";
-import "solidity-coverage";
-import "@typechain/hardhat";
-import "hardhat-gas-reporter";
-import "hardhat-contract-sizer";
-import "@nomiclabs/hardhat-ethers";
+import "@nomicfoundation/hardhat-ethers";
 import "@nomicfoundation/hardhat-chai-matchers";
-import "@primitivefi/hardhat-dodoc";
 import "@openzeppelin/hardhat-upgrades";
+import "@typechain/hardhat";
+import "hardhat-deploy";
+import "hardhat-deploy-ethers";
+import "hardhat-contract-sizer";
+import "hardhat-gas-reporter";
+import "solidity-coverage";
 import { env } from "process";
 import { setup } from "@tenderly/hardhat-tenderly";
 import { boolean, string } from "hardhat/internal/core/params/argumentTypes";
@@ -303,9 +303,8 @@ export default {
   },
   mocha: { timeout: 66_666 },
   paths: { artifacts: "artifacts/hardhat" },
-  dodoc: { exclude: ["mocks/", "k/", "elin/", "rc/"] },
   tenderly: { project: "exactly", username: "exactly", privateVerification: false },
-  typechain: { outDir: "types", target: "ethers-v5" },
+  typechain: { outDir: "types", target: "ethers-v6" },
   contractSizer: { runOnCompile: true, only: ["^contracts/"], except: ["mocks"] },
   gasReporter: { currency: "USD", gasPrice: 100, enabled: !!JSON.parse(env.REPORT_GAS ?? "false") },
 } as Config;
@@ -327,9 +326,6 @@ extendConfig((hardhatConfig, { finance }) => {
   for (const [networkName, networkConfig] of Object.entries(hardhatConfig.networks)) {
     const live = !["hardhat", "localhost"].includes(networkName);
     if (live) {
-      networkConfig.safeTxService = `https://safe-transaction-${
-        { ethereum: "mainnet" }[networkName] ?? networkName
-      }.safe.global`;
       if (env.MNEMONIC) networkConfig.accounts = { ...defaultHdAccountsConfigParams, mnemonic: env.MNEMONIC };
     } else Object.assign(networkConfig, { priceDecimals: 8, allowUnlimitedContractSize: true });
     networkConfig.finance = {
@@ -447,14 +443,12 @@ declare module "hardhat/types/config" {
   export interface HardhatNetworkConfig {
     priceDecimals: number;
     timelockDelay: undefined;
-    safeTxService: undefined;
     finance: FinanceConfig;
   }
 
   export interface HttpNetworkConfig {
     priceDecimals: number;
     timelockDelay?: number;
-    safeTxService: string;
     finance: FinanceConfig;
   }
 }

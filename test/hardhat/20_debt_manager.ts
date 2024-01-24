@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
-import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import type { Market, DebtManager, ERC20 } from "../../types";
 
 describe("DebtManager", function () {
@@ -22,14 +22,14 @@ describe("DebtManager", function () {
 
   describe("GIVEN an approval of the MarketUSDC to spend USDC from the leverage contract", () => {
     it("THEN the tx should emit Approval", async () => {
-      await expect(debtManager.approve(marketUSDC.address))
+      await expect(debtManager.approve(marketUSDC.target))
         .to.emit(usdc, "Approval")
-        .withArgs(debtManager.address, marketUSDC.address, ethers.constants.MaxUint256);
+        .withArgs(debtManager.target, marketUSDC.target, ethers.MaxUint256);
     });
   });
   describe("AND GIVEN an approval of an invalid address to spend USDC from the leverage contract", () => {
     it("THEN the tx should revert", async () => {
-      await expect(debtManager.approve(debtManager.address)).to.be.revertedWithCustomError(
+      await expect(debtManager.approve(debtManager.target)).to.be.revertedWithCustomError(
         debtManager,
         "MarketNotListed",
       );

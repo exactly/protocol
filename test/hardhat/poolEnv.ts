@@ -1,11 +1,7 @@
 import { ethers } from "hardhat";
 import type { FixedPoolHarness, FixedPoolHarness__factory } from "../../types";
 
-const {
-  utils: { parseUnits },
-  getContractFactory,
-  provider,
-} = ethers;
+const { parseUnits, getContractFactory, provider } = ethers;
 
 /** @deprecated use deploy fixture */
 export class PoolEnv {
@@ -100,7 +96,7 @@ export class PoolEnv {
   static async create(): Promise<PoolEnv> {
     const FixedPoolHarness = (await getContractFactory("FixedPoolHarness")) as FixedPoolHarness__factory;
     const fixedPoolHarness = await FixedPoolHarness.deploy();
-    await fixedPoolHarness.deployed();
+    await fixedPoolHarness.waitForDeployment();
 
     return new PoolEnv(fixedPoolHarness);
   }

@@ -19,7 +19,7 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
         ...opts,
         proxy: {
           owner: timelock,
-          viaAdminContract: "ProxyAdmin",
+          viaAdminContract: { name: "ProxyAdmin" },
           proxyContract: "TransparentUpgradeableProxy",
           execute: {
             init: { methodName: "initialize", args: [] },

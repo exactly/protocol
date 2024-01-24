@@ -1,21 +1,19 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { parseUnits } from "ethers/lib/utils";
-import type { BigNumber } from "ethers";
 import { PoolEnv } from "./poolEnv";
 import { INTERVAL } from "./utils/futurePools";
 
-const { provider } = ethers;
+const { parseUnits, provider } = ethers;
 
 describe("Fixed Pool Management Library", () => {
   let poolEnv: PoolEnv;
   let fp: {
-    borrowed: BigNumber;
-    supplied: BigNumber;
-    unassignedEarnings: BigNumber;
-    lastAccrual: BigNumber;
+    borrowed: bigint;
+    supplied: bigint;
+    unassignedEarnings: bigint;
+    lastAccrual: bigint;
   };
-  let scaledDebt: { principal: BigNumber; fee: BigNumber };
+  let scaledDebt: { principal: bigint; fee: bigint };
 
   describe("GIVEN a clean fixed rate pool", () => {
     beforeEach(async () => {
@@ -160,7 +158,7 @@ describe("Fixed Pool Management Library", () => {
       it("WHEN backupSupplied is 101, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 99.0099... (0 for the SP)", async () => {
         const result = await poolEnv.calculateDeposit("100", "100", "101", "0");
 
-        expect(result[0]).to.closeTo(parseUnits("99.00990099"), parseUnits("00.00000001").toNumber());
+        expect(result[0]).to.closeTo(parseUnits("99.00990099"), Number(parseUnits("00.00000001")));
         expect(result[1]).to.eq(parseUnits("0"));
       });
 
@@ -204,8 +202,8 @@ describe("Fixed Pool Management Library", () => {
       it("WHEN backupFeeRate is 20% AND backupSupplied is 101 THEN earnings is 79.2079... (19.8019... for the SP)", async () => {
         const result = await poolEnv.calculateDeposit("100", "100", "101", "0.2");
 
-        expect(result[0]).to.closeTo(parseUnits("79.20792079"), parseUnits("00.00000001").toNumber());
-        expect(result[1]).to.closeTo(parseUnits("19.80198019"), parseUnits("00.00000001").toNumber());
+        expect(result[0]).to.closeTo(parseUnits("79.20792079"), Number(parseUnits("00.00000001")));
+        expect(result[1]).to.closeTo(parseUnits("19.80198019"), Number(parseUnits("00.00000001")));
       });
     });
 
@@ -300,14 +298,14 @@ describe("Fixed Pool Management Library", () => {
               // 10 / 86400           = 0.00011574074 (unassigned earnings per second)
               // 0.00011574074 * 150  = 0.01736111111 (earnings accrued)
               // 40 - 0.01736111111   = 39.9826388889 (unassigned earnings left)
-              expect(fp.unassignedEarnings).to.closeTo(parseUnits("39.9826388"), parseUnits("00.0000001").toNumber());
+              expect(fp.unassignedEarnings).to.closeTo(parseUnits("39.9826388"), Number(parseUnits("00.0000001")));
             });
             it("THEN the pool 'lastAccrual' is tenDays", async () => {
               expect(fp.lastAccrual).to.equal(sixDays + 150);
             });
             it("THEN the last earnings SP is ~= 0.017361", async () => {
               const lastBackupEarnings = await poolEnv.fpHarness.lastBackupEarnings();
-              expect(lastBackupEarnings).to.closeTo(parseUnits("0.0173611"), parseUnits("0.0000001").toNumber());
+              expect(lastBackupEarnings).to.closeTo(parseUnits("0.0173611"), Number(parseUnits("0.0000001")));
             });
           });
 
@@ -613,7 +611,7 @@ describe("Fixed Pool Management Library", () => {
     });
 
     describe("setMaturity", () => {
-      let newAccountBorrows: BigNumber;
+      let newAccountBorrows: bigint;
       const userBorrowsWith56DayMaturity = 4_299_805_696;
       const userBorrowsWith56And84DayMaturity = 12_889_740_288;
       const userBorrowsWith28And56And84DayMaturity = 30_067_190_272;
@@ -718,8 +716,8 @@ describe("Fixed Pool Management Library", () => {
     });
 
     describe("distributeEarnings", () => {
-      let lastBackupEarnings: BigNumber;
-      let lastEarningsTreasury: BigNumber;
+      let lastBackupEarnings: bigint;
+      let lastEarningsTreasury: bigint;
       describe("GIVEN 100 earnings, 1000 supplySP and 800 borrowAmount", () => {
         beforeEach(async () => {
           await poolEnv.distributeEarnings("100", "1000", "800");

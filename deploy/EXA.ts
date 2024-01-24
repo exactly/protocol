@@ -13,11 +13,7 @@ const func: DeployFunction = async ({
       finance: { escrow },
     },
   },
-  ethers: {
-    utils: { keccak256, defaultAbiCoder, parseUnits },
-    getSigner,
-    getContract,
-  },
+  ethers: { keccak256, parseUnits, getSigner, getContract, AbiCoder },
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
@@ -34,7 +30,7 @@ const func: DeployFunction = async ({
       ...opts,
       proxy: {
         owner: timelock,
-        viaAdminContract: "ProxyAdmin",
+        viaAdminContract: { name: "ProxyAdmin" },
         proxyContract: "TransparentUpgradeableProxy",
         execute: { init: { methodName: "initialize", args: [] } },
       },
@@ -44,20 +40,22 @@ const func: DeployFunction = async ({
   );
 
   const exa = await getContract<EXA>("EXA", await getSigner(deployer));
-  const deployerBalance = (await exa.balanceOf(deployer)).toBigInt();
+  const deployerBalance = await exa.balanceOf(deployer);
   if (deployerBalance !== 0n) await (await exa.transfer(treasury ?? multisig, deployerBalance)).wait();
 
-  const leaves = Object.entries(airdrop).map((t) => keccak256(defaultAbiCoder.encode(["address", "uint128"], t)));
+  const leaves = Object.entries(airdrop).map((t) =>
+    keccak256(AbiCoder.defaultAbiCoder().encode(["address", "uint128"], t)),
+  );
   const tree = new MerkleTree(leaves, keccak256, { sort: true });
   await validateUpgrade(
     "Airdrop",
-    { args: [exa.address, tree.getHexRoot(), sablier], envKey: "AIRDROP" },
+    { args: [exa.target, tree.getHexRoot(), sablier], envKey: "AIRDROP" },
     async (name, opts) =>
       deploy(name, {
         ...opts,
         proxy: {
           owner: timelock,
-          viaAdminContract: "ProxyAdmin",
+          viaAdminContract: { name: "ProxyAdmin" },
           proxyContract: "TransparentUpgradeableProxy",
           execute: { init: { methodName: "initialize", args: [] } },
         },
@@ -68,13 +66,13 @@ const func: DeployFunction = async ({
 
   await validateUpgrade(
     "esEXA",
-    { contract: "EscrowedEXA", args: [exa.address, sablier], envKey: "ESCROWED_EXA" },
+    { contract: "EscrowedEXA", args: [exa.target, sablier], envKey: "ESCROWED_EXA" },
     async (name, opts) =>
       deploy(name, {
         ...opts,
         proxy: {
           owner: timelock,
-          viaAdminContract: "ProxyAdmin",
+          viaAdminContract: { name: "ProxyAdmin" },
           proxyContract: "TransparentUpgradeableProxy",
           execute: {
             init: { methodName: "initialize", args: [escrow.vestingPeriod, parseUnits(String(escrow.reserveRatio))] },
@@ -86,10 +84,10 @@ const func: DeployFunction = async ({
   );
   const esEXA = await getContract<EscrowedEXA>("esEXA", await getSigner(deployer));
 
-  if ((await esEXA.vestingPeriod()) !== escrow.vestingPeriod) {
+  if ((await esEXA.vestingPeriod()) !== BigInt(escrow.vestingPeriod)) {
     await executeOrPropose(esEXA, "setVestingPeriod", [escrow.vestingPeriod]);
   }
-  if (!(await esEXA.reserveRatio()).eq(parseUnits(String(escrow.reserveRatio)))) {
+  if ((await esEXA.reserveRatio()) !== parseUnits(String(escrow.reserveRatio))) {
     await executeOrPropose(esEXA, "setReserveRatio", [parseUnits(String(escrow.reserveRatio))]);
   }
 

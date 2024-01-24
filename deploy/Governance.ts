@@ -8,21 +8,17 @@ const func: DeployFunction = async ({
   network: {
     config: { timelockDelay = 0 },
   },
-  ethers: {
-    constants: { AddressZero },
-    getContract,
-    getSigner,
-  },
+  ethers: { ZeroAddress, getContract, getSigner },
   deployments: { deploy },
   getNamedAccounts,
 }) => {
   const { deployer, multisig } = await getNamedAccounts();
 
-  await tenderlify(
+  const { address: timelockAddress } = await tenderlify(
     "TimelockController",
     await deploy("TimelockController", {
       skipIfAlreadyDeployed: true,
-      args: [timelockDelay, [multisig, deployer], [multisig], AddressZero],
+      args: [timelockDelay, [multisig, deployer], [multisig], ZeroAddress],
       from: deployer,
       log: true,
     }),
@@ -34,14 +30,14 @@ const func: DeployFunction = async ({
   );
 
   const timelock = await getContract<TimelockController>("TimelockController", await getSigner(deployer));
-  if (!(await timelock.getMinDelay()).eq(timelockDelay)) {
+  if ((await timelock.getMinDelay()) !== BigInt(timelockDelay)) {
     await timelockPropose(timelock, "updateDelay", [timelockDelay]);
   }
   await revokeRole(timelock, await timelock.CANCELLER_ROLE(), deployer);
 
   const proxyAdmin = await getContract<ProxyAdmin>("ProxyAdmin", await getSigner(deployer));
-  if ((await proxyAdmin.owner()).toLowerCase() !== timelock.address.toLowerCase()) {
-    await (await proxyAdmin.transferOwnership(timelock.address)).wait();
+  if ((await proxyAdmin.owner()).toLowerCase() !== timelockAddress.toLowerCase()) {
+    await (await proxyAdmin.transferOwnership(timelockAddress)).wait();
   }
 };
 

@@ -4,11 +4,7 @@ import type { MarketConfig } from "hardhat/types/config";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { MockPriceFeed } from "../../types";
 
-const {
-  utils: { parseUnits, formatUnits },
-  getContract,
-  getSigner,
-} = ethers;
+const { parseUnits, formatUnits, getContract, getSigner } = ethers;
 const {
   config: { priceDecimals, finance },
   live,
@@ -73,7 +69,7 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
         log: true,
       });
       const mockPriceFeed = await getContract<MockPriceFeed>(name, signer);
-      if (!mockPrices[symbol].eq(await mockPriceFeed.price())) {
+      if (mockPrices[symbol] !== (await mockPriceFeed.price())) {
         log("setting price", symbol, formatUnits(mockPrices[symbol], priceDecimals));
         await (await mockPriceFeed.setPrice(mockPrices[symbol])).wait();
       }

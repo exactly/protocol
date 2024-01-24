@@ -7,9 +7,7 @@ const func: DeployFunction = async ({
       finance: { periphery },
     },
   },
-  ethers: {
-    constants: { AddressZero },
-  },
+  ethers: { ZeroAddress },
   deployments: { deploy, get, getOrNull },
   getNamedAccounts,
 }) => {
@@ -28,12 +26,12 @@ const func: DeployFunction = async ({
     get("Auditor"),
     get("DebtManager"),
     get("EXA"),
-    getOrNull("EXAPool").then((d) => d ?? { address: AddressZero }),
-    getOrNull("EXAGauge").then((d) => d ?? { address: AddressZero }),
-    getOrNull("BeefyEXA").then((d) => d ?? { address: AddressZero }),
-    getOrNull("BeefyEXABoost").then((d) => d ?? { address: AddressZero }),
-    getOrNull("PriceFeedETH").then((d) => d ?? { address: AddressZero }),
-    getOrNull("ExtraLending").then((d) => d ?? { address: AddressZero }),
+    getOrNull("EXAPool").then((d) => d ?? { address: ZeroAddress }),
+    getOrNull("EXAGauge").then((d) => d ?? { address: ZeroAddress }),
+    getOrNull("BeefyEXA").then((d) => d ?? { address: ZeroAddress }),
+    getOrNull("BeefyEXABoost").then((d) => d ?? { address: ZeroAddress }),
+    getOrNull("PriceFeedETH").then((d) => d ?? { address: ZeroAddress }),
+    getOrNull("ExtraLending").then((d) => d ?? { address: ZeroAddress }),
     getNamedAccounts(),
   ]);
   await validateUpgrade("Previewer", { args: [auditor, priceFeedETH], envKey: "PREVIEWER" }, async (name, opts) =>

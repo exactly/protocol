@@ -1,20 +1,12 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
-import type { BigNumber } from "ethers";
-import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import type { Auditor, Market, MockERC20, MockInterestRateModel, WETH } from "../../types";
 import decodeMaturities from "./utils/decodeMaturities";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 
-const {
-  constants: { AddressZero },
-  utils: { parseUnits },
-  getUnnamedSigners,
-  getNamedSigner,
-  getContract,
-  provider,
-} = ethers;
+const { ZeroAddress, parseUnits, getUnnamedSigners, getNamedSigner, getContract, provider } = ethers;
 const { deploy, fixture } = deployments;
 
 describe("Market", function () {
@@ -28,7 +20,7 @@ describe("Market", function () {
   let maria: SignerWithAddress;
   let john: SignerWithAddress;
   let owner: SignerWithAddress;
-  let penaltyRate: BigNumber;
+  let penaltyRate: bigint;
 
   before(async () => {
     owner = await getNamedSigner("multisig");
@@ -50,13 +42,13 @@ describe("Market", function () {
 
     await timelockExecute(owner, marketDAI, "setBackupFeeRate", [0]);
     await timelockExecute(owner, marketWETH, "setBackupFeeRate", [0]);
-    await timelockExecute(owner, marketDAI, "setInterestRateModel", [irm.address]);
+    await timelockExecute(owner, marketDAI, "setInterestRateModel", [irm.target]);
     await timelockExecute(owner, marketDAI, "setReserveFactor", [0]);
     for (const signer of [maria, john]) {
       await dai.connect(owner).mint(signer.address, parseUnits("10000"));
-      await dai.connect(signer).approve(marketDAI.address, parseUnits("10000"));
+      await dai.connect(signer).approve(marketDAI.target, parseUnits("10000"));
       await weth.deposit({ value: parseUnits("10") });
-      await weth.approve(marketWETH.address, parseUnits("10"));
+      await weth.approve(marketWETH.target, parseUnits("10"));
     }
     await provider.send("evm_increaseTime", [9_011]);
   });
@@ -103,7 +95,7 @@ describe("Market", function () {
         .withArgs(futurePools(1)[0], maria.address, maria.address, parseUnits("100"), 0);
     });
     it("AND the Market contract has a balance of 100 DAI", async () => {
-      expect(await dai.balanceOf(marketDAI.address)).to.equal(parseUnits("100"));
+      expect(await dai.balanceOf(marketDAI.target)).to.equal(parseUnits("100"));
     });
     it("AND the Market registers a supply of 100 DAI for the account", async () => {
       expect((await marketDAI.fixedDepositPositions(futurePools(1)[0], maria.address))[0]).to.equal(parseUnits("100"));
@@ -120,7 +112,7 @@ describe("Market", function () {
           .withArgs(futurePools(1)[0], maria.address, maria.address, parseUnits("50"), 0);
       });
       it("AND the Market contract has a balance of 150 DAI", async () => {
-        expect(await dai.balanceOf(marketDAI.address)).to.equal(parseUnits("150"));
+        expect(await dai.balanceOf(marketDAI.target)).to.equal(parseUnits("150"));
       });
       it("AND the Market does not register a smart pool balance deposit (exposed via accountSnapshot)", async () => {
         expect(await marketDAI.maxWithdraw(maria.address)).to.equal(0);
@@ -142,18 +134,18 @@ describe("Market", function () {
         await expect(tx)
           .to.emit(marketDAI, "BorrowAtMaturity")
           .withArgs(futurePools(1)[0], maria.address, maria.address, maria.address, parseUnits("60"), 0);
-        const { blockNumber } = await tx.wait();
-        timestamp = (await provider.getBlock(blockNumber)).timestamp;
+        const { blockNumber } = (await tx.wait())!;
+        timestamp = (await provider.getBlock(blockNumber))!.timestamp;
       });
       it("AND a 60 DAI borrow is registered", async () => {
         expect((await marketDAI.fixedPools(futurePools(1)[0]))[0]).to.equal(parseUnits("60"));
       });
       it("AND contract's state variable fixedBorrows registers the maturity where the account borrowed from", async () => {
         const { fixedBorrows } = await marketDAI.accounts(maria.address);
-        expect(decodeMaturities(fixedBorrows)).contains(futurePools(1)[0].toNumber());
+        expect(decodeMaturities(fixedBorrows)).contains(futurePools(1)[0]);
       });
       describe("AND WHEN trying to repay 100 (too much)", () => {
-        let balanceBefore: BigNumber;
+        let balanceBefore: bigint;
 
         beforeEach(async () => {
           balanceBefore = await dai.balanceOf(maria.address);
@@ -163,7 +155,7 @@ describe("Market", function () {
           expect(await marketDAI.previewDebt(maria.address)).to.equal(0);
         });
         it("THEN the 40 spare amount is not discounted from the account balance", async () => {
-          expect(await dai.balanceOf(maria.address)).to.equal(balanceBefore.sub(parseUnits("60")));
+          expect(await dai.balanceOf(maria.address)).to.equal(balanceBefore - parseUnits("60"));
         });
       });
       describe("AND WHEN borrowing 60 DAI from another maturity AND repaying only first debt", () => {
@@ -181,7 +173,7 @@ describe("Market", function () {
         });
         it("THEN contract's state variable fixedBorrows registers the second maturity where the account borrowed from", async () => {
           const { fixedBorrows } = await marketDAI.accounts(maria.address);
-          expect(decodeMaturities(fixedBorrows)).contains(futurePools(2)[1].toNumber());
+          expect(decodeMaturities(fixedBorrows)).contains(futurePools(2)[1]);
         });
       });
       describe("AND WHEN fully repaying the debt", () => {
@@ -199,7 +191,7 @@ describe("Market", function () {
         describe("AND WHEN withdrawing collateral and maturity pool deposit", () => {
           beforeEach(async () => {
             await marketDAI.withdraw(parseUnits("100"), maria.address, maria.address);
-            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 1]);
+            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + 1]);
             await marketDAI.withdrawAtMaturity(
               futurePools(1)[0],
               parseUnits("100"),
@@ -210,7 +202,7 @@ describe("Market", function () {
           });
           it("THEN the collateral & deposits are returned to Maria (10000)", async () => {
             expect(await dai.balanceOf(maria.address)).to.equal(parseUnits("10000"));
-            expect(await dai.balanceOf(marketDAI.address)).to.equal(0);
+            expect(await dai.balanceOf(marketDAI.target)).to.equal(0);
           });
           it("AND contract's state variable fixedDeposits does not register the maturity where the account deposited to anymore", async () => {
             const { fixedDeposits } = await marketDAI.accounts(maria.address);
@@ -220,7 +212,7 @@ describe("Market", function () {
 
         describe("AND WHEN withdrawing MORE from maturity pool than maria has", () => {
           beforeEach(async () => {
-            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 1]);
+            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + 1]);
             await marketDAI.withdrawAtMaturity(
               futurePools(1)[0],
               parseUnits("1000000"),
@@ -240,7 +232,7 @@ describe("Market", function () {
 
         describe("AND WHEN withdrawing LESS from maturity pool than maria has", () => {
           beforeEach(async () => {
-            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 1]);
+            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + 1]);
             await marketDAI.withdrawAtMaturity(
               futurePools(1)[0],
               parseUnits("50"),
@@ -251,13 +243,13 @@ describe("Market", function () {
           });
           it("THEN the total amount withdrawn is 9950 (leaving 150 in Market / 100 in SP / 50 in MP)", async () => {
             expect(await dai.balanceOf(maria.address)).to.equal(parseUnits("9850"));
-            expect(await dai.balanceOf(marketDAI.address)).to.equal(parseUnits("150"));
+            expect(await dai.balanceOf(marketDAI.target)).to.equal(parseUnits("150"));
           });
         });
       });
       describe("GIVEN the maturity pool matures", () => {
         beforeEach(async () => {
-          await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 1]);
+          await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + 1]);
         });
         it("WHEN trying to withdraw an amount of zero THEN it reverts", async () => {
           await expect(
@@ -277,19 +269,19 @@ describe("Market", function () {
         });
 
         describe("AND WHEN moving in time to 1 day after maturity", () => {
-          let penalty: BigNumber;
+          let penalty: bigint;
           beforeEach(async () => {
-            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400]);
-            penalty = parseUnits("20").mul(penaltyRate).div(parseUnits("1")).mul(86_400);
+            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + 86_400]);
+            penalty = ((parseUnits("20") * penaltyRate) / parseUnits("1")) * 86_400n;
             expect(penalty).to.be.gt(0);
           });
           it("THEN Maria owes (accountSnapshot) 20 DAI of principal + (20*0.02 ~= 0.0400032 ) DAI of late payment penalties", async () => {
             await provider.send("evm_mine", []);
-            expect(await marketDAI.previewDebt(maria.address)).to.equal(parseUnits("20").add(penalty));
+            expect(await marketDAI.previewDebt(maria.address)).to.equal(parseUnits("20") + penalty);
           });
           describe("AND WHEN repaying the rest of the 20.4 owed DAI", () => {
             beforeEach(async () => {
-              const amount = parseUnits("20").add(penalty);
+              const amount = parseUnits("20") + penalty;
               await marketDAI.repayAtMaturity(futurePools(1)[0], amount, amount, maria.address);
             });
             it("THEN all debt is repaid", async () => {
@@ -310,7 +302,7 @@ describe("Market", function () {
 
     describe("AND WHEN moving in time to maturity AND withdrawing from the maturity pool", () => {
       beforeEach(async () => {
-        await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 1]);
+        await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + 1]);
         await expect(
           marketDAI.withdrawAtMaturity(
             futurePools(1)[0],
@@ -332,7 +324,7 @@ describe("Market", function () {
       });
       it("THEN 100 DAI are returned to Maria", async () => {
         expect(await dai.balanceOf(maria.address)).to.equal(parseUnits("10000"));
-        expect(await dai.balanceOf(marketDAI.address)).to.equal(0);
+        expect(await dai.balanceOf(marketDAI.target)).to.equal(0);
       });
     });
   });
@@ -416,7 +408,7 @@ describe("Market", function () {
     beforeEach(async () => {
       const { address } = await deploy("InterestRateModel", {
         args: [
-          AddressZero,
+          ZeroAddress,
           parseUnits("0.02"),
           parseUnits("0.02"),
           parseUnits("6"),
@@ -434,7 +426,7 @@ describe("Market", function () {
       await timelockExecute(owner, marketDAI, "setInterestRateModel", [address]);
       await marketDAI.deposit(parseUnits("1"), maria.address);
       await provider.send("evm_increaseTime", [9_011]);
-      await auditor.enterMarket(marketDAI.address);
+      await auditor.enterMarket(marketDAI.target);
       // add liquidity to the maturity
       await marketDAI.depositAtMaturity(futurePools(1)[0], parseUnits("1"), parseUnits("1"), maria.address);
     });
@@ -451,7 +443,7 @@ describe("Market", function () {
     });
     it("AND contract's state variable fixedDeposits registers the maturity where the account supplied to", async () => {
       const { fixedDeposits } = await marketDAI.accounts(maria.address);
-      expect(decodeMaturities(fixedDeposits)).contains(futurePools(1)[0].toNumber());
+      expect(decodeMaturities(fixedDeposits)).contains(futurePools(1)[0]);
     });
     it("WHEN trying to deposit 100 DAI with a minimum required amount to be received of 103, THEN 102 are received instead AND the transaction reverts with TOO_MUCH_SLIPPAGE", async () => {
       await expect(
@@ -463,7 +455,7 @@ describe("Market", function () {
   describe("GIVEN John deposited 12 DAI to the smart pool AND Maria borrowed 6 DAI from an empty maturity", () => {
     beforeEach(async () => {
       await marketWETH.deposit(parseUnits("10"), maria.address);
-      await auditor.enterMarket(marketWETH.address);
+      await auditor.enterMarket(marketWETH.target);
 
       await marketDAI.connect(john).deposit(parseUnits("12"), john.address);
       await provider.send("evm_increaseTime", [9_011]);
@@ -537,8 +529,8 @@ describe("Market", function () {
     describe("AND GIVEN maria borrows 3 from the smart pool", () => {
       let timestamp: number;
       beforeEach(async () => {
-        const { blockNumber } = await (await marketDAI.borrow(parseUnits("3"), maria.address, maria.address)).wait();
-        timestamp = (await provider.getBlock(blockNumber)).timestamp;
+        const { blockNumber } = (await (await marketDAI.borrow(parseUnits("3"), maria.address, maria.address)).wait())!;
+        timestamp = (await provider.getBlock(blockNumber))!.timestamp;
       });
       it("WHEN John tries to withdraw 6 DAI from the smart pool, THEN it fails with InsufficientProtocolLiquidity", async () => {
         await expect(
@@ -677,8 +669,8 @@ describe("Market", function () {
   describe("GIVEN maria has plenty of WETH collateral", () => {
     beforeEach(async () => {
       await marketWETH.deposit(parseUnits("10"), maria.address);
-      await auditor.enterMarket(marketDAI.address);
-      await auditor.enterMarket(marketWETH.address);
+      await auditor.enterMarket(marketDAI.target);
+      await auditor.enterMarket(marketWETH.target);
     });
     describe("AND GIVEN she deposits 1000DAI into the next two maturity pools AND other 500 into the smart pool", () => {
       beforeEach(async () => {
@@ -729,7 +721,7 @@ describe("Market", function () {
           });
           it("THEN the later maturity owes 100 to the smart pool", async () => {
             const mp = await marketDAI.fixedPools(futurePools(2)[1]);
-            expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("100"));
+            expect(mp.borrowed - mp.supplied).to.equal(parseUnits("100"));
           });
           it("THEN the smart pool has lent 300 (100 from the later maturity one, 200 from the first one)", async () => {
             expect(await marketDAI.floatingBackupBorrowed()).to.equal(parseUnits("300"));
@@ -747,7 +739,7 @@ describe("Market", function () {
             });
             it("THEN the maturity pool owes 50 to the smart pool", async () => {
               const mp = await marketDAI.fixedPools(futurePools(2)[1]);
-              expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("50"));
+              expect(mp.borrowed - mp.supplied).to.equal(parseUnits("50"));
             });
             it("THEN the smart pool was repaid 50 DAI (SPborrowed=250)", async () => {
               expect(await marketDAI.floatingBackupBorrowed()).to.equal(parseUnits("250"));
@@ -764,7 +756,7 @@ describe("Market", function () {
             });
             it("THEN the later maturity has 700 DAI available for borrowing", async () => {
               const [borrowed, supplied] = await marketDAI.fixedPools(futurePools(2)[1]);
-              expect(supplied.sub(borrowed)).to.equal(parseUnits("700"));
+              expect(supplied - borrowed).to.equal(parseUnits("700"));
             });
             it("THEN the later maturity has no supply from the Smart Pool", async () => {
               const mp = await marketDAI.fixedPools(futurePools(2)[1]);
@@ -790,7 +782,7 @@ describe("Market", function () {
           });
           it("THEN the maturity pool still owes 100 to the smart pool", async () => {
             const mp = await marketDAI.fixedPools(futurePools(1)[0]);
-            expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("100"));
+            expect(mp.borrowed - mp.supplied).to.equal(parseUnits("100"));
           });
           it("THEN the smart pool was repaid the other 100 (is owed still 100)", async () => {
             expect(await marketDAI.floatingBackupBorrowed()).to.equal(parseUnits("100"));
@@ -807,7 +799,7 @@ describe("Market", function () {
           });
           it("THEN the maturity pool has 100 DAI available", async () => {
             const [borrowed, supplied] = await marketDAI.fixedPools(futurePools(1)[0]);
-            expect(supplied.sub(borrowed)).to.equal(parseUnits("100"));
+            expect(supplied - borrowed).to.equal(parseUnits("100"));
           });
           it("THEN the maturity pool doesn't owe the Smart Pool", async () => {
             const mp = await marketDAI.fixedPools(futurePools(1)[0]);
@@ -827,7 +819,7 @@ describe("Market", function () {
           });
           it("THEN the maturity pool still owes 100 to the smart pool (100 repaid)", async () => {
             const mp = await marketDAI.fixedPools(futurePools(1)[0]);
-            expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("100"));
+            expect(mp.borrowed - mp.supplied).to.equal(parseUnits("100"));
           });
         });
         describe("AND WHEN repaying 300 DAI", () => {
@@ -839,7 +831,7 @@ describe("Market", function () {
           });
           it("THEN the maturity pool has 100 DAI available", async () => {
             const [borrowed, supplied] = await marketDAI.fixedPools(futurePools(1)[0]);
-            expect(supplied.sub(borrowed)).to.equal(parseUnits("100"));
+            expect(supplied - borrowed).to.equal(parseUnits("100"));
           });
           it("THEN the maturity pool doesn't owe the Smart Pool", async () => {
             const mp = await marketDAI.fixedPools(futurePools(1)[0]);
@@ -852,7 +844,7 @@ describe("Market", function () {
           });
           it("THEN the maturity pool has 1000 DAI available", async () => {
             const [borrowed, supplied] = await marketDAI.fixedPools(futurePools(1)[0]);
-            expect(supplied.sub(borrowed)).to.equal(parseUnits("1000"));
+            expect(supplied - borrowed).to.equal(parseUnits("1000"));
           });
         });
       });
@@ -871,17 +863,12 @@ describe("Market", function () {
       });
       describe("AND WHEN moving in time to 20 days after maturity", () => {
         beforeEach(async () => {
-          await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * 20]);
+          await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + 86_400 * 20]);
         });
         it("THEN Maria owes (accountSnapshot) 5k + approx 2.8k DAI in penalties", async () => {
           await provider.send("evm_mine", []);
           expect(await marketDAI.previewDebt(maria.address)).to.equal(
-            parseUnits("5000").add(
-              parseUnits("5000")
-                .mul(penaltyRate)
-                .div(parseUnits("1"))
-                .mul(86_400 * 20),
-            ),
+            parseUnits("5000") + ((parseUnits("5000") * penaltyRate) / parseUnits("1")) * 86_400n * 20n,
           );
         });
       });
@@ -894,18 +881,13 @@ describe("Market", function () {
               parseUnits("0.000000002"),
               maria.address,
             );
-            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * days]);
+            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + 86_400 * days]);
           }
         });
         it("THEN Maria owes (accountSnapshot) 5k + approx 2.8k DAI in penalties (no debt was compounded)", async () => {
           await provider.send("evm_mine", []);
           expect(await marketDAI.previewDebt(maria.address)).to.be.closeTo(
-            parseUnits("5000").add(
-              parseUnits("5000")
-                .mul(penaltyRate)
-                .div(parseUnits("1"))
-                .mul(86_400 * 20),
-            ),
+            parseUnits("5000") + ((parseUnits("5000") * penaltyRate) / parseUnits("1")) * 86_400n * 20n,
             parseUnits("0.00000001"),
           );
         });

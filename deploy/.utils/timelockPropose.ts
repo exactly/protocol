@@ -1,37 +1,35 @@
-import { ethers, deployments, network } from "hardhat";
-import type { Contract } from "ethers";
+import { ethers, deployments } from "hardhat";
+import type { BaseContract, Signer } from "ethers";
 import type { TimelockController } from "../../types";
 import multisigPropose from "./multisigPropose";
 import format from "./format";
 
-const {
-  constants: { HashZero },
-  getContract,
-} = ethers;
+const { ZeroHash, getContract } = ethers;
 const { log } = deployments;
 
-export default async (contract: Contract, functionName: string, args?: readonly unknown[]) => {
-  const timelock = await getContract<TimelockController>("TimelockController", contract.signer);
+export default async (contract: BaseContract, functionName: string, args?: readonly unknown[]) => {
+  const timelock = await getContract<TimelockController>("TimelockController", contract.runner! as Signer);
   const calldata = contract.interface.encodeFunctionData(functionName, args);
 
-  let predecessor = HashZero;
-  let operation = await timelock.hashOperation(contract.address, 0, calldata, predecessor, HashZero);
+  let predecessor = ZeroHash;
+  let operation = await timelock.hashOperation(contract.target, 0, calldata, predecessor, ZeroHash);
   while ((await Promise.all([timelock.isOperation(operation), timelock.isOperationDone(operation)])).every(Boolean)) {
     predecessor = operation;
-    operation = await timelock.hashOperation(contract.address, 0, calldata, predecessor, HashZero);
+    operation = await timelock.hashOperation(contract.target, 0, calldata, predecessor, ZeroHash);
   }
 
   if (!(await timelock.isOperation(operation))) {
-    log("timelock: proposing", `${await format(contract.address)}.${functionName}`, await format(args));
+    log("timelock: proposing", `${await format(contract.target)}.${functionName}`, await format(args));
     await (
-      await timelock.schedule(contract.address, 0, calldata, predecessor, HashZero, await timelock.getMinDelay())
+      await timelock.schedule(contract.target, 0, calldata, predecessor, ZeroHash, await timelock.getMinDelay())
     ).wait();
   }
 
-  if (network.config.safeTxService) {
-    await multisigPropose("deployer", timelock, "execute", [contract.address, 0, calldata, predecessor, HashZero]);
-  } else {
-    log("timelock: executing", `${await format(contract.address)}.${functionName}`, await format(args));
-    await (await timelock.execute(contract.address, 0, calldata, predecessor, HashZero)).wait();
+  try {
+    await multisigPropose("deployer", timelock, "execute", [contract.target, 0, calldata, predecessor, ZeroHash]);
+  } catch (error) {
+    if (error instanceof Error) log("multisig: error", error.message);
+    log("timelock: executing", `${await format(contract.target)}.${functionName}`, await format(args));
+    await (await timelock.execute(contract.target, 0, calldata, predecessor, ZeroHash)).wait();
   }
 };

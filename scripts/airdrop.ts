@@ -1,6 +1,5 @@
 import { ethers } from "hardhat";
 import { writeFile } from "fs/promises";
-import type { BigNumber } from "ethers";
 import type { RewardsController } from "../types";
 import { address as op } from "../deployments/optimism/OP.json";
 import { address as multicallAddress, abi as multicallABI } from "../deployments/optimism/Multicall3.json";
@@ -10,28 +9,25 @@ const distribution = 100_000n * 10n ** 18n;
 const subgraph = "https://api.thegraph.com/subgraphs/name/exactly/optimism";
 
 void (async () => {
-  const [rewardsController, accounts, claimed] = await Promise.all([
+  const [{ target, interface: intr }, accounts, claimed] = await Promise.all([
     ethers.getContract<RewardsController>("RewardsController"),
     allAccounts(),
     opClaimed(),
   ]);
 
   let totalRewards = 0n;
-  const batchSize = 1_000;
+  const batchSize = 333;
   const rewards: Record<string, bigint> = {};
   const multicall = new ethers.Contract(multicallAddress, multicallABI, ethers.provider);
   for (let i = 0; i < accounts.length; i += batchSize) {
     const batch = accounts.slice(i, i + batchSize);
-    const [, data] = await multicall.callStatic.aggregate(
-      batch.map((account) => ({
-        target: rewardsController.address,
-        callData: rewardsController.interface.encodeFunctionData("allClaimable", [account, op]),
-      })),
+    const [, data] = await multicall.aggregate.staticCall(
+      batch.map((account) => ({ target, callData: intr.encodeFunctionData("allClaimable", [account, op]) })),
       { blockTag: block },
     );
     batch.forEach((account, j) => {
-      const [claimable] = rewardsController.interface.decodeFunctionResult("allClaimable", data[j]) as [BigNumber];
-      rewards[account] = claimable.add(claimed[account] ?? 0).toBigInt();
+      const [claimable] = intr.decodeFunctionResult("allClaimable", data[j]) as unknown as [bigint];
+      rewards[account] = claimable + (claimed[account] ?? 0n);
       totalRewards += rewards[account];
     });
   }
@@ -75,7 +71,7 @@ async function allAccounts() {
 
 async function opClaimed() {
   let last: string | undefined = "";
-  const claimed: [string, string][] = [];
+  const claimed: [string, bigint][] = [];
   do {
     const { accountClaims } = (
       await (
@@ -97,7 +93,7 @@ async function opClaimed() {
       ).json()
     ).data as { accountClaims: { account: string; amount: string }[] };
     last = accountClaims.length ? accountClaims[accountClaims.length - 1]?.account : undefined;
-    claimed.push(...accountClaims.map(({ account, amount }) => [account, amount] satisfies [string, string]));
+    claimed.push(...accountClaims.map(({ account, amount }) => [account, BigInt(amount)] satisfies [string, bigint]));
   } while (last);
   return Object.fromEntries(claimed);
 }

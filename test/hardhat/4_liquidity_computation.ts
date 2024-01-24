@@ -1,18 +1,11 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
-import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import type { Auditor, Market, MockERC20, WETH } from "../../types";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 
-const {
-  constants: { AddressZero },
-  utils: { parseUnits },
-  getUnnamedSigners,
-  getNamedSigner,
-  getContract,
-  provider,
-} = ethers;
+const { ZeroAddress, parseUnits, getUnnamedSigners, getNamedSigner, getContract, provider } = ethers;
 const { deploy, fixture } = deployments;
 
 describe("Liquidity computations", function () {
@@ -55,13 +48,13 @@ describe("Liquidity computations", function () {
         [wbtc, marketWBTC, 8],
       ] as [MockERC20, Market, number?][]) {
         await underlying.connect(multisig).mint(signer.address, parseUnits("100000", decimals));
-        await underlying.connect(signer).approve(market.address, parseUnits("100000", decimals));
+        await underlying.connect(signer).approve(market.target, parseUnits("100000", decimals));
       }
       await weth.deposit({ value: parseUnits("10") });
-      await weth.approve(marketWETH.address, parseUnits("10"));
-      await auditor.connect(signer).enterMarket(marketDAI.address);
-      await auditor.connect(signer).enterMarket(marketUSDC.address);
-      await auditor.connect(signer).enterMarket(marketWBTC.address);
+      await weth.approve(marketWETH.target, parseUnits("10"));
+      await auditor.connect(signer).enterMarket(marketDAI.target);
+      await auditor.connect(signer).enterMarket(marketUSDC.target);
+      await auditor.connect(signer).enterMarket(marketWBTC.target);
     }
 
     const { address: irm } = await deploy("MockInterestRateModel", { args: [0], from: bob.address });
@@ -70,10 +63,10 @@ describe("Liquidity computations", function () {
     await timelockExecute(multisig, marketWBTC, "setInterestRateModel", [irm]);
     await timelockExecute(multisig, marketWETH, "setInterestRateModel", [irm]);
 
-    await timelockExecute(multisig, auditor, "setAdjustFactor", [marketDAI.address, parseUnits("0.8")]);
-    await timelockExecute(multisig, auditor, "setAdjustFactor", [marketUSDC.address, parseUnits("0.8")]);
-    await timelockExecute(multisig, auditor, "setAdjustFactor", [marketWETH.address, parseUnits("0.8")]);
-    await timelockExecute(multisig, auditor, "setAdjustFactor", [marketWBTC.address, parseUnits("0.6")]);
+    await timelockExecute(multisig, auditor, "setAdjustFactor", [marketDAI.target, parseUnits("0.8")]);
+    await timelockExecute(multisig, auditor, "setAdjustFactor", [marketUSDC.target, parseUnits("0.8")]);
+    await timelockExecute(multisig, auditor, "setAdjustFactor", [marketWETH.target, parseUnits("0.8")]);
+    await timelockExecute(multisig, auditor, "setAdjustFactor", [marketWBTC.target, parseUnits("0.6")]);
   });
 
   describe("positions aren't immediately liquidatable", () => {
@@ -84,7 +77,7 @@ describe("Liquidity computations", function () {
       });
 
       it("THEN lauras liquidity is adjustFactor*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
-        const [collateral, debt] = await auditor.accountLiquidity(laura.address, AddressZero, 0);
+        const [collateral, debt] = await auditor.accountLiquidity(laura.address, ZeroAddress, 0);
 
         expect(collateral).to.equal(parseUnits("800"));
         expect(debt).to.equal(parseUnits("0"));
@@ -134,7 +127,7 @@ describe("Liquidity computations", function () {
           );
         });
         it("THEN lauras liquidity is zero, AND she has no shortfall", async () => {
-          const [collateral, debt] = await auditor.accountLiquidity(laura.address, AddressZero, 0);
+          const [collateral, debt] = await auditor.accountLiquidity(laura.address, ZeroAddress, 0);
           expect(collateral).to.equal(debt);
         });
         it("AND she has 640 debt and is owed 1000DAI", async () => {
@@ -144,22 +137,22 @@ describe("Liquidity computations", function () {
           expect(borrowed).to.equal(parseUnits("640"));
         });
         it("AND WHEN laura tries to exit her collateral DAI market it reverts since there's unpaid debt", async () => {
-          await expect(auditor.exitMarket(marketDAI.address)).to.be.revertedWithCustomError(auditor, "RemainingDebt");
+          await expect(auditor.exitMarket(marketDAI.target)).to.be.revertedWithCustomError(auditor, "RemainingDebt");
         });
         it("AND WHEN laura repays her debt THEN it does not revert when she tries to exit her collateral DAI market", async () => {
           await marketDAI.repayAtMaturity(futurePools(1)[0], parseUnits("640"), parseUnits("640"), laura.address);
-          await expect(auditor.exitMarket(marketDAI.address)).to.not.be.reverted;
+          await expect(auditor.exitMarket(marketDAI.target)).to.not.be.reverted;
         });
         describe("AND GIVEN laura deposits more collateral for another asset", () => {
           beforeEach(async () => {
             await marketWETH.depositAtMaturity(futurePools(1)[0], parseUnits("1"), parseUnits("1"), laura.address);
-            await auditor.enterMarket(marketWETH.address);
+            await auditor.enterMarket(marketWETH.target);
           });
           it("THEN it does not revert when she tries to exit her collateral ETH market", async () => {
-            await expect(auditor.exitMarket(marketWETH.address)).to.not.be.reverted;
+            await expect(auditor.exitMarket(marketWETH.target)).to.not.be.reverted;
           });
           it("THEN it reverts when she tries to exit her collateral DAI market since it's the same that she borrowed from", async () => {
-            await expect(auditor.exitMarket(marketDAI.address)).to.be.revertedWithCustomError(auditor, "RemainingDebt");
+            await expect(auditor.exitMarket(marketDAI.target)).to.be.revertedWithCustomError(auditor, "RemainingDebt");
           });
         });
       });
@@ -179,53 +172,49 @@ describe("Liquidity computations", function () {
             .borrowAtMaturity(futurePools(1)[0], parseUnits("5600"), parseUnits("5600"), bob.address, bob.address);
         });
         it("THEN bob has 1k usd liquidity and no shortfall", async () => {
-          const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
-          expect(collateral.sub(debt)).to.equal(parseUnits("1000"));
+          const [collateral, debt] = await auditor.accountLiquidity(bob.address, ZeroAddress, 0);
+          expect(collateral - debt).to.equal(parseUnits("1000"));
         });
         describe("AND WHEN moving to five days after the maturity date", () => {
           beforeEach(async () => {
             // Move in time to maturity
-            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * 5]);
+            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + 86_400 * 5]);
           });
           it("THEN 5 days of *daily* base rate interest is charged, adding 0.02*5 =10% interest to the debt", async () => {
             await provider.send("evm_mine", []);
-            const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
+            const [collateral, debt] = await auditor.accountLiquidity(bob.address, ZeroAddress, 0);
             // based on the events emitted, calculate the liquidity
             // need to take into account the fixed rates that the borrow and the lent got at the time of the transaction
             const totalSupplyAmount = parseUnits("10000");
             const totalBorrowAmount = parseUnits("5400");
-            const calculatedLiquidity = totalSupplyAmount.sub(
-              totalBorrowAmount.mul(2).mul(5).div(100), // 2% * 5 days
-            );
+            const calculatedLiquidity = totalSupplyAmount - (totalBorrowAmount * 2n * 5n) / 100n; // 2% * 5 days
             // TODO: this should equal
-            expect(collateral.sub(debt)).to.be.lt(calculatedLiquidity);
+            expect(collateral - debt).to.be.lt(calculatedLiquidity);
           });
           describe("AND WHEN moving to fifteen days after the maturity date", () => {
             beforeEach(async () => {
               // Move in time to maturity
-              await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * 15]);
+              await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + 86_400 * 15]);
             });
             it("THEN 15 days of *daily* base rate interest is charged, adding 0.02*15 =35% interest to the debt, causing a shortfall", async () => {
               await provider.send("evm_mine", []);
-              const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
+              const [collateral, debt] = await auditor.accountLiquidity(bob.address, ZeroAddress, 0);
               // Based on the events emitted, calculate the liquidity
               // need to take into account the fixed rates that the borrow and the lent got at the time of the transaction
               const totalSupplyAmount = parseUnits("10000");
               const totalBorrowAmount = parseUnits("7000");
-              const calculatedShortfall = totalSupplyAmount.sub(
-                totalBorrowAmount.mul(2).mul(15).div(100), // 2% * 15 days
-              );
-              expect(debt.sub(collateral)).to.be.lt(calculatedShortfall);
+              const calculatedShortfall = totalSupplyAmount - (totalBorrowAmount * 2n * 15n) / 100n; // 2% * 15 days
+              expect(debt - collateral).to.be.lt(calculatedShortfall);
             });
           });
         });
       });
     });
     it("should allow to leave market if there's no debt", async () => {
-      await expect(auditor.exitMarket(marketDAI.address)).to.not.be.reverted;
+      await expect(auditor.exitMarket(marketDAI.target)).to.not.be.reverted;
     });
     it("should not revert when trying to exit a market that was not interacted with", async () => {
-      await expect(auditor.exitMarket(marketWBTC.address)).to.not.be.reverted;
+      await expect(auditor.exitMarket(marketWBTC.target)).to.not.be.reverted;
     });
   });
 
@@ -239,8 +228,8 @@ describe("Liquidity computations", function () {
           await marketWBTC.connect(bob).deposit(1, bob.address);
         });
         it("THEN bobs liquidity is 63000 * 0.6 * 10 ^ - 8 usd == 3.78*10^14 minimal usd units", async () => {
-          const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
-          expect(collateral.sub(debt)).to.equal(parseUnits("3.78", 14));
+          const [collateral, debt] = await auditor.accountLiquidity(bob.address, ZeroAddress, 0);
+          expect(collateral - debt).to.equal(parseUnits("3.78", 14));
         });
         it("AND WHEN he tries to take a 4*10^14 usd USDC loan, THEN it reverts", async () => {
           // expect liquidity to equal zero
@@ -253,8 +242,8 @@ describe("Liquidity computations", function () {
             await marketUSDC.connect(bob).borrowAtMaturity(futurePools(1)[0], "300", "300", bob.address, bob.address);
           });
           it("THEN he has 3*10^12 usd left of liquidity", async () => {
-            const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
-            expect(collateral.sub(debt)).to.equal(parseUnits("3", 12));
+            const [collateral, debt] = await auditor.accountLiquidity(bob.address, ZeroAddress, 0);
+            expect(collateral - debt).to.equal(parseUnits("3", 12));
           });
         });
       });

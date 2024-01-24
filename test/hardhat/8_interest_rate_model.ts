@@ -2,12 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import type { InterestRateModel__factory } from "../../types";
 
-const {
-  constants: { AddressZero },
-  utils: { parseUnits },
-  getContractFactory,
-  provider,
-} = ethers;
+const { ZeroAddress, parseUnits, getContractFactory, provider } = ethers;
 
 describe("InterestRateModel", () => {
   let snapshot: string;
@@ -49,7 +44,7 @@ describe("InterestRateModel", () => {
 
       await expect(
         irmFactory.deploy(
-          AddressZero,
+          ZeroAddress,
           a,
           b,
           maxUtilization,
@@ -79,7 +74,7 @@ describe("InterestRateModel", () => {
 
       await expect(
         irmFactory.deploy(
-          AddressZero,
+          ZeroAddress,
           a,
           b,
           maxUtilization,

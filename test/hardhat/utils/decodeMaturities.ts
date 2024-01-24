@@ -1,12 +1,11 @@
-import type { BigNumber } from "ethers";
 import { INTERVAL } from "./futurePools";
 
-export default (encodedMaturities: BigNumber) => {
+export default (encodedMaturities: bigint) => {
   const maturities: number[] = [];
-  const baseMaturity = encodedMaturities.mod(1n << 32n).toNumber();
-  const packedMaturities = encodedMaturities.shr(32);
-  for (let i = 0; !packedMaturities.shr(i).eq(0); i++) {
-    if (packedMaturities.and(1n << BigInt(i)).eq(1)) maturities.push(baseMaturity + i * INTERVAL);
+  const baseMaturity = Number(encodedMaturities % (1n << 32n));
+  const packedMaturities = encodedMaturities >> 32n;
+  for (let i = 0n; packedMaturities >> i !== 0n; i++) {
+    if ((packedMaturities | (1n << i)) === 1n) maturities.push(baseMaturity + Number(i) * INTERVAL);
   }
   return maturities;
 };

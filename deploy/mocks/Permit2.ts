@@ -1,13 +1,11 @@
 import type { DeployFunction } from "hardhat-deploy/types";
 
 const func: DeployFunction = async ({
-  ethers: {
-    constants: { AddressZero },
-  },
+  ethers: { ZeroAddress },
   deployments: { getOrNull, save },
   network: { live },
 }) => {
-  if (!(await getOrNull("Permit2")) && !live) await save("Permit2", { address: AddressZero, abi: [] });
+  if (!(await getOrNull("Permit2")) && !live) await save("Permit2", { address: ZeroAddress, abi: [] });
 };
 
 func.tags = ["Permit2"];

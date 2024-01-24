@@ -1,16 +1,11 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
-import { BigNumber } from "ethers";
-import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { Result } from "ethers";
+import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import type { Market, MockERC20, RewardsController } from "../../types";
 import timelockExecute from "./utils/timelockExecute";
 
-const {
-  utils: { parseUnits },
-  getUnnamedSigners,
-  getNamedSigner,
-  getContract,
-} = ethers;
+const { parseUnits, getUnnamedSigners, getNamedSigner, getContract } = ethers;
 
 describe("RewardsController", function () {
   let op: MockERC20;
@@ -34,9 +29,9 @@ describe("RewardsController", function () {
     marketUSDC = await getContract<Market>("MarketUSDC", alice);
     rewardsController = await getContract<RewardsController>("RewardsController", alice);
 
-    await op.mint(rewardsController.address, parseUnits("600000"));
+    await op.mint(rewardsController.target, parseUnits("600000"));
     await usdc.mint(alice.address, parseUnits("100", 6));
-    await usdc.approve(marketUSDC.address, parseUnits("100", 6));
+    await usdc.approve(marketUSDC.target, parseUnits("100", 6));
   });
 
   describe("WHEN operating with the USDC Market", () => {
@@ -46,11 +41,11 @@ describe("RewardsController", function () {
       await marketUSDC.borrow(parseUnits("20", 6), alice.address, alice.address);
     });
     it("THEN the claimable amount is positive", async () => {
-      const claimableBalance = await rewardsController.allClaimable(alice.address, op.address);
+      const claimableBalance = await rewardsController.allClaimable(alice.address, op.target);
       await rewardsController["claim((address,bool[])[],address,address[])"](
-        [{ market: marketUSDC.address, operations: [false, true] }],
+        [{ market: marketUSDC.target, operations: [false, true] }],
         alice.address,
-        [op.address],
+        [op.target],
       );
       const claimedBalance = await op.balanceOf(alice.address);
 
@@ -59,8 +54,8 @@ describe("RewardsController", function () {
     });
     it("AND trying to claim with invalid market THEN the claimable amount is 0", async () => {
       const marketOps = [{ market: alice.address, operations: [false, true] }];
-      const claimableBalance = await rewardsController.claimable(marketOps, alice.address, op.address);
-      await rewardsController["claim((address,bool[])[],address,address[])"](marketOps, alice.address, [op.address]);
+      const claimableBalance = await rewardsController.claimable(marketOps, alice.address, op.target);
+      await rewardsController["claim((address,bool[])[],address,address[])"](marketOps, alice.address, [op.target]);
       const claimedBalance = await op.balanceOf(alice.address);
 
       expect(claimableBalance).to.be.eq(0);
@@ -75,7 +70,7 @@ describe("RewardsController", function () {
   describe("GIVEN a zero utilization level", () => {
     beforeEach(async () => {
       await usdc.mint(alice.address, parseUnits("1000"));
-      await usdc.approve(marketUSDC.address, parseUnits("1001"));
+      await usdc.approve(marketUSDC.target, parseUnits("1001"));
 
       await marketUSDC.deposit(parseUnits("1000"), alice.address);
       await marketUSDC.borrow(1, alice.address, alice.address);
@@ -86,25 +81,27 @@ describe("RewardsController", function () {
   });
 
   describe("WHEN withdrawing OP rewards from the RewardsController contract", () => {
-    let balanceBefore: BigNumber;
+    let balanceBefore: bigint;
     beforeEach(async () => {
-      balanceBefore = await op.balanceOf(rewardsController.address);
-      await timelockExecute(multisig, rewardsController, "withdraw", [op.address, multisig.address]);
+      balanceBefore = await op.balanceOf(rewardsController.target);
+      await timelockExecute(multisig, rewardsController, "withdraw", [op.target, multisig.address]);
     });
     it("THEN RewardsController is emptied", async () => {
       expect(balanceBefore).to.be.greaterThan(0);
-      expect(await op.balanceOf(rewardsController.address)).to.eq(0);
+      expect(await op.balanceOf(rewardsController.target)).to.eq(0);
     });
   });
 
   describe("GIVEN a regular account", () => {
     it("WHEN trying to call config, THEN the transaction should revert", async () => {
-      const rewardConfig = await rewardsController.rewardConfig(marketUSDC.address, op.address);
-      await expect(rewardsController.config([rewardConfig])).to.be.revertedWithoutReason();
+      const rewardsConfig = (await rewardsController.rewardConfig(marketUSDC.target, op.target)) as unknown as Result;
+      await expect(
+        rewardsController.config([rewardsConfig.toObject() as RewardsController.ConfigStruct]),
+      ).to.be.revertedWithoutReason();
     });
 
     it("WHEN trying to call withdraw, THEN the transaction should revert", async () => {
-      await expect(rewardsController.withdraw(op.address, alice.address)).to.be.revertedWithoutReason();
+      await expect(rewardsController.withdraw(op.target, alice.address)).to.be.revertedWithoutReason();
     });
 
     it("WHEN trying to call initialize, THEN the transaction should revert", async () => {

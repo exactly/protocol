@@ -1,0 +1,4 @@
+reject:
+  - "@openzeppelin/contracts"
+  - "@openzeppelin/contracts-upgradeable"
+  - chai

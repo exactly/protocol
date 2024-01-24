@@ -12,11 +12,7 @@ const func: DeployFunction = async ({
       },
     },
   },
-  ethers: {
-    utils: { parseUnits },
-    getContract,
-    getSigner,
-  },
+  ethers: { parseUnits, getContract, getSigner },
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
@@ -34,7 +30,7 @@ const func: DeployFunction = async ({
       ...opts,
       proxy: {
         owner: timelockAddress,
-        viaAdminContract: "ProxyAdmin",
+        viaAdminContract: { name: "ProxyAdmin" },
         proxyContract: "TransparentUpgradeableProxy",
         execute: {
           init: { methodName: "initialize", args: [liquidationIncentive] },
@@ -48,8 +44,8 @@ const func: DeployFunction = async ({
 
   const currentLiquidationIncentive = await auditor.liquidationIncentive();
   if (
-    !currentLiquidationIncentive.liquidator.eq(liquidationIncentive.liquidator) ||
-    !currentLiquidationIncentive.lenders.eq(liquidationIncentive.lenders)
+    currentLiquidationIncentive.liquidator !== liquidationIncentive.liquidator ||
+    currentLiquidationIncentive.lenders !== liquidationIncentive.lenders
   ) {
     await executeOrPropose(auditor, "setLiquidationIncentive", [liquidationIncentive]);
   }

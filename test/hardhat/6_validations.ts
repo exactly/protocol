@@ -1,17 +1,13 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import type { Auditor, Market, Previewer__factory } from "../../types";
 import futurePools, { INTERVAL } from "./utils/futurePools";
 import { DefaultEnv } from "./defaultEnv";
 
-const nextPoolId = futurePools(1)[0].toNumber();
+const nextPoolId = futurePools(1)[0];
 
-const {
-  constants: { AddressZero, MaxUint256 },
-  utils: { parseUnits },
-  getContractFactory,
-} = ethers;
+const { ZeroAddress, MaxUint256, parseUnits, getContractFactory } = ethers;
 
 describe("Validations", function () {
   let auditor: Auditor;
@@ -51,18 +47,18 @@ describe("Validations", function () {
     });
     it("WHEN trying to call checkLiquidation, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
-        auditor.checkLiquidation(exactlyEnv.notAnMarketAddress, market.address, account.address, MaxUint256),
+        auditor.checkLiquidation(exactlyEnv.notAnMarketAddress, market.target, account.address, MaxUint256),
       ).to.be.revertedWithCustomError(auditor, "MarketNotListed");
       await expect(
-        auditor.checkLiquidation(market.address, exactlyEnv.notAnMarketAddress, account.address, MaxUint256),
+        auditor.checkLiquidation(market.target, exactlyEnv.notAnMarketAddress, account.address, MaxUint256),
       ).to.be.revertedWithCustomError(auditor, "MarketNotListed");
     });
     it("WHEN trying to call checkSeize, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-      await expect(auditor.checkSeize(market.address, exactlyEnv.notAnMarketAddress)).to.be.revertedWithCustomError(
+      await expect(auditor.checkSeize(market.target, exactlyEnv.notAnMarketAddress)).to.be.revertedWithCustomError(
         auditor,
         "MarketNotListed",
       );
-      await expect(auditor.checkSeize(exactlyEnv.notAnMarketAddress, market.address)).to.be.revertedWithCustomError(
+      await expect(auditor.checkSeize(exactlyEnv.notAnMarketAddress, market.target)).to.be.revertedWithCustomError(
         auditor,
         "MarketNotListed",
       );
@@ -134,7 +130,7 @@ describe("Validations", function () {
   });
   it("Previewer is deployed", async () => {
     const factory = (await getContractFactory("Previewer")) as Previewer__factory;
-    await factory.deploy(auditor.address, AddressZero);
+    await factory.deploy(auditor.target, ZeroAddress);
   });
 });
 

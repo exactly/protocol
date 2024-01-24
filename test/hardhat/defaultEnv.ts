@@ -1,6 +1,6 @@
 import { ethers } from "hardhat";
-import type { BigNumber, BigNumberish } from "ethers";
-import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { Addressable, BigNumberish } from "ethers";
+import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import type {
   Auditor,
   Auditor__factory,
@@ -19,14 +19,7 @@ import type {
   WETH__factory,
 } from "../../types";
 
-const {
-  constants: { AddressZero },
-  utils: { parseUnits },
-  getContractFactory,
-  getNamedSigner,
-  Contract,
-  provider,
-} = ethers;
+const { ZeroAddress, parseUnits, getContractFactory, getNamedSigner, Contract, provider } = ethers;
 
 /** @deprecated use deploy fixture */
 export class DefaultEnv {
@@ -35,9 +28,9 @@ export class DefaultEnv {
   marketContracts: Record<string, Market>;
   priceFeeds: Record<string, MockPriceFeed>;
   underlyingContracts: Record<string, MockERC20 | WETH>;
-  baseRate: BigNumber;
-  marginRate: BigNumber;
-  slopeRate: BigNumber;
+  baseRate: bigint;
+  marginRate: bigint;
+  slopeRate: bigint;
   mockAssets: Record<string, MockAssetSpec>;
   notAnMarketAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
   currentWallet: SignerWithAddress;
@@ -101,7 +94,7 @@ export class DefaultEnv {
     const InterestRateModelFactory = (await getContractFactory("InterestRateModel")) as InterestRateModel__factory;
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
-      AddressZero,
+      ZeroAddress,
       parseUnits("0.0495"),
       parseUnits("-0.025"),
       parseUnits("1.1"),
@@ -118,17 +111,17 @@ export class DefaultEnv {
     const interestRateModel = config?.useRealInterestRateModel
       ? realInterestRateModel
       : await MockInterestRateModelFactory.deploy(0);
-    await interestRateModel.deployed();
+    await interestRateModel.waitForDeployment();
 
     const Auditor = (await getContractFactory("Auditor")) as Auditor__factory;
     const auditorImpl = await Auditor.deploy(8);
-    await auditorImpl.deployed();
+    await auditorImpl.waitForDeployment();
     const auditorProxy = await ((await getContractFactory("ERC1967Proxy")) as ERC1967Proxy__factory).deploy(
-      auditorImpl.address,
-      [],
+      auditorImpl.target,
+      "0x",
     );
-    await auditorProxy.deployed();
-    const auditor = new Contract(auditorProxy.address, Auditor.interface, owner) as Auditor;
+    await auditorProxy.waitForDeployment();
+    const auditor = new Contract(auditorProxy.target as string, Auditor.interface, owner) as unknown as Auditor;
     await auditor.initialize({ liquidator: parseUnits("0.1"), lenders: 0 });
 
     // enable all the Markets in the auditor
@@ -138,29 +131,29 @@ export class DefaultEnv {
         if (symbol === "WETH") {
           const Weth = (await getContractFactory("WETH")) as WETH__factory;
           asset = await Weth.deploy();
-          await asset.deployed();
+          await asset.waitForDeployment();
           await asset.deposit({ value: parseUnits("100", decimals) });
         } else {
           const MockERC20 = (await getContractFactory("MockERC20")) as MockERC20__factory;
           asset = await MockERC20.deploy("Fake " + symbol, "F" + symbol, decimals);
-          await asset.deployed();
+          await asset.waitForDeployment();
           await asset.mint(owner.address, parseUnits("100000000000", decimals));
         }
 
         const Market = (await getContractFactory("Market")) as Market__factory;
-        const marketImpl = await Market.deploy(asset.address, auditor.address);
-        await marketImpl.deployed();
+        const marketImpl = await Market.deploy(asset.target, auditor.target);
+        await marketImpl.waitForDeployment();
         const marketProxy = await ((await getContractFactory("ERC1967Proxy")) as ERC1967Proxy__factory).deploy(
-          marketImpl.address,
-          [],
+          marketImpl.target,
+          "0x",
         );
-        await marketProxy.deployed();
-        const market = new Contract(marketProxy.address, Market.interface, owner) as Market;
+        await marketProxy.waitForDeployment();
+        const market = new Contract(marketProxy.target as string, Market.interface, owner) as unknown as Market;
         await market.initialize(
           12,
           parseUnits("1"),
-          interestRateModel.address,
-          parseUnits("0.02").div(86_400),
+          interestRateModel.target,
+          parseUnits("0.02") / 86_400n,
           0, // SP rate if 0 then no fees charged for the mp depositors' yield
           0,
           parseUnits("0.0046"),
@@ -170,12 +163,12 @@ export class DefaultEnv {
         // deploy a MockPriceFeed setting dummy price
         const MockPriceFeed = (await getContractFactory("MockPriceFeed")) as MockPriceFeed__factory;
         const mockPriceFeed = await MockPriceFeed.deploy(8, usdPrice);
-        await mockPriceFeed.deployed();
+        await mockPriceFeed.waitForDeployment();
         // Enable Market for MarketASSET by setting the collateral rates
-        await auditor.enableMarket(market.address, mockPriceFeed.address, adjustFactor);
+        await auditor.enableMarket(market.target, mockPriceFeed.target, adjustFactor);
 
         // Handy maps with all the markets and underlying assets
-        priceFeeds[market.address] = mockPriceFeed;
+        priceFeeds[market.target as string] = mockPriceFeed;
         marketContracts[symbol] = market;
         underlyingContracts[symbol] = asset;
       }),
@@ -226,7 +219,7 @@ export class DefaultEnv {
     const asset = this.getUnderlying(assetString);
     const market = this.getMarket(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    await asset.connect(this.currentWallet).approve(market.address, amount);
+    await asset.connect(this.currentWallet).approve(market.target, amount);
     return market.connect(this.currentWallet).deposit(amount, this.currentWallet.address);
   }
 
@@ -236,7 +229,7 @@ export class DefaultEnv {
     const amount = parseUnits(units, this.digitsForAsset(assetString));
     const expectedAmount =
       (expectedAtMaturity && parseUnits(expectedAtMaturity, this.digitsForAsset(assetString))) || amount;
-    await asset.connect(this.currentWallet).approve(market.address, amount);
+    await asset.connect(this.currentWallet).approve(market.target, amount);
     return market
       .connect(this.currentWallet)
       .depositAtMaturity(maturityPool, amount, expectedAmount, this.currentWallet.address);
@@ -251,11 +244,11 @@ export class DefaultEnv {
   public async withdrawMP(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
     const market = this.getMarket(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    let expectedAmount: BigNumber;
+    let expectedAmount: bigint;
     if (expectedAtMaturity) {
       expectedAmount = parseUnits(expectedAtMaturity, this.digitsForAsset(assetString));
     } else {
-      expectedAmount = amount.sub(amount.div(10)); // 10%
+      expectedAmount = amount - amount / 10n; // 10%
     }
     return market
       .connect(this.currentWallet)
@@ -265,11 +258,11 @@ export class DefaultEnv {
   public async borrowMP(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
     const market = this.getMarket(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    let expectedAmount: BigNumber;
+    let expectedAmount: bigint;
     if (expectedAtMaturity) {
       expectedAmount = parseUnits(expectedAtMaturity, this.digitsForAsset(assetString));
     } else {
-      expectedAmount = amount.add(amount.div(10)); // 10%
+      expectedAmount = amount + amount / 10n; // 10%
     }
     return market
       .connect(this.currentWallet)
@@ -280,20 +273,20 @@ export class DefaultEnv {
     const asset = this.getUnderlying(assetString);
     const market = this.getMarket(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    let expectedAmount: BigNumber;
+    let expectedAmount: bigint;
     if (expectedAtMaturity) {
       expectedAmount = parseUnits(expectedAtMaturity, this.digitsForAsset(assetString));
     } else {
       expectedAmount = amount;
     }
-    await asset.connect(this.currentWallet).approve(market.address, amount);
+    await asset.connect(this.currentWallet).approve(market.target, amount);
     return market
       .connect(this.currentWallet)
       .repayAtMaturity(maturityPool, amount, expectedAmount, this.currentWallet.address);
   }
 
   public async enterMarket(asset: string) {
-    const market = this.getMarket(asset).address;
+    const market = this.getMarket(asset).target;
     return this.auditor.connect(this.currentWallet).enterMarket(market);
   }
 
@@ -303,17 +296,17 @@ export class DefaultEnv {
 
   public async setIRMParameters(
     marketAddress: string,
-    a: BigNumber,
-    b: BigNumber,
-    maxU: BigNumber,
-    natU: BigNumber,
-    growthSpeed: BigNumber,
-    sigmoidSpeed: BigNumber,
-    spreadFactor: BigNumber,
-    maturitySpeed: BigNumber,
-    timePreference: BigNumber,
-    fixedAllocation: BigNumber,
-    maxRate: BigNumber,
+    a: bigint,
+    b: bigint,
+    maxU: bigint,
+    natU: bigint,
+    growthSpeed: bigint,
+    sigmoidSpeed: bigint,
+    spreadFactor: bigint,
+    maturitySpeed: bigint,
+    timePreference: bigint,
+    fixedAllocation: bigint,
+    maxRate: bigint,
   ) {
     const irmFactory = (await getContractFactory("InterestRateModel")) as InterestRateModel__factory;
     const newIRM = await irmFactory.deploy(
@@ -332,7 +325,7 @@ export class DefaultEnv {
     );
 
     this.interestRateModel = newIRM;
-    for (const market of Object.values(this.marketContracts)) await market.setInterestRateModel(newIRM.address);
+    for (const market of Object.values(this.marketContracts)) await market.setInterestRateModel(newIRM.target);
   }
 
   public async transfer(assetString: string, wallet: SignerWithAddress, units: string) {
@@ -354,8 +347,8 @@ export class DefaultEnv {
     return this.getMarket(market).previewDebt(this.currentWallet.address);
   }
 
-  public async setPrice(market: string, price: BigNumber) {
-    return this.priceFeeds[market].setPrice(price);
+  public async setPrice(market: string | Addressable, price: bigint) {
+    return this.priceFeeds[market as string].setPrice(price);
   }
 }
 
@@ -366,6 +359,6 @@ type EnvConfig = {
 
 type MockAssetSpec = {
   decimals: BigNumberish;
-  adjustFactor: BigNumber;
-  usdPrice: BigNumber;
+  adjustFactor: bigint;
+  usdPrice: bigint;
 };

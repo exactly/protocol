@@ -1,18 +1,11 @@
 import { inspect } from "util";
-import { BigNumber } from "ethers";
 import { deployments, ethers, getNamedAccounts } from "hardhat";
 
-const {
-  utils: { isAddress, isHexString },
-  Contract,
-  provider,
-} = ethers;
+const { isAddress, isHexString, Contract, provider } = ethers;
 
 inspect.defaultOptions.depth = null;
 
 export default async function format(v: unknown): Promise<unknown> {
-  if (v instanceof BigNumber) return v.toBigInt();
-
   if (typeof v === "string") {
     const allDeployments = await deployments.all();
 

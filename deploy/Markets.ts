@@ -13,17 +13,11 @@ const func: DeployFunction = async ({
     config: { finance },
     live,
   },
-  ethers: {
-    constants: { AddressZero },
-    utils: { parseUnits },
-    getContractOrNull,
-    getContract,
-    getSigner,
-  },
+  ethers: { ZeroAddress, parseUnits, getContractOrNull, getContract, getSigner },
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [rewards, debtManager, auditor, { address: timelock }, { deployer, multisig, treasury = AddressZero }] =
+  const [rewards, debtManager, auditor, { address: timelock }, { deployer, multisig, treasury = ZeroAddress }] =
     await Promise.all([
       getContractOrNull<RewardsController>("RewardsController"),
       getContractOrNull<DebtManager>("DebtManager"),
@@ -33,7 +27,7 @@ const func: DeployFunction = async ({
     ]);
 
   const earningsAccumulatorSmoothFactor = parseUnits(String(finance.earningsAccumulatorSmoothFactor));
-  const penaltyRate = parseUnits(String(finance.penaltyRatePerDay)).div(86_400);
+  const penaltyRate = parseUnits(String(finance.penaltyRatePerDay)) / 86_400n;
   const backupFeeRate = parseUnits(String(finance.backupFeeRate));
   const reserveFactor = parseUnits(String(finance.reserveFactor));
   const dampSpeedUp = parseUnits(String(finance.dampSpeed.up));
@@ -47,7 +41,7 @@ const func: DeployFunction = async ({
       marketName,
       {
         contract: "Market",
-        args: [asset.address, auditor.address],
+        args: [asset.target, auditor.target],
         envKey: "MARKETS",
         unsafeAllow: ["constructor", "state-variable-immutable"],
       },
@@ -56,7 +50,7 @@ const func: DeployFunction = async ({
           ...opts,
           proxy: {
             owner: timelock,
-            viaAdminContract: "ProxyAdmin",
+            viaAdminContract: { name: "ProxyAdmin" },
             proxyContract: "TransparentUpgradeableProxy",
             execute: {
               init: {
@@ -64,7 +58,7 @@ const func: DeployFunction = async ({
                 args: [
                   finance.futurePools,
                   earningsAccumulatorSmoothFactor,
-                  AddressZero, // irm
+                  ZeroAddress, // irm
                   penaltyRate,
                   backupFeeRate,
                   reserveFactor,
@@ -82,12 +76,12 @@ const func: DeployFunction = async ({
     const market = await getContract<Market>(marketName, await getSigner(deployer));
 
     if (symbol === "WETH") {
-      await validateUpgrade("MarketETHRouter", { args: [market.address], envKey: "ROUTER" }, async (name, opts) =>
+      await validateUpgrade("MarketETHRouter", { args: [market.target], envKey: "ROUTER" }, async (name, opts) =>
         deploy(name, {
           ...opts,
           proxy: {
             owner: timelock,
-            viaAdminContract: "ProxyAdmin",
+            viaAdminContract: { name: "ProxyAdmin" },
             proxyContract: "TransparentUpgradeableProxy",
             execute: {
               init: { methodName: "initialize", args: [] },
@@ -103,11 +97,11 @@ const func: DeployFunction = async ({
       "InterestRateModel",
       await deploy(`InterestRateModel${symbol}`, {
         skipIfAlreadyDeployed: !JSON.parse(
-          env[`DEPLOY_IRM_${symbol}`] ?? (await market.interestRateModel()) === AddressZero ? "true" : "false",
+          env[`DEPLOY_IRM_${symbol}`] ?? (await market.interestRateModel()) === ZeroAddress ? "true" : "false",
         ),
         contract: "InterestRateModel",
         args: [
-          market.address,
+          market.target,
           parseUnits(String(config.interestRateModel.curveA)),
           parseUnits(String(config.interestRateModel.curveB)),
           parseUnits(String(config.interestRateModel.maxUtilization)),
@@ -125,51 +119,51 @@ const func: DeployFunction = async ({
       }),
     );
 
-    if ((await market.maxFuturePools()) !== finance.futurePools) {
+    if ((await market.maxFuturePools()) !== BigInt(finance.futurePools)) {
       await executeOrPropose(market, "setMaxFuturePools", [finance.futurePools]);
     }
-    if (!(await market.earningsAccumulatorSmoothFactor()).eq(earningsAccumulatorSmoothFactor)) {
+    if ((await market.earningsAccumulatorSmoothFactor()) !== earningsAccumulatorSmoothFactor) {
       await executeOrPropose(market, "setEarningsAccumulatorSmoothFactor", [earningsAccumulatorSmoothFactor]);
     }
-    if (!(await market.penaltyRate()).eq(penaltyRate)) {
+    if ((await market.penaltyRate()) !== penaltyRate) {
       await executeOrPropose(market, "setPenaltyRate", [penaltyRate]);
     }
-    if (!(await market.backupFeeRate()).eq(backupFeeRate)) {
+    if ((await market.backupFeeRate()) !== backupFeeRate) {
       await executeOrPropose(market, "setBackupFeeRate", [backupFeeRate]);
     }
-    if (!(await market.reserveFactor()).eq(reserveFactor)) {
+    if ((await market.reserveFactor()) !== reserveFactor) {
       await executeOrPropose(market, "setReserveFactor", [reserveFactor]);
     }
     if ((await market.interestRateModel()).toLowerCase() !== interestRateModel.toLowerCase()) {
       await executeOrPropose(market, "setInterestRateModel", [interestRateModel]);
     }
-    if (!(await market.dampSpeedUp()).eq(dampSpeedUp) || !(await market.dampSpeedDown()).eq(dampSpeedDown)) {
+    if ((await market.dampSpeedUp()) !== dampSpeedUp || (await market.dampSpeedDown()) !== dampSpeedDown) {
       await executeOrPropose(market, "setDampSpeed", [dampSpeedUp, dampSpeedDown]);
     }
     if (
       (await market.treasury()).toLowerCase() !== treasury.toLowerCase() ||
-      !(await market.treasuryFeeRate()).eq(treasuryFeeRate)
+      (await market.treasuryFeeRate()) !== treasuryFeeRate
     ) {
-      if (treasury === AddressZero && !treasuryFeeRate.isZero() && live) throw new Error("missing treasury");
+      if (treasury === ZeroAddress && treasuryFeeRate !== 0n && live) throw new Error("missing treasury");
       await executeOrPropose(market, "setTreasury", [treasury, treasuryFeeRate]);
     }
 
     const { address: priceFeed } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
     const adjustFactor = parseUnits(String(config.adjustFactor));
-    if (!(await auditor.allMarkets()).includes(market.address)) {
-      await executeOrPropose(auditor, "enableMarket", [market.address, priceFeed, adjustFactor]);
+    if (!(await auditor.allMarkets()).includes(market.target as string)) {
+      await executeOrPropose(auditor, "enableMarket", [market.target, priceFeed, adjustFactor]);
     } else {
-      if ((await auditor.markets(market.address)).priceFeed.toLowerCase() !== priceFeed.toLowerCase()) {
-        await executeOrPropose(auditor, "setPriceFeed", [market.address, priceFeed]);
+      if ((await auditor.markets(market.target)).priceFeed.toLowerCase() !== priceFeed.toLowerCase()) {
+        await executeOrPropose(auditor, "setPriceFeed", [market.target, priceFeed]);
       }
-      if (!(await auditor.markets(market.address)).adjustFactor.eq(adjustFactor)) {
-        await executeOrPropose(auditor, "setAdjustFactor", [market.address, adjustFactor]);
+      if ((await auditor.markets(market.target)).adjustFactor !== adjustFactor) {
+        await executeOrPropose(auditor, "setAdjustFactor", [market.target, adjustFactor]);
       }
     }
 
     const marketRewards = await market.rewardsController?.().catch(() => undefined);
     if (marketRewards) {
-      const configRewards = (config.rewards && rewards?.address) || AddressZero;
+      const configRewards = (config.rewards && (rewards?.target as string | undefined)) || ZeroAddress;
       if (marketRewards.toLowerCase() !== configRewards.toLowerCase()) {
         await executeOrPropose(market, "setRewardsController", [configRewards]);
       }
@@ -177,10 +171,10 @@ const func: DeployFunction = async ({
 
     if (
       debtManager &&
-      (await auditor.allMarkets()).includes(market.address) &&
-      (await asset.allowance(debtManager.address, market.address)).isZero()
+      (await auditor.allMarkets()).includes(market.target as string) &&
+      (await asset.allowance(debtManager.target, market.target)) === 0n
     ) {
-      await (await debtManager.approve(market.address)).wait();
+      await (await debtManager.approve(market.target)).wait();
     }
 
     await grantRole(market, await market.PAUSER_ROLE(), multisig);
@@ -204,27 +198,27 @@ const func: DeployFunction = async ({
                 get(`PriceFeed${asset}`),
               ]);
               const [current, marketDecimals, rewardDecimals] = await Promise.all([
-                rewards.rewardConfig(market.address, reward.address),
+                rewards.rewardConfig(market.target, reward.target),
                 market.decimals(),
                 reward.decimals(),
               ]);
               if (
                 current.priceFeed.toLowerCase() !== priceFeed.toLowerCase() ||
-                !current.targetDebt.eq(parseUnits(String(cfg.debt), marketDecimals)) ||
-                !current.totalDistribution.eq(parseUnits(String(cfg.total), rewardDecimals)) ||
-                current.start !== Math.floor(new Date(cfg.start).getTime() / 1_000) ||
-                !current.distributionPeriod.eq(cfg.period) ||
-                !current.undistributedFactor.eq(parseUnits(String(cfg.undistributedFactor))) ||
-                !current.flipSpeed.eq(parseUnits(String(cfg.flipSpeed))) ||
-                !current.compensationFactor.eq(parseUnits(String(cfg.compensationFactor))) ||
-                !current.transitionFactor.eq(parseUnits(String(cfg.transitionFactor))) ||
-                !current.borrowAllocationWeightFactor.eq(parseUnits(String(cfg.borrowAllocationWeightFactor))) ||
-                !current.depositAllocationWeightAddend.eq(parseUnits(String(cfg.depositAllocationWeightAddend))) ||
-                !current.depositAllocationWeightFactor.eq(parseUnits(String(cfg.depositAllocationWeightFactor)))
+                current.targetDebt !== parseUnits(String(cfg.debt), marketDecimals) ||
+                current.totalDistribution !== parseUnits(String(cfg.total), rewardDecimals) ||
+                current.start !== BigInt(Math.floor(new Date(cfg.start).getTime() / 1_000)) ||
+                current.distributionPeriod !== BigInt(cfg.period) ||
+                current.undistributedFactor !== parseUnits(String(cfg.undistributedFactor)) ||
+                current.flipSpeed !== parseUnits(String(cfg.flipSpeed)) ||
+                current.compensationFactor !== parseUnits(String(cfg.compensationFactor)) ||
+                current.transitionFactor !== parseUnits(String(cfg.transitionFactor)) ||
+                current.borrowAllocationWeightFactor !== parseUnits(String(cfg.borrowAllocationWeightFactor)) ||
+                current.depositAllocationWeightAddend !== parseUnits(String(cfg.depositAllocationWeightAddend)) ||
+                current.depositAllocationWeightFactor !== parseUnits(String(cfg.depositAllocationWeightFactor))
               ) {
                 return {
-                  market: market.address,
-                  reward: reward.address,
+                  market: market.target,
+                  reward: reward.target,
                   priceFeed,
                   targetDebt: parseUnits(String(cfg.debt), marketDecimals),
                   totalDistribution: parseUnits(String(cfg.total), rewardDecimals),
