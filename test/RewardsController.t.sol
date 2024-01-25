@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import { Vm } from "forge-std/Vm.sol";
+import { Test } from "forge-std/Test.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { Test, stdError } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
@@ -497,7 +496,7 @@ contract RewardsControllerTest is Test {
     marketUSDC.deposit(100e6, address(this));
     marketUSDC.setMaxFuturePools(12);
     vm.warp(10_000 seconds);
-    for (uint i = 0; i < 12; ++i) {
+    for (uint256 i = 0; i < 12; ++i) {
       vm.warp(block.timestamp + 1 days);
       marketUSDC.borrowAtMaturity(FixedLib.INTERVAL * (0 + 1), 1e6, 2e6, address(this), address(this));
     }

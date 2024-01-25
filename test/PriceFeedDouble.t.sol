@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import { Vm } from "forge-std/Vm.sol";
-import { Test, stdError } from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { PriceFeedDouble, IPriceFeed } from "../contracts/PriceFeedDouble.sol";
+import { PriceFeedDouble } from "../contracts/PriceFeedDouble.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 
 contract PriceFeedDoubleTest is Test {

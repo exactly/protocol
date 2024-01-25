@@ -3,8 +3,8 @@ pragma solidity ^0.8.17;
 
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
-import { Previewer, FixedLib } from "./Previewer.sol";
-import { ERC20, Market, Auditor, IPriceFeed, DebtManager } from "./DebtManager.sol";
+import { Previewer, IPriceFeed, FixedLib } from "./Previewer.sol";
+import { ERC20, Market, Auditor, DebtManager } from "./DebtManager.sol";
 
 /// @title DebtPreviewer
 /// @notice Contract to be consumed by Exactly's front-end dApp as a helper for `DebtManager`.

@@ -4,6 +4,4 @@ pragma solidity ^0.8.17;
 import { ForkTest } from "../test/Fork.t.sol";
 
 // solhint-disable-next-line no-empty-blocks
-abstract contract BaseScript is ForkTest {
-
-}
+abstract contract BaseScript is ForkTest {}

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import { Test, stdError, stdJson } from "forge-std/Test.sol";
-import { ProxyAdmin, ITransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import { Test, stdError, stdJson } from "forge-std/Test.sol"; // solhint-disable-line no-unused-import
+import { ITransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
 abstract contract ForkTest is Test {
   using stdJson for string;

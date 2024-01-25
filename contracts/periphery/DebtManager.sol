@@ -10,7 +10,7 @@ import {
   IERC20PermitUpgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { Market, ERC20, FixedLib, Disagreement } from "../Market.sol";
-import { Auditor, IPriceFeed, MarketNotListed } from "../Auditor.sol";
+import { Auditor, MarketNotListed } from "../Auditor.sol";
 
 /// @title DebtManager
 /// @notice Contract for efficient debt management of accounts interacting with Exactly Protocol.
