@@ -61,9 +61,9 @@ contract InterestRateModel {
     market = market_;
     _parameters = p;
 
-    fixedCurveA = p.curveA;
-    fixedCurveB = p.curveB;
-    fixedMaxUtilization = p.maxUtilization;
+    fixedCurveA = address(market_) != address(0) ? p.curveA : 0;
+    fixedCurveB = address(market_) != address(0) ? p.curveB : int256(0);
+    fixedMaxUtilization = address(market_) != address(0) ? p.maxUtilization : 0;
 
     floatingCurveA = p.curveA;
     floatingCurveB = p.curveB;
