@@ -20,7 +20,7 @@ setup({ automaticVerifications: false });
 export default {
   solidity: {
     version: "0.8.23",
-    settings: { evmVersion: "paris", optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
+    settings: { evmVersion: "shanghai", optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
   },
   networks: {
     ethereum: {

@@ -1,6 +1,6 @@
 [profile.default]
 solc_version="0.8.23"
-evm_version = "paris"
+evm_version = "shanghai"
 optimizer = true
 optimizer_runs = 200
 revert_strings = "strip"
