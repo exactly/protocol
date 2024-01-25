@@ -94,18 +94,20 @@ export class DefaultEnv {
     const InterestRateModelFactory = (await getContractFactory("InterestRateModel")) as InterestRateModel__factory;
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
+      {
+        curveA: parseUnits("0.0495"),
+        curveB: parseUnits("-0.025"),
+        maxUtilization: parseUnits("1.1"),
+        naturalUtilization: parseUnits("0.7"),
+        growthSpeed: parseUnits("1.1"),
+        sigmoidSpeed: parseUnits("2.5"),
+        spreadFactor: parseUnits("0.2"),
+        maturitySpeed: parseUnits("0.5"),
+        timePreference: parseUnits("0.01"),
+        fixedAllocation: parseUnits("0.6"),
+        maxRate: parseUnits("10"),
+      },
       ZeroAddress,
-      parseUnits("0.0495"),
-      parseUnits("-0.025"),
-      parseUnits("1.1"),
-      parseUnits("0.7"),
-      parseUnits("1.1"),
-      parseUnits("2.5"),
-      parseUnits("0.2"),
-      parseUnits("0.5"),
-      parseUnits("0.01"),
-      parseUnits("0.6"),
-      parseUnits("10"),
     );
 
     const interestRateModel = config?.useRealInterestRateModel
@@ -292,40 +294,6 @@ export class DefaultEnv {
 
   public async setBorrowRate(rate: string) {
     await (this.interestRateModel.connect(this.currentWallet) as MockInterestRateModel).setBorrowRate(parseUnits(rate));
-  }
-
-  public async setIRMParameters(
-    marketAddress: string,
-    a: bigint,
-    b: bigint,
-    maxU: bigint,
-    natU: bigint,
-    growthSpeed: bigint,
-    sigmoidSpeed: bigint,
-    spreadFactor: bigint,
-    maturitySpeed: bigint,
-    timePreference: bigint,
-    fixedAllocation: bigint,
-    maxRate: bigint,
-  ) {
-    const irmFactory = (await getContractFactory("InterestRateModel")) as InterestRateModel__factory;
-    const newIRM = await irmFactory.deploy(
-      marketAddress,
-      a,
-      b,
-      maxU,
-      natU,
-      growthSpeed,
-      sigmoidSpeed,
-      spreadFactor,
-      maturitySpeed,
-      timePreference,
-      fixedAllocation,
-      maxRate,
-    );
-
-    this.interestRateModel = newIRM;
-    for (const market of Object.values(this.marketContracts)) await market.setInterestRateModel(newIRM.target);
   }
 
   public async transfer(assetString: string, wallet: SignerWithAddress, units: string) {

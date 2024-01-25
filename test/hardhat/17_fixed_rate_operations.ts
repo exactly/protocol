@@ -96,18 +96,20 @@ describe("Fixed Rate Operations", () => {
       )) as InterestRateModel__factory;
 
       newInterestRateModel = await InterestRateModelFactory.deploy(
+        {
+          curveA: parseUnits("0.75"),
+          curveB: parseUnits("-0.105"),
+          maxUtilization: parseUnits("1.1"),
+          naturalUtilization: parseUnits("0.7"),
+          growthSpeed: parseUnits("2.5"),
+          sigmoidSpeed: parseUnits("2.5"),
+          spreadFactor: parseUnits("0.2"),
+          maturitySpeed: parseUnits("0.5"),
+          timePreference: parseUnits("0.01"),
+          fixedAllocation: parseUnits("0.5"),
+          maxRate: parseUnits("10"),
+        },
         ZeroAddress,
-        parseUnits("0.75"),
-        parseUnits("-0.105"),
-        parseUnits("1.1"),
-        parseUnits("0.7"),
-        parseUnits("2.5"),
-        parseUnits("2.5"),
-        parseUnits("0.2"),
-        parseUnits("0.5"),
-        parseUnits("0.01"),
-        parseUnits("0.5"),
-        parseUnits("10"),
       );
       await newInterestRateModel.waitForDeployment();
     });

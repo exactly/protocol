@@ -44,18 +44,20 @@ describe("InterestRateModel", () => {
 
       await expect(
         irmFactory.deploy(
+          {
+            curveA: a,
+            curveB: b,
+            maxUtilization: maxUtilization,
+            naturalUtilization: naturalUtilization,
+            growthSpeed: growthSpeed,
+            sigmoidSpeed: sigmoidSpeed,
+            spreadFactor: spreadFactor,
+            maturitySpeed: maturitySpeed,
+            timePreference: timePreference,
+            fixedAllocation: fixedAllocation,
+            maxRate: maxRate,
+          },
           ZeroAddress,
-          a,
-          b,
-          maxUtilization,
-          naturalUtilization,
-          growthSpeed,
-          sigmoidSpeed,
-          spreadFactor,
-          maturitySpeed,
-          timePreference,
-          fixedAllocation,
-          maxRate,
         ),
       ).to.be.reverted;
     });
@@ -74,18 +76,20 @@ describe("InterestRateModel", () => {
 
       await expect(
         irmFactory.deploy(
+          {
+            curveA: a,
+            curveB: b,
+            maxUtilization: maxUtilization,
+            naturalUtilization: naturalUtilization,
+            growthSpeed: growthSpeed,
+            sigmoidSpeed: sigmoidSpeed,
+            spreadFactor: spreadFactor,
+            maturitySpeed: maturitySpeed,
+            timePreference: timePreference,
+            fixedAllocation: fixedAllocation,
+            maxRate: maxRate,
+          },
           ZeroAddress,
-          a,
-          b,
-          maxUtilization,
-          naturalUtilization,
-          growthSpeed,
-          sigmoidSpeed,
-          spreadFactor,
-          maturitySpeed,
-          timePreference,
-          fixedAllocation,
-          maxRate,
         ),
       ).to.be.reverted;
     });

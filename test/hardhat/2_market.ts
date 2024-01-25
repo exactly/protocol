@@ -408,18 +408,20 @@ describe("Market", function () {
     beforeEach(async () => {
       const { address } = await deploy("InterestRateModel", {
         args: [
+          {
+            curveA: parseUnits("0.02"),
+            curveB: parseUnits("0.02"),
+            maxUtilization: parseUnits("6"),
+            naturalUtilization: parseUnits("0.7"),
+            growthSpeed: parseUnits("2.5"),
+            sigmoidSpeed: parseUnits("1"),
+            spreadFactor: parseUnits("0.2"),
+            maturitySpeed: parseUnits("0.2"),
+            timePreference: parseUnits("0"),
+            fixedAllocation: parseUnits("0.5"),
+            maxRate: parseUnits("10"),
+          },
           ZeroAddress,
-          parseUnits("0.02"),
-          parseUnits("0.02"),
-          parseUnits("6"),
-          parseUnits("0.7"),
-          parseUnits("2.5"),
-          parseUnits("1"),
-          parseUnits("0.2"),
-          parseUnits("0.2"),
-          parseUnits("0"),
-          parseUnits("0.5"),
-          parseUnits("10"),
         ],
         from: owner.address,
       });

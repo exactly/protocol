@@ -6,7 +6,7 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { Market, InterestRateModel } from "../contracts/InterestRateModel.sol";
+import { Market, InterestRateModel, Parameters } from "../contracts/InterestRateModel.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
 import { Auditor } from "../contracts/Auditor.sol";
 
@@ -27,18 +27,20 @@ contract InterestRateModelTest is Test {
   function testRevertMaxUtilizationLowerThanWad() external {
     vm.expectRevert();
     new InterestRateModel(
-      Market(address(0)),
-      1.2111e16,
-      2.5683e16,
-      1e18 - 1,
-      0.75e18,
-      1.1e18,
-      2.5e18,
-      0.2e18,
-      0.5e18,
-      0.01e18,
-      0.6e18,
-      15_000e16
+      Parameters({
+        curveA: 1.2111e16,
+        curveB: 2.5683e16,
+        maxUtilization: 1e18 - 1,
+        naturalUtilization: 0.75e18,
+        growthSpeed: 1.1e18,
+        sigmoidSpeed: 2.5e18,
+        spreadFactor: 0.2e18,
+        maturitySpeed: 0.5e18,
+        timePreference: 0.01e18,
+        fixedAllocation: 0.6e18,
+        maxRate: 15_000e16
+      }),
+      Market(address(0))
     );
   }
 
@@ -59,18 +61,20 @@ contract InterestRateModelTest is Test {
     p.maxRate = _bound(p.maxRate, 100e16, 10_000e16);
 
     irm = new InterestRateModelHarness(
-      Market(address(0)),
-      p.curveA,
-      p.curveB,
-      p.maxUtilization,
-      p.naturalUtilization,
-      p.growthSpeed,
-      p.sigmoidSpeed,
-      0.2e18,
-      0.5e18,
-      0.01e18,
-      0.6e18,
-      p.maxRate
+      Parameters({
+        curveA: p.curveA,
+        curveB: p.curveB,
+        maxUtilization: p.maxUtilization,
+        naturalUtilization: p.naturalUtilization,
+        growthSpeed: p.growthSpeed,
+        sigmoidSpeed: p.sigmoidSpeed,
+        spreadFactor: 0.2e18,
+        maturitySpeed: 0.5e18,
+        timePreference: 0.01e18,
+        fixedAllocation: 0.6e18,
+        maxRate: p.maxRate
+      }),
+      Market(address(0))
     );
 
     string[] memory ffi = new string[](2);
@@ -130,18 +134,20 @@ contract InterestRateModelTest is Test {
     p.maxRate = _bound(p.maxRate, 100e16, 10_000e16);
 
     irm = new InterestRateModelHarness(
-      Market(address(0)),
-      p.curveA,
-      p.curveB,
-      p.maxUtilization,
-      p.naturalUtilization,
-      p.growthSpeed,
-      p.sigmoidSpeed,
-      p.spreadFactor,
-      p.maturitySpeed,
-      p.timePreference,
-      p.fixedAllocation,
-      p.maxRate
+      Parameters({
+        curveA: p.curveA,
+        curveB: p.curveB,
+        maxUtilization: p.maxUtilization,
+        naturalUtilization: p.naturalUtilization,
+        growthSpeed: p.growthSpeed,
+        sigmoidSpeed: p.sigmoidSpeed,
+        spreadFactor: p.spreadFactor,
+        maturitySpeed: p.maturitySpeed,
+        timePreference: p.timePreference,
+        fixedAllocation: p.fixedAllocation,
+        maxRate: p.maxRate
+      }),
+      Market(address(0))
     );
 
     string[] memory ffi = new string[](2);
@@ -191,18 +197,20 @@ contract InterestRateModelTest is Test {
       address(new ERC1967Proxy(address(new Market(asset, Auditor(address(new MockAuditor())))), ""))
     );
     irm = new InterestRateModelHarness(
-      market,
-      1.2111e16,
-      2.5683e16,
-      1.3e18,
-      0.75e18,
-      1.1e18,
-      2.5e18,
-      0.2e18,
-      0.5e18,
-      0.01e18,
-      0.6e18,
-      15_000e16
+      Parameters({
+        curveA: 1.2111e16,
+        curveB: 2.5683e16,
+        maxUtilization: 1.3e18,
+        naturalUtilization: 0.75e18,
+        growthSpeed: 1.1e18,
+        sigmoidSpeed: 2.5e18,
+        spreadFactor: 0.2e18,
+        maturitySpeed: 0.5e18,
+        timePreference: 0.01e18,
+        fixedAllocation: 0.6e18,
+        maxRate: 15_000e16
+      }),
+      market
     );
     market.initialize(2, 2e18, irm, 2e16 / uint256(1 days), 1e17, 0, type(uint128).max, type(uint128).max);
     asset.mint(address(this), type(uint128).max);
@@ -323,18 +331,20 @@ contract InterestRateModelTest is Test {
   function deployDefault() internal returns (InterestRateModelHarness) {
     return
       new InterestRateModelHarness(
-        Market(address(0)),
-        1.2111e16,
-        2.5683e16,
-        1.3e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.2111e16,
+          curveB: 2.5683e16,
+          maxUtilization: 1.3e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        Market(address(0))
       );
   }
 }
@@ -347,35 +357,8 @@ contract MockAuditor {
 }
 
 contract InterestRateModelHarness is InterestRateModel {
-  constructor(
-    Market market_,
-    uint256 curveA_,
-    int256 curveB_,
-    uint256 maxUtilization_,
-    uint256 naturalUtilization_,
-    int256 growthSpeed_,
-    int256 sigmoidSpeed_,
-    int256 spreadFactor_,
-    int256 maturitySpeed_,
-    int256 timePreference_,
-    uint256 fixedAllocation_,
-    uint256 maxRate_
-  )
-    InterestRateModel(
-      market_,
-      curveA_,
-      curveB_,
-      maxUtilization_,
-      naturalUtilization_,
-      growthSpeed_,
-      sigmoidSpeed_,
-      spreadFactor_,
-      maturitySpeed_,
-      timePreference_,
-      fixedAllocation_,
-      maxRate_
-    )
-  {} //solhint-disable-line no-empty-blocks
+  // solhint-disable-next-line no-empty-blocks
+  constructor(Parameters memory p_, Market market_) InterestRateModel(p_, market_) {}
 
   function base(uint256 uFloating, uint256 uGlobal) external view returns (uint256) {
     return baseRate(uFloating, uGlobal);

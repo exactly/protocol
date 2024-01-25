@@ -7,7 +7,7 @@ import { Test, stdError } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
 import { Auditor, IPriceFeed, InsufficientAccountLiquidity } from "../contracts/Auditor.sol";
-import { InterestRateModel } from "../contracts/InterestRateModel.sol";
+import { InterestRateModel, Parameters } from "../contracts/InterestRateModel.sol";
 import { PriceFeedWrapper } from "../contracts/PriceFeedWrapper.sol";
 import { PriceFeedDouble } from "../contracts/PriceFeedDouble.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
@@ -917,18 +917,20 @@ contract MarketTest is Test {
     emit MarketUpdate(block.timestamp, market.totalSupply(), 0, 0, 0, 0);
     market.setInterestRateModel(
       new InterestRateModel(
-        Market(address(0)),
-        0.023e18,
-        -0.0025e18,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 0.023e18,
+          curveB: -0.0025e18,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        Market(address(0))
       )
     );
     // assertGt(market.floatingDebt(), floatingDebtBefore);
@@ -947,18 +949,20 @@ contract MarketTest is Test {
     emit MarketUpdate(block.timestamp, market.totalSupply(), 0, 0, 0, 0);
     market.setInterestRateModel(
       new InterestRateModel(
-        Market(address(0)),
-        0.023e18,
-        -0.0025e18,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 0.023e18,
+          curveB: -0.0025e18,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        Market(address(0))
       )
     );
     assertEq(market.floatingDebt(), floatingDebtBefore);
@@ -2329,18 +2333,20 @@ contract MarketTest is Test {
   function testEarlyRepaymentWithExcessiveAmountOfFees() external {
     market.setInterestRateModel(
       new InterestRateModel(
-        market,
-        0.023e18,
-        -0.0025e18,
-        1e18 + 1,
-        0.7e18,
-        1.5e18,
-        1.5e18,
-        1e18,
-        0.5e18,
-        0,
-        0.3e18,
-        100e16
+        Parameters({
+          curveA: 0.023e18,
+          curveB: -0.0025e18,
+          maxUtilization: 1e18 + 1,
+          naturalUtilization: 0.7e18,
+          growthSpeed: 1.5e18,
+          sigmoidSpeed: 1.5e18,
+          spreadFactor: 1e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0,
+          fixedAllocation: 0.3e18,
+          maxRate: 100e16
+        }),
+        market
       )
     );
 

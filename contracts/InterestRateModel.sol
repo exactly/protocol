@@ -42,50 +42,41 @@ contract InterestRateModel {
   /// @dev auxiliary variable to save an extra operation.
   int256 internal immutable auxSigmoid;
 
-  constructor(
-    Market market_,
-    uint256 curveA_,
-    int256 curveB_,
-    uint256 maxUtilization_,
-    uint256 naturalUtilization_,
-    int256 growthSpeed_,
-    int256 sigmoidSpeed_,
-    int256 spreadFactor_,
-    int256 maturitySpeed_,
-    int256 timePreference_,
-    uint256 fixedAllocation_,
-    uint256 maxRate_
-  ) {
+  /// @notice set of parameters used to initialize the interest rate model.
+  Parameters internal _parameters;
+
+  constructor(Parameters memory p, Market market_) {
     assert(
-      maxUtilization_ > 1e18 &&
-        naturalUtilization_ > 0 &&
-        naturalUtilization_ < 1e18 &&
-        growthSpeed_ > 0 &&
-        sigmoidSpeed_ > 0 &&
-        spreadFactor_ > 0 &&
-        maturitySpeed_ > 0 &&
-        maxRate_ > 0 &&
-        maxRate_ <= 15_000e16
+      p.maxUtilization > 1e18 &&
+        p.naturalUtilization > 0 &&
+        p.naturalUtilization < 1e18 &&
+        p.growthSpeed > 0 &&
+        p.sigmoidSpeed > 0 &&
+        p.spreadFactor > 0 &&
+        p.maturitySpeed > 0 &&
+        p.maxRate > 0 &&
+        p.maxRate <= 15_000e16
     );
 
     market = market_;
+    _parameters = p;
 
-    fixedCurveA = curveA_;
-    fixedCurveB = curveB_;
-    fixedMaxUtilization = maxUtilization_;
+    fixedCurveA = p.curveA;
+    fixedCurveB = p.curveB;
+    fixedMaxUtilization = p.maxUtilization;
 
-    floatingCurveA = curveA_;
-    floatingCurveB = curveB_;
-    floatingMaxUtilization = maxUtilization_;
-    naturalUtilization = naturalUtilization_;
+    floatingCurveA = p.curveA;
+    floatingCurveB = p.curveB;
+    floatingMaxUtilization = p.maxUtilization;
+    naturalUtilization = p.naturalUtilization;
 
-    growthSpeed = growthSpeed_;
-    sigmoidSpeed = sigmoidSpeed_;
-    spreadFactor = spreadFactor_;
-    maturitySpeed = maturitySpeed_;
-    timePreference = timePreference_;
-    fixedAllocation = fixedAllocation_;
-    maxRate = maxRate_;
+    growthSpeed = p.growthSpeed;
+    sigmoidSpeed = p.sigmoidSpeed;
+    spreadFactor = p.spreadFactor;
+    maturitySpeed = p.maturitySpeed;
+    timePreference = p.timePreference;
+    fixedAllocation = p.fixedAllocation;
+    maxRate = p.maxRate;
 
     auxSigmoid = int256(naturalUtilization.divWadDown(1e18 - naturalUtilization)).lnWad();
 
@@ -169,6 +160,10 @@ contract InterestRateModel {
   /// @return the minimum between `baseRate` and `maxRate` with given conditions.
   function floatingRate(uint256 uFloating, uint256 uGlobal) public view returns (uint256) {
     return Math.min(baseRate(uFloating, uGlobal), maxRate);
+  }
+
+  function parameters() external view returns (Parameters memory) {
+    return _parameters;
   }
 
   // Legacy interface, kept for compatibility.
@@ -286,6 +281,20 @@ contract InterestRateModel {
 
 error AlreadyMatured();
 error UtilizationExceeded();
+
+struct Parameters {
+  uint256 curveA;
+  int256 curveB;
+  uint256 maxUtilization;
+  uint256 naturalUtilization;
+  int256 growthSpeed;
+  int256 sigmoidSpeed;
+  int256 spreadFactor;
+  int256 maturitySpeed;
+  int256 timePreference;
+  uint256 fixedAllocation;
+  uint256 maxRate;
+}
 
 struct FixedVars {
   uint256 sqFNatPools;

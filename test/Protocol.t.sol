@@ -15,7 +15,7 @@ import {
   ZeroRepay,
   ZeroWithdraw
 } from "../contracts/Market.sol";
-import { InterestRateModel, UtilizationExceeded } from "../contracts/InterestRateModel.sol";
+import { InterestRateModel, UtilizationExceeded, Parameters } from "../contracts/InterestRateModel.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
 import {
@@ -65,18 +65,20 @@ contract ProtocolTest is Test {
       MockERC20 asset = new MockERC20("DAI", "DAI", 18);
       Market market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
       InterestRateModel irm = new InterestRateModel(
-        market,
-        1.2111e16,
-        2.5683e16,
-        1.3e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.2111e16,
+          curveB: 2.5683e16,
+          maxUtilization: 1.3e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        market
       );
       market.initialize(MAX_FUTURE_POOLS, 2e18, irm, PENALTY_RATE, 1e17, RESERVE_FACTOR, 0.0046e18, 0.42e18);
       vm.label(address(market), string.concat("Market", i.toString()));

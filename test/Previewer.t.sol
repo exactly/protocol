@@ -7,7 +7,7 @@ import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Market, InsufficientProtocolLiquidity } from "../contracts/Market.sol";
-import { InterestRateModel, AlreadyMatured } from "../contracts/InterestRateModel.sol";
+import { InterestRateModel, AlreadyMatured, Parameters } from "../contracts/InterestRateModel.sol";
 import { Auditor, InsufficientAccountLiquidity, IPriceFeed } from "../contracts/Auditor.sol";
 import { RewardsController } from "../contracts/RewardsController.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
@@ -44,18 +44,20 @@ contract PreviewerTest is Test {
 
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     irm = new InterestRateModel(
-      market,
-      0.023e18,
-      -0.0025e18,
-      1.1e18,
-      0.75e18,
-      1.1e18,
-      1.5e18,
-      0.2e18,
-      0.5e18,
-      0.01e18,
-      0.3e18,
-      150e16
+      Parameters({
+        curveA: 0.023e18,
+        curveB: -0.0025e18,
+        maxUtilization: 1.1e18,
+        naturalUtilization: 0.75e18,
+        growthSpeed: 1.1e18,
+        sigmoidSpeed: 1.5e18,
+        spreadFactor: 0.2e18,
+        maturitySpeed: 0.5e18,
+        timePreference: 0.01e18,
+        fixedAllocation: 0.3e18,
+        maxRate: 150e16
+      }),
+      market
     );
     market.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
     vm.label(address(market), "MarketDAI");
@@ -445,18 +447,20 @@ contract PreviewerTest is Test {
       12,
       1e18,
       new InterestRateModel(
-        marketWETH,
-        1.3829e16,
-        1.7429e16,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.3829e16,
+          curveB: 1.7429e16,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        marketWETH
       ),
       0.02e18 / uint256(1 days),
       0.1e18,
@@ -556,18 +560,20 @@ contract PreviewerTest is Test {
       12,
       1e18,
       new InterestRateModel(
-        marketWETH,
-        1.3829e16,
-        1.7429e16,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.3829e16,
+          curveB: 1.7429e16,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        marketWETH
       ),
       0.02e18 / uint256(1 days),
       0.1e18,
@@ -704,18 +710,20 @@ contract PreviewerTest is Test {
       12,
       1e18,
       new InterestRateModel(
-        marketWETH,
-        1.3829e16,
-        1.7429e16,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.3829e16,
+          curveB: 1.7429e16,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        marketWETH
       ),
       0.02e18 / uint256(1 days),
       0.1e18,
@@ -875,18 +883,20 @@ contract PreviewerTest is Test {
       12,
       1e18,
       new InterestRateModel(
-        marketWETH,
-        1.3829e16,
-        1.7429e16,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.3829e16,
+          curveB: 1.7429e16,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        marketWETH
       ),
       0.02e18 / uint256(1 days),
       0.1e18,
@@ -1207,18 +1217,20 @@ contract PreviewerTest is Test {
       12,
       1e18,
       new InterestRateModel(
-        marketWETH,
-        1.3829e16,
-        1.7429e16,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.3829e16,
+          curveB: 1.7429e16,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        marketWETH
       ),
       0.02e18 / uint256(1 days),
       0.1e18,
@@ -1285,18 +1297,20 @@ contract PreviewerTest is Test {
       12,
       1e18,
       new InterestRateModel(
-        marketWETH,
-        1.3829e16,
-        1.7429e16,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.3829e16,
+          curveB: 1.7429e16,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        marketWETH
       ),
       0.02e18 / uint256(1 days),
       0.1e18,
@@ -1335,18 +1349,20 @@ contract PreviewerTest is Test {
       12,
       1e18,
       new InterestRateModel(
-        marketWETH,
-        1.3829e16,
-        1.7429e16,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.3829e16,
+          curveB: 1.7429e16,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        marketWETH
       ),
       0.02e18 / uint256(1 days),
       0.1e18,
@@ -1397,18 +1413,20 @@ contract PreviewerTest is Test {
       12,
       1e18,
       new InterestRateModel(
-        marketWETH,
-        1.3829e16,
-        1.7429e16,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.3829e16,
+          curveB: 1.7429e16,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        marketWETH
       ),
       0.02e18 / uint256(1 days),
       0.1e18,
@@ -1509,18 +1527,20 @@ contract PreviewerTest is Test {
       12,
       1e18,
       new InterestRateModel(
-        marketWETH,
-        1.3829e16,
-        1.7429e16,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.3829e16,
+          curveB: 1.7429e16,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        marketWETH
       ),
       0.02e18 / uint256(1 days),
       0.1e18,
@@ -1556,18 +1576,20 @@ contract PreviewerTest is Test {
       12,
       1e18,
       new InterestRateModel(
-        marketWETH,
-        1.3829e16,
-        1.7429e16,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.3829e16,
+          curveB: 1.7429e16,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        marketWETH
       ),
       0.02e18 / uint256(1 days),
       0.1e18,
@@ -1875,18 +1897,20 @@ contract PreviewerTest is Test {
       12,
       1e18,
       new InterestRateModel(
-        marketWETH,
-        1.3829e16,
-        1.7429e16,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.3829e16,
+          curveB: 1.7429e16,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        marketWETH
       ),
       0.02e18 / uint256(1 days),
       0.1e18,
@@ -1911,18 +1935,20 @@ contract PreviewerTest is Test {
       12,
       1e18,
       new InterestRateModel(
-        marketWETH,
-        1.3829e16,
-        1.7429e16,
-        1.1e18,
-        0.75e18,
-        1.1e18,
-        2.5e18,
-        0.2e18,
-        0.5e18,
-        0.01e18,
-        0.6e18,
-        15_000e16
+        Parameters({
+          curveA: 1.3829e16,
+          curveB: 1.7429e16,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        marketWETH
       ),
       0.02e18 / uint256(1 days),
       0.1e18,
