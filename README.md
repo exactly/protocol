@@ -72,5 +72,5 @@ REPORT_GAS=1 yarn test
 ### Deploy
 
 ```bash
-yarn deploy:goerli
+yarn deploy:op-sepolia
 ```

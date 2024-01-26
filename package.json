@@ -21,7 +21,7 @@
     "coverage:snapshot": "forge snapshot --no-match-test testFuzz --check",
     "coverage:fuzzer": "FOUNDRY_PROFILE=production forge test --match-test testFuzz",
     "deploy:ethereum": "hardhat --network ethereum deploy",
-    "deploy:goerli": "hardhat --network goerli deploy",
+    "deploy:op-sepolia": "hardhat --network op-sepolia deploy",
     "prepare": "concurrently 'npm:prepare:*' --group -c auto",
     "prepare:foundry": "if git status &>/dev/null; then forge install; fi",
     "prepare:hardhat": "hardhat compile --force"
