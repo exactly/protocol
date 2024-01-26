@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
-import { InterestRateModel as IRM, AlreadyMatured } from "../InterestRateModel.sol";
+import { InterestRateModel as IRM, Parameters, AlreadyMatured } from "../InterestRateModel.sol";
 import { RewardsController } from "../RewardsController.sol";
 import { FixedLib } from "../utils/FixedLib.sol";
 import { Auditor, IPriceFeed } from "../Auditor.sol";
@@ -80,17 +80,7 @@ contract Previewer {
 
   struct InterestRateModel {
     address id;
-    uint256 curveA;
-    int256 curveB;
-    uint256 maxUtilization;
-    uint256 naturalUtilization;
-    int256 growthSpeed;
-    int256 sigmoidSpeed;
-    int256 spreadFactor;
-    int256 maturitySpeed;
-    int256 timePreference;
-    uint256 fixedAllocation;
-    uint256 maxRate;
+    Parameters parameters;
   }
 
   struct FixedPosition {
@@ -148,20 +138,7 @@ contract Previewer {
         asset: address(market.asset()),
         assetName: market.asset().name(),
         assetSymbol: market.asset().symbol(),
-        interestRateModel: InterestRateModel({
-          id: address(irm),
-          curveA: irm.floatingCurveA(),
-          curveB: irm.floatingCurveB(),
-          maxUtilization: irm.floatingMaxUtilization(),
-          naturalUtilization: irm.naturalUtilization(),
-          growthSpeed: irm.growthSpeed(),
-          sigmoidSpeed: irm.sigmoidSpeed(),
-          spreadFactor: irm.spreadFactor(),
-          maturitySpeed: irm.maturitySpeed(),
-          timePreference: irm.timePreference(),
-          fixedAllocation: irm.fixedAllocation(),
-          maxRate: irm.maxRate()
-        }),
+        interestRateModel: InterestRateModel({ id: address(irm), parameters: irm.parameters() }),
         usdPrice: auditor.assetPrice(m.priceFeed).mulWadDown(basePrice),
         penaltyRate: market.penaltyRate(),
         adjustFactor: m.adjustFactor,

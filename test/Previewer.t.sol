@@ -1494,10 +1494,15 @@ contract PreviewerTest is Test {
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
 
     assertEq(data[0].interestRateModel.id, address(irm));
-    assertEq(data[0].interestRateModel.curveA, irm.floatingCurveA());
-    assertEq(data[0].interestRateModel.curveB, irm.floatingCurveB());
-    assertEq(data[0].interestRateModel.maxUtilization, irm.floatingMaxUtilization());
-    assertEq(data[0].interestRateModel.naturalUtilization, irm.naturalUtilization());
+    assertEq(data[0].interestRateModel.parameters.maxUtilization, irm.floatingMaxUtilization());
+    assertEq(data[0].interestRateModel.parameters.naturalUtilization, irm.naturalUtilization());
+    assertEq(data[0].interestRateModel.parameters.growthSpeed, uint256(irm.growthSpeed()));
+    assertEq(data[0].interestRateModel.parameters.sigmoidSpeed, uint256(irm.sigmoidSpeed()));
+    assertEq(data[0].interestRateModel.parameters.spreadFactor, uint256(irm.spreadFactor()));
+    assertEq(data[0].interestRateModel.parameters.maturitySpeed, uint256(irm.maturitySpeed()));
+    assertEq(data[0].interestRateModel.parameters.timePreference, irm.timePreference());
+    assertEq(data[0].interestRateModel.parameters.fixedAllocation, irm.fixedAllocation());
+    assertEq(data[0].interestRateModel.parameters.maxRate, irm.maxRate());
   }
 
   function testMaxBorrowAssetsCapacity() external {
