@@ -28,7 +28,7 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
     const decimals = { USDC: 6, WBTC: 8 }[symbol] ?? 18;
     await deploy(symbol, {
       skipIfAlreadyDeployed: true,
-      contract: symbol === "WETH" ? "WETH" : "MockERC20",
+      contract: symbol === "WETH" ? "MockWETH" : "MockERC20",
       ...(symbol !== "WETH" && { args: [symbol, symbol, decimals] }),
       from: deployer,
       log: true,
