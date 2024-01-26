@@ -95,10 +95,10 @@ export class DefaultEnv {
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
       {
-        curveA: parseUnits("0.0495"),
-        curveB: parseUnits("-0.025"),
+        minRate: parseUnits("0.035"),
+        naturalRate: parseUnits("0.08"),
         maxUtilization: parseUnits("1.1"),
-        naturalUtilization: parseUnits("0.7"),
+        naturalUtilization: parseUnits("0.75"),
         growthSpeed: parseUnits("1.1"),
         sigmoidSpeed: parseUnits("2.5"),
         spreadFactor: parseUnits("0.2"),

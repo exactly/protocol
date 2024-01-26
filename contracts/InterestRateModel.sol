@@ -47,7 +47,9 @@ contract InterestRateModel {
 
   constructor(Parameters memory p, Market market_) {
     assert(
-      p.maxUtilization > 1e18 &&
+      p.minRate > 0 &&
+        p.naturalRate > 0 &&
+        p.maxUtilization > 1e18 &&
         p.naturalUtilization > 0 &&
         p.naturalUtilization < 1e18 &&
         p.growthSpeed > 0 &&
@@ -61,12 +63,19 @@ contract InterestRateModel {
     market = market_;
     _parameters = p;
 
-    fixedCurveA = address(market_) != address(0) ? p.curveA : 0;
-    fixedCurveB = address(market_) != address(0) ? p.curveB : int256(0);
+    floatingCurveA =
+      ((p.naturalRate.mulWadUp(
+        uint256(((p.growthSpeed * (1e18 - int256(p.naturalUtilization / 2)).lnWad()) / 1e18).expWad())
+      ) - p.minRate) *
+        (p.maxUtilization - p.naturalUtilization) *
+        (p.maxUtilization)) /
+      (p.naturalUtilization * 1e18);
+    floatingCurveB = int256(p.minRate) - int256(floatingCurveA.divWadDown(p.maxUtilization));
+
+    fixedCurveA = address(market_) != address(0) ? floatingCurveA : 0;
+    fixedCurveB = address(market_) != address(0) ? floatingCurveB : int256(0);
     fixedMaxUtilization = address(market_) != address(0) ? p.maxUtilization : 0;
 
-    floatingCurveA = p.curveA;
-    floatingCurveB = p.curveB;
     floatingMaxUtilization = p.maxUtilization;
     naturalUtilization = p.naturalUtilization;
 
@@ -283,8 +292,8 @@ error AlreadyMatured();
 error UtilizationExceeded();
 
 struct Parameters {
-  uint256 curveA;
-  int256 curveB;
+  uint256 minRate;
+  uint256 naturalRate;
   uint256 maxUtilization;
   uint256 naturalUtilization;
   int256 growthSpeed;

@@ -30,40 +30,40 @@ describe("InterestRateModel", () => {
 
       // B = ((Umax/Ub)*R0) + (1-(Umax/Ub))*Rb
       // B = -.08666666666666666666
-      const a = parseUnits("0.092"); // A parameter for the curve
-      const b = parseUnits("-0.086666666666666666"); // B parameter for the curve
+      const minRate = parseUnits("0.035");
+      const naturalRate = parseUnits("0.08");
       const maxUtilization = parseUnits("1.2"); // Maximum utilization rate
-      const naturalUtilization = parseUnits("0.7");
+      const naturalUtilization = parseUnits("0.75");
       const growthSpeed = parseUnits("2.5");
       const sigmoidSpeed = parseUnits("2.5");
       const spreadFactor = parseUnits("0.2");
       const maturitySpeed = parseUnits("0.5");
       const timePreference = parseUnits("0.01");
-      const fixedAllocation = parseUnits("0.6");
+      const fixedAllocation = parseUnits("0");
       const maxRate = parseUnits("0.1");
 
       await expect(
         irmFactory.deploy(
           {
-            curveA: a,
-            curveB: b,
-            maxUtilization: maxUtilization,
-            naturalUtilization: naturalUtilization,
-            growthSpeed: growthSpeed,
-            sigmoidSpeed: sigmoidSpeed,
-            spreadFactor: spreadFactor,
-            maturitySpeed: maturitySpeed,
-            timePreference: timePreference,
-            fixedAllocation: fixedAllocation,
-            maxRate: maxRate,
+            minRate,
+            naturalRate,
+            maxUtilization,
+            naturalUtilization,
+            growthSpeed,
+            sigmoidSpeed,
+            spreadFactor,
+            maturitySpeed,
+            timePreference,
+            fixedAllocation,
+            maxRate,
           },
           ZeroAddress,
         ),
       ).to.be.reverted;
     });
     it("WHEN deploying a contract with A and B parameters yielding an invalid floating curve THEN it reverts", async () => {
-      const a = parseUnits("0.092"); // A parameter for the curve
-      const b = parseUnits("-0.086666666666666666"); // B parameter for the curve
+      const minRate = parseUnits("0");
+      const naturalRate = parseUnits("0");
       const maxUtilization = parseUnits("1.2"); // Maximum utilization rate
       const naturalUtilization = parseUnits("0.7");
       const sigmoidSpeed = parseUnits("2.5");
@@ -77,17 +77,17 @@ describe("InterestRateModel", () => {
       await expect(
         irmFactory.deploy(
           {
-            curveA: a,
-            curveB: b,
-            maxUtilization: maxUtilization,
-            naturalUtilization: naturalUtilization,
-            growthSpeed: growthSpeed,
-            sigmoidSpeed: sigmoidSpeed,
-            spreadFactor: spreadFactor,
-            maturitySpeed: maturitySpeed,
-            timePreference: timePreference,
-            fixedAllocation: fixedAllocation,
-            maxRate: maxRate,
+            minRate,
+            naturalRate,
+            maxUtilization,
+            naturalUtilization,
+            growthSpeed,
+            sigmoidSpeed,
+            spreadFactor,
+            maturitySpeed,
+            timePreference,
+            fixedAllocation,
+            maxRate,
           },
           ZeroAddress,
         ),

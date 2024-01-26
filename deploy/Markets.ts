@@ -102,8 +102,8 @@ const func: DeployFunction = async ({
         contract: "InterestRateModel",
         args: [
           {
-            curveA: parseUnits(String(config.interestRateModel.curveA)),
-            curveB: parseUnits(String(config.interestRateModel.curveB)),
+            minRate: parseUnits(String(config.interestRateModel.minRate)),
+            naturalRate: parseUnits(String(config.interestRateModel.naturalRate)),
             maxUtilization: parseUnits(String(config.interestRateModel.maxUtilization)),
             naturalUtilization: parseUnits(String(config.interestRateModel.naturalUtilization)),
             growthSpeed: parseUnits(String(config.interestRateModel.growthSpeed)),

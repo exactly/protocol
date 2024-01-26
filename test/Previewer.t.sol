@@ -45,8 +45,8 @@ contract PreviewerTest is Test {
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     irm = new InterestRateModel(
       Parameters({
-        curveA: 0.023e18,
-        curveB: -0.0025e18,
+        minRate: 3.5e16,
+        naturalRate: 8e16,
         maxUtilization: 1.1e18,
         naturalUtilization: 0.75e18,
         growthSpeed: 1.1e18,
@@ -448,8 +448,8 @@ contract PreviewerTest is Test {
       1e18,
       new InterestRateModel(
         Parameters({
-          curveA: 1.3829e16,
-          curveB: 1.7429e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -534,7 +534,7 @@ contract PreviewerTest is Test {
 
     // supply 100 more to the smart pool
     market.deposit(100 ether, address(this));
-    uint256 distributedEarnings = 41896285463485905;
+    uint256 distributedEarnings = 41901203031327288;
     // set the smart pool reserve in 10%
     // since smart pool supply is 200 then 10% is 20
     market.setReserveFactor(0.1e18);
@@ -561,8 +561,8 @@ contract PreviewerTest is Test {
       1e18,
       new InterestRateModel(
         Parameters({
-          curveA: 1.3829e16,
-          curveB: 1.7429e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -599,33 +599,33 @@ contract PreviewerTest is Test {
     marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 300 ether, address(this), address(this));
 
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
-    uint256 depositRate = 230082199084455975;
+    uint256 depositRate = 437440230358101481;
     // MarketDAI
     assertEq(data[0].fixedPools[0].optimalDeposit, 10 ether);
-    assertEq(data[0].fixedPools[0].minBorrowRate, 19538212245862464);
+    assertEq(data[0].fixedPools[0].minBorrowRate, 37146724516824931);
     assertEq(data[0].fixedPools[0].depositRate, depositRate);
     assertEq(data[0].fixedPools[0].utilization, 0.1 ether);
     assertEq(data[0].fixedPools[1].optimalDeposit, 0);
-    assertEq(data[0].fixedPools[1].minBorrowRate, 18423433171182301);
+    assertEq(data[0].fixedPools[1].minBorrowRate, 35027268004470054);
     assertEq(data[0].fixedPools[1].depositRate, 0);
     assertEq(data[0].fixedPools[1].utilization, 0);
     // MarketWETH
     assertEq(data[1].fixedPools[0].optimalDeposit, 0);
-    assertEq(data[1].fixedPools[0].minBorrowRate, 30000818190473524);
+    assertEq(data[1].fixedPools[0].minBorrowRate, 35000000010097624);
     assertEq(data[1].fixedPools[0].depositRate, 0);
     assertEq(data[1].fixedPools[0].utilization, 0);
     assertEq(data[1].fixedPools[1].optimalDeposit, 200 ether);
-    assertEq(data[1].fixedPools[1].minBorrowRate, 32570456114596930);
-    assertEq(data[1].fixedPools[1].depositRate, 191417155471238986);
+    assertEq(data[1].fixedPools[1].minBorrowRate, 37997829162598044);
+    assertEq(data[1].fixedPools[1].depositRate, 223313924336690840);
     assertEq(data[1].fixedPools[1].utilization, 0.004 ether);
 
     vm.warp(block.timestamp + 1 days);
     data = previewer.exactly(address(this));
-    assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 5);
+    assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 11);
 
     vm.warp(block.timestamp + 3 hours + 4 minutes + 19 minutes);
     data = previewer.exactly(address(this));
-    assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 8);
+    assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 11);
   }
 
   function testRewardsRateX() external {
@@ -668,7 +668,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].rewardRates[0].assetName, rewardAsset.name());
     assertEq(data[0].rewardRates[0].assetSymbol, rewardAsset.symbol());
 
-    uint256 newDepositRewards = 22154777679810000;
+    uint256 newDepositRewards = 17969250746830000;
     uint256 newDepositRewardsValue = newDepositRewards.mulDivDown(
       uint256(opPriceFeed.latestAnswer()),
       10 ** opPriceFeed.decimals()
@@ -711,8 +711,8 @@ contract PreviewerTest is Test {
       1e18,
       new InterestRateModel(
         Parameters({
-          curveA: 1.3829e16,
-          curveB: 1.7429e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -884,8 +884,8 @@ contract PreviewerTest is Test {
       1e18,
       new InterestRateModel(
         Parameters({
-          curveA: 1.3829e16,
-          curveB: 1.7429e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -1138,7 +1138,7 @@ contract PreviewerTest is Test {
     market.deposit(100 ether, address(this));
     market.borrow(64 ether, address(this), address(this));
     Previewer.MarketAccount[] memory exactly = previewer.exactly(address(this));
-    assertEq(exactly[0].floatingBorrowRate, 60756015526316652);
+    assertEq(exactly[0].floatingBorrowRate, 55318189842169626);
     assertEq(exactly[0].floatingUtilization, 0.64e18);
   }
 
@@ -1218,8 +1218,8 @@ contract PreviewerTest is Test {
       1e18,
       new InterestRateModel(
         Parameters({
-          curveA: 1.3829e16,
-          curveB: 1.7429e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -1282,7 +1282,7 @@ contract PreviewerTest is Test {
 
     // supply 100 more to the smart pool
     market.deposit(100 ether, address(this));
-    uint256 distributedEarnings = 5456479385642;
+    uint256 distributedEarnings = 10374047227025;
     // set the smart pool reserve to 10%
     // since smart pool supply is 200 then 10% is 20
     market.setReserveFactor(0.1e18);
@@ -1298,8 +1298,8 @@ contract PreviewerTest is Test {
       1e18,
       new InterestRateModel(
         Parameters({
-          curveA: 1.3829e16,
-          curveB: 1.7429e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -1350,8 +1350,8 @@ contract PreviewerTest is Test {
       1e18,
       new InterestRateModel(
         Parameters({
-          curveA: 1.3829e16,
-          curveB: 1.7429e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -1414,8 +1414,8 @@ contract PreviewerTest is Test {
       1e18,
       new InterestRateModel(
         Parameters({
-          curveA: 1.3829e16,
-          curveB: 1.7429e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -1528,8 +1528,8 @@ contract PreviewerTest is Test {
       1e18,
       new InterestRateModel(
         Parameters({
-          curveA: 1.3829e16,
-          curveB: 1.7429e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -1577,8 +1577,8 @@ contract PreviewerTest is Test {
       1e18,
       new InterestRateModel(
         Parameters({
-          curveA: 1.3829e16,
-          curveB: 1.7429e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -1898,8 +1898,8 @@ contract PreviewerTest is Test {
       1e18,
       new InterestRateModel(
         Parameters({
-          curveA: 1.3829e16,
-          curveB: 1.7429e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -1936,8 +1936,8 @@ contract PreviewerTest is Test {
       1e18,
       new InterestRateModel(
         Parameters({
-          curveA: 1.3829e16,
-          curveB: 1.7429e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,

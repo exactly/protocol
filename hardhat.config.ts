@@ -60,8 +60,8 @@ export default {
     futurePools: 6,
     earningsAccumulatorSmoothFactor: 2,
     interestRateModel: {
-      curveA: 1.4293e-2,
-      curveB: 9.0055e-3,
+      minRate: 2e-2,
+      naturalRate: 6e-2,
       maxUtilization: 1.3,
       naturalUtilization: 0.7,
       growthSpeed: 1.1,
@@ -412,8 +412,8 @@ declare module "hardhat/types/config" {
   }
 
   export interface IRMParameters {
-    curveA: number;
-    curveB: number;
+    minRate: number;
+    naturalRate: number;
     maxUtilization: number;
     naturalUtilization: number;
     growthSpeed: number;

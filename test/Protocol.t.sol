@@ -66,8 +66,8 @@ contract ProtocolTest is Test {
       Market market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
       InterestRateModel irm = new InterestRateModel(
         Parameters({
-          curveA: 1.2111e16,
-          curveB: 2.5683e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.3e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,

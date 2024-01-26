@@ -17,19 +17,19 @@ contract InterestRateModelTest is Test {
   InterestRateModelHarness internal irm;
 
   function testFixedBorrowRate() external {
-    assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18), 63725347602879087);
+    assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18), 63726888252924763);
   }
 
   function testFloatingBorrowRate() external {
-    assertEq(deployDefault().floatingRate(0.75e18, 0.75e18), 79997731751740314);
+    assertEq(deployDefault().floatingRate(0.75e18, 0.75e18), 80000000000000000);
   }
 
   function testRevertMaxUtilizationLowerThanWad() external {
     vm.expectRevert();
     new InterestRateModel(
       Parameters({
-        curveA: 1.2111e16,
-        curveB: 2.5683e16,
+        minRate: 3.5e16,
+        naturalRate: 8e16,
         maxUtilization: 1e18 - 1,
         naturalUtilization: 0.75e18,
         growthSpeed: 1.1e18,
@@ -50,20 +50,14 @@ contract InterestRateModelTest is Test {
     p.maxUtilization = _bound(p.maxUtilization, 1.01e18 + 1, 2e18);
     p.naturalUtilization = _bound(p.naturalUtilization, 0.4e18, 0.9e18);
     p.growthSpeed = _bound(p.growthSpeed, 1, 5e18);
-    (p.curveA, p.curveB) = boundCurve(
-      p.curveA,
-      uint256(p.curveB),
-      p.naturalUtilization,
-      p.maxUtilization,
-      p.growthSpeed
-    );
+    (p.minRate, p.naturalRate) = boundCurve(p.minRate, p.naturalRate, p.naturalUtilization, p.growthSpeed);
     p.sigmoidSpeed = _bound(p.sigmoidSpeed, 1, 10e18);
     p.maxRate = _bound(p.maxRate, 100e16, 10_000e16);
 
     irm = new InterestRateModelHarness(
       Parameters({
-        curveA: p.curveA,
-        curveB: p.curveB,
+        minRate: p.minRate,
+        naturalRate: p.naturalRate,
         maxUtilization: p.maxUtilization,
         naturalUtilization: p.naturalUtilization,
         growthSpeed: p.growthSpeed,
@@ -81,8 +75,8 @@ contract InterestRateModelTest is Test {
     ffi[0] = "scripts/irm-floating.sh";
     ffi[1] = encodeHex(
       abi.encode(
-        p.curveA,
-        p.curveB,
+        irm.floatingCurveA(),
+        irm.floatingCurveB(),
         p.maxUtilization,
         p.naturalUtilization,
         p.growthSpeed,
@@ -106,7 +100,7 @@ contract InterestRateModelTest is Test {
     uint256 uFixed,
     uint256 uFloating,
     uint256 uGlobal,
-    FixedParameters memory p
+    Parameters memory p
   ) external {
     timestamp = _bound(timestamp, 0, 2 * FixedLib.INTERVAL);
     vm.warp(timestamp);
@@ -119,13 +113,7 @@ contract InterestRateModelTest is Test {
     p.maxUtilization = _bound(p.maxUtilization, 1.01e18 + 1, 2e18);
     p.naturalUtilization = _bound(p.naturalUtilization, 0.4e18, 0.9e18);
     p.growthSpeed = _bound(p.growthSpeed, 1, 5e18);
-    (p.curveA, p.curveB) = boundCurve(
-      p.curveA,
-      uint256(p.curveB),
-      p.naturalUtilization,
-      p.maxUtilization,
-      p.growthSpeed
-    );
+    (p.minRate, p.naturalRate) = boundCurve(p.naturalRate, p.minRate, p.naturalUtilization, p.growthSpeed);
     p.sigmoidSpeed = _bound(p.sigmoidSpeed, 1, 10e18);
     p.spreadFactor = _bound(p.spreadFactor, 1, 0.5e18);
     p.maturitySpeed = _bound(p.maturitySpeed, 1, 5e18);
@@ -135,8 +123,8 @@ contract InterestRateModelTest is Test {
 
     irm = new InterestRateModelHarness(
       Parameters({
-        curveA: p.curveA,
-        curveB: p.curveB,
+        minRate: p.minRate,
+        naturalRate: p.naturalRate,
         maxUtilization: p.maxUtilization,
         naturalUtilization: p.naturalUtilization,
         growthSpeed: p.growthSpeed,
@@ -198,8 +186,8 @@ contract InterestRateModelTest is Test {
     );
     irm = new InterestRateModelHarness(
       Parameters({
-        curveA: 1.2111e16,
-        curveB: 2.5683e16,
+        minRate: 3.5e16,
+        naturalRate: 8e16,
         maxUtilization: 1.3e18,
         naturalUtilization: 0.75e18,
         growthSpeed: 1.1e18,
@@ -273,9 +261,8 @@ contract InterestRateModelTest is Test {
     uint256 minRate,
     uint256 naturalRate,
     uint256 naturalUtilization,
-    uint256 maxUtilization,
     int256 growthSpeed
-  ) internal pure returns (uint256 curveA, int256 curveB) {
+  ) internal pure returns (uint256, uint256) {
     minRate = _bound(minRate, 1e16, 10e16);
     uint256 minNaturalRate = minRate.mulWadUp(
       uint256(((-growthSpeed * (1e18 - int256(naturalUtilization / 2)).lnWad()) / 1e18).expWad())
@@ -285,15 +272,7 @@ contract InterestRateModelTest is Test {
       Math.max(minNaturalRate, minRate.mulWadUp(1.2e18)),
       Math.max(minNaturalRate, minRate.mulWadUp(2e18))
     );
-
-    curveA =
-      ((naturalRate.mulWadUp(
-        uint256(((growthSpeed * (1e18 - int256(naturalUtilization / 2)).lnWad()) / 1e18).expWad())
-      ) - minRate) *
-        (maxUtilization - naturalUtilization) *
-        (maxUtilization)) /
-      (naturalUtilization * 1e18);
-    curveB = int256(minRate) - int256(curveA.divWadDown(maxUtilization));
+    return (minRate, naturalRate);
   }
 
   function encodeHex(bytes memory raw) internal pure returns (string memory) {
@@ -332,8 +311,8 @@ contract InterestRateModelTest is Test {
     return
       new InterestRateModelHarness(
         Parameters({
-          curveA: 1.2111e16,
-          curveB: 2.5683e16,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.3e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -366,26 +345,12 @@ contract InterestRateModelHarness is InterestRateModel {
 }
 
 struct FloatingParameters {
-  uint256 curveA;
-  int256 curveB;
+  uint256 minRate;
+  uint256 naturalRate;
   uint256 maxUtilization;
   uint256 naturalUtilization;
   int256 growthSpeed;
   int256 sigmoidSpeed;
-  uint256 maxRate;
-}
-
-struct FixedParameters {
-  uint256 curveA;
-  int256 curveB;
-  uint256 maxUtilization;
-  uint256 naturalUtilization;
-  uint256 fixedAllocation;
-  int256 growthSpeed;
-  int256 sigmoidSpeed;
-  int256 spreadFactor;
-  int256 timePreference;
-  int256 maturitySpeed;
   uint256 maxRate;
 }
 

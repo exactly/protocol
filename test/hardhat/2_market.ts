@@ -6,7 +6,7 @@ import decodeMaturities from "./utils/decodeMaturities";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 
-const { ZeroAddress, parseUnits, getUnnamedSigners, getNamedSigner, getContract, provider } = ethers;
+const { parseUnits, getUnnamedSigners, getNamedSigner, getContract, provider } = ethers;
 const { deploy, fixture } = deployments;
 
 describe("Market", function () {
@@ -406,25 +406,7 @@ describe("Market", function () {
 
   describe("GIVEN an interest rate of 2%", () => {
     beforeEach(async () => {
-      const { address } = await deploy("InterestRateModel", {
-        args: [
-          {
-            curveA: parseUnits("0.02"),
-            curveB: parseUnits("0.02"),
-            maxUtilization: parseUnits("6"),
-            naturalUtilization: parseUnits("0.7"),
-            growthSpeed: parseUnits("2.5"),
-            sigmoidSpeed: parseUnits("1"),
-            spreadFactor: parseUnits("0.2"),
-            maturitySpeed: parseUnits("0.2"),
-            timePreference: parseUnits("0"),
-            fixedAllocation: parseUnits("0.5"),
-            maxRate: parseUnits("10"),
-          },
-          ZeroAddress,
-        ],
-        from: owner.address,
-      });
+      const { address } = await deploy("MockInterestRateModel", { args: [parseUnits("0.02")], from: maria.address });
       await timelockExecute(owner, marketDAI, "setInterestRateModel", [address]);
       await marketDAI.deposit(parseUnits("1"), maria.address);
       await provider.send("evm_increaseTime", [9_011]);

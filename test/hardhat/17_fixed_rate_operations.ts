@@ -97,16 +97,16 @@ describe("Fixed Rate Operations", () => {
 
       newInterestRateModel = await InterestRateModelFactory.deploy(
         {
-          curveA: parseUnits("0.75"),
-          curveB: parseUnits("-0.105"),
+          minRate: parseUnits("0.035"),
+          naturalRate: parseUnits("0.08"),
           maxUtilization: parseUnits("1.1"),
-          naturalUtilization: parseUnits("0.7"),
-          growthSpeed: parseUnits("2.5"),
+          naturalUtilization: parseUnits("0.75"),
+          growthSpeed: parseUnits("1.1"),
           sigmoidSpeed: parseUnits("2.5"),
           spreadFactor: parseUnits("0.2"),
           maturitySpeed: parseUnits("0.5"),
           timePreference: parseUnits("0.01"),
-          fixedAllocation: parseUnits("0.5"),
+          fixedAllocation: parseUnits("0.6"),
           maxRate: parseUnits("10"),
         },
         ZeroAddress,

@@ -918,8 +918,8 @@ contract MarketTest is Test {
     market.setInterestRateModel(
       new InterestRateModel(
         Parameters({
-          curveA: 0.023e18,
-          curveB: -0.0025e18,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -950,8 +950,8 @@ contract MarketTest is Test {
     market.setInterestRateModel(
       new InterestRateModel(
         Parameters({
-          curveA: 0.023e18,
-          curveB: -0.0025e18,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1.1e18,
           naturalUtilization: 0.75e18,
           growthSpeed: 1.1e18,
@@ -2334,8 +2334,8 @@ contract MarketTest is Test {
     market.setInterestRateModel(
       new InterestRateModel(
         Parameters({
-          curveA: 0.023e18,
-          curveB: -0.0025e18,
+          minRate: 3.5e16,
+          naturalRate: 8e16,
           maxUtilization: 1e18 + 1,
           naturalUtilization: 0.7e18,
           growthSpeed: 1.5e18,
