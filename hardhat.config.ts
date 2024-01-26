@@ -30,12 +30,14 @@ const hardhatConfig: Config = {
       url: env.ETHEREUM_NODE ?? "",
     },
     optimism: { priceDecimals: 8, timelockDelay: 24 * 3_600, url: env.OPTIMISM_NODE ?? "" },
+    "op-sepolia": { priceDecimals: 8, url: env.OP_SEPOLIA_NODE ?? "" },
   },
   namedAccounts: {
     deployer: {
       default: 0,
       ethereum: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
       optimism: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
+      "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
     multisig: {
       default: 0,
@@ -44,6 +46,7 @@ const hardhatConfig: Config = {
     },
     treasury: {
       optimism: "0x23fD464e0b0eE21cEdEb929B19CABF9bD5215019",
+      "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
   },
   finance: {
@@ -122,7 +125,7 @@ const hardhatConfig: Config = {
         },
       },
       DAI: {
-        networks: ["ethereum"],
+        networks: ["ethereum", "op-sepolia"],
         adjustFactor: 0.9,
       },
       USDC: {
@@ -180,10 +183,9 @@ const hardhatConfig: Config = {
       },
       wstETH: {
         adjustFactor: 0.82,
-        priceFeed: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
         overrides: {
+          ethereum: { priceFeed: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n } },
           optimism: {
-            priceFeed: undefined,
             rewards: {
               OP: {
                 total: 15_500,
@@ -218,7 +220,7 @@ const hardhatConfig: Config = {
         },
       },
       OP: {
-        networks: ["optimism"],
+        networks: ["optimism", "op-sepolia"],
         adjustFactor: 0.58,
         interestRateModel: { minRate: 2.5e-2, naturalRate: 10e-2, maxUtilization: 1.2, growthSpeed: 1.2 },
         overrides: {
