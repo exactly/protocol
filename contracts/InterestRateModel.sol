@@ -60,29 +60,28 @@ contract InterestRateModel {
         p.maxRate <= 15_000e16
     );
 
-    market = market_;
     _parameters = p;
+    growthSpeed = p.growthSpeed.toInt256();
+    sigmoidSpeed = p.sigmoidSpeed.toInt256();
+    spreadFactor = p.spreadFactor.toInt256();
+    maturitySpeed = p.maturitySpeed.toInt256();
+    floatingMaxUtilization = p.maxUtilization;
+    naturalUtilization = p.naturalUtilization;
 
     floatingCurveA =
       ((p.naturalRate.mulWadUp(
-        uint256(((p.growthSpeed * (1e18 - int256(p.naturalUtilization / 2)).lnWad()) / 1e18).expWad())
+        uint256(((growthSpeed * (1e18 - int256(p.naturalUtilization / 2)).lnWad()) / 1e18).expWad())
       ) - p.minRate) *
         (p.maxUtilization - p.naturalUtilization) *
         (p.maxUtilization)) /
       (p.naturalUtilization * 1e18);
     floatingCurveB = int256(p.minRate) - int256(floatingCurveA.divWadDown(p.maxUtilization));
 
+    market = market_;
     fixedCurveA = address(market_) != address(0) ? floatingCurveA : 0;
     fixedCurveB = address(market_) != address(0) ? floatingCurveB : int256(0);
     fixedMaxUtilization = address(market_) != address(0) ? p.maxUtilization : 0;
 
-    floatingMaxUtilization = p.maxUtilization;
-    naturalUtilization = p.naturalUtilization;
-
-    growthSpeed = p.growthSpeed;
-    sigmoidSpeed = p.sigmoidSpeed;
-    spreadFactor = p.spreadFactor;
-    maturitySpeed = p.maturitySpeed;
     timePreference = p.timePreference;
     fixedAllocation = p.fixedAllocation;
     maxRate = p.maxRate;
@@ -296,10 +295,10 @@ struct Parameters {
   uint256 naturalRate;
   uint256 maxUtilization;
   uint256 naturalUtilization;
-  int256 growthSpeed;
-  int256 sigmoidSpeed;
-  int256 spreadFactor;
-  int256 maturitySpeed;
+  uint256 growthSpeed;
+  uint256 sigmoidSpeed;
+  uint256 spreadFactor;
+  uint256 maturitySpeed;
   int256 timePreference;
   uint256 fixedAllocation;
   uint256 maxRate;

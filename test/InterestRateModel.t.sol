@@ -261,11 +261,11 @@ contract InterestRateModelTest is Test {
     uint256 minRate,
     uint256 naturalRate,
     uint256 naturalUtilization,
-    int256 growthSpeed
+    uint256 growthSpeed
   ) internal pure returns (uint256, uint256) {
     minRate = _bound(minRate, 1e16, 10e16);
     uint256 minNaturalRate = minRate.mulWadUp(
-      uint256(((-growthSpeed * (1e18 - int256(naturalUtilization / 2)).lnWad()) / 1e18).expWad())
+      uint256(((-int256(growthSpeed) * (1e18 - int256(naturalUtilization / 2)).lnWad()) / 1e18).expWad())
     ) + 50;
     naturalRate = _bound(
       naturalRate,
@@ -349,8 +349,8 @@ struct FloatingParameters {
   uint256 naturalRate;
   uint256 maxUtilization;
   uint256 naturalUtilization;
-  int256 growthSpeed;
-  int256 sigmoidSpeed;
+  uint256 growthSpeed;
+  uint256 sigmoidSpeed;
   uint256 maxRate;
 }
 
