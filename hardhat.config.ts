@@ -17,7 +17,7 @@ import type { HardhatUserConfig as Config } from "hardhat/types";
 
 setup({ automaticVerifications: false });
 
-export default {
+const hardhatConfig: Config = {
   solidity: {
     version: "0.8.23",
     settings: { evmVersion: "shanghai", optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
@@ -307,7 +307,8 @@ export default {
   typechain: { outDir: "types", target: "ethers-v6" },
   contractSizer: { runOnCompile: true, only: ["^contracts/"], except: ["mocks"] },
   gasReporter: { currency: "USD", gasPrice: 100, enabled: !!JSON.parse(env.REPORT_GAS ?? "false") },
-} as Config;
+};
+export default hardhatConfig;
 
 task(
   "pause",
@@ -321,9 +322,9 @@ task(
   .addOptionalPositionalParam("pause", "whether to pause or unpause the market", true, boolean)
   .addOptionalParam("account", "signer's account name", "deployer", string);
 
-extendConfig((hardhatConfig, { finance }) => {
-  delete (hardhatConfig as any).finance; // eslint-disable-line @typescript-eslint/no-explicit-any
-  for (const [networkName, networkConfig] of Object.entries(hardhatConfig.networks)) {
+extendConfig((extendedConfig, { finance }) => {
+  delete (extendedConfig as any).finance; // eslint-disable-line @typescript-eslint/no-explicit-any
+  for (const [networkName, networkConfig] of Object.entries(extendedConfig.networks)) {
     const live = !["hardhat", "localhost"].includes(networkName);
     if (live) {
       if (env.MNEMONIC) networkConfig.accounts = { ...defaultHdAccountsConfigParams, mnemonic: env.MNEMONIC };
