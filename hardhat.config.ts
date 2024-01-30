@@ -30,24 +30,20 @@ const hardhatConfig: Config = {
       url: env.ETHEREUM_NODE ?? "",
     },
     optimism: { priceDecimals: 8, timelockDelay: 24 * 3_600, url: env.OPTIMISM_NODE ?? "" },
-    goerli: { priceDecimals: 8, url: env.GOERLI_NODE ?? "" },
   },
   namedAccounts: {
     deployer: {
       default: 0,
       ethereum: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
       optimism: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
-      goerli: "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
     multisig: {
       default: 0,
       ethereum: "0x7A65824d74B0C20730B6eE4929ABcc41Cbe843Aa",
       optimism: "0xC0d6Bc5d052d1e74523AD79dD5A954276c9286D3",
-      goerli: "0x1801f5EAeAbA3fD02cBF4b7ED1A7b58AD84C0705",
     },
     treasury: {
       optimism: "0x23fD464e0b0eE21cEdEb929B19CABF9bD5215019",
-      goerli: "0x1801f5EAeAbA3fD02cBF4b7ED1A7b58AD84C0705",
     },
   },
   finance: {
@@ -89,13 +85,6 @@ const hardhatConfig: Config = {
       WETH: {
         adjustFactor: 0.86,
         overrides: {
-          goerli: {
-            rewards: {
-              OP: { total: 180_000, debt: 16_000, start: "2023-03-09", period: 32 * 7 * 86_400 },
-              EXA: { total: 15_200, debt: 16_000, start: "2023-07-20", period: 8 * 7 * 86_400 },
-              esEXA: { total: 150_000, debt: 6_000, start: "2023-10-11", period: 30 * 7 * 86_400 },
-            },
-          },
           optimism: {
             rewards: {
               OP: {
@@ -133,20 +122,13 @@ const hardhatConfig: Config = {
         },
       },
       DAI: {
-        networks: ["ethereum", "goerli"],
+        networks: ["ethereum"],
         adjustFactor: 0.9,
       },
       USDC: {
         adjustFactor: 0.91,
         interestRateModel: { minRate: 3.5e-2, naturalRate: 8e-2, naturalUtilization: 0.75, growthSpeed: 1.1 },
         overrides: {
-          goerli: {
-            rewards: {
-              OP: { total: 420_000, debt: 25_000_000, start: "2023-03-09", period: 32 * 7 * 86_400 },
-              EXA: { total: 30_000, debt: 25_000_000, start: "2023-07-20", period: 8 * 7 * 86_400 },
-              esEXA: { total: 300_000, debt: 25_000_000, start: "2023-10-11", period: 30 * 7 * 86_400 },
-            },
-          },
           optimism: {
             rewards: {
               OP: {
@@ -179,12 +161,6 @@ const hardhatConfig: Config = {
         interestRateModel: { minRate: 1.75e-2, naturalRate: 9e-2, maxUtilization: 1.5, growthSpeed: 1.2 },
         overrides: {
           ethereum: { priceFeed: "double" },
-          goerli: {
-            priceFeed: "double",
-            rewards: {
-              esEXA: { total: 12_000, debt: 0.35, start: "2023-12-20", period: 23 * 7 * 86_400 },
-            },
-          },
           optimism: {
             adjustFactor: 0.78,
             rewards: {
@@ -206,29 +182,6 @@ const hardhatConfig: Config = {
         adjustFactor: 0.82,
         priceFeed: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
         overrides: {
-          goerli: {
-            rewards: {
-              OP: {
-                total: 30,
-                debt: 1,
-                start: "2023-06-13",
-                period: 20 * 7 * 86_400,
-                compensationFactor: 0,
-                transitionFactor: 0.64,
-                depositAllocationWeightAddend: 0.03,
-              },
-              EXA: {
-                total: 14,
-                debt: 1,
-                start: "2023-07-20",
-                period: 8 * 7 * 86_400,
-                compensationFactor: 0,
-                transitionFactor: 0.64,
-                depositAllocationWeightAddend: 0.03,
-              },
-              esEXA: { total: 7, debt: 1, start: "2023-10-11", period: 30 * 7 * 86_400 },
-            },
-          },
           optimism: {
             priceFeed: undefined,
             rewards: {
@@ -317,13 +270,6 @@ const hardhatConfig: Config = {
           { assets: ["WETH", "wstETH"], fee: 0.01 },
           { assets: ["USDC", "wstETH"], fee: 0.05 },
           { assets: ["DAI", "WBTC"], fee: 0.3 },
-        ],
-      },
-      goerli: {
-        uniswapFees: [
-          { assets: ["USDC", "WBTC"], fee: 0.05 },
-          { assets: ["DAI", "WBTC"], fee: 0.05 },
-          { assets: ["DAI", "USDC"], fee: 0.05 },
         ],
       },
     },
