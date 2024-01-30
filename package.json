@@ -23,7 +23,7 @@
     "deploy:ethereum": "hardhat --network ethereum deploy",
     "deploy:goerli": "hardhat --network goerli deploy",
     "prepare": "concurrently 'npm:prepare:*' --group -c auto",
-    "prepare:foundry": "forge install",
+    "prepare:foundry": "if git status &>/dev/null; then forge install; fi",
     "prepare:hardhat": "hardhat compile --force"
   },
   "files": [
