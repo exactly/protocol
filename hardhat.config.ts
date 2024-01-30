@@ -395,7 +395,7 @@ declare module "hardhat/types/config" {
     escrow: EscrowParameters;
     interestRateModel: IRMParameters;
     markets: { [asset: string]: MarketConfig };
-    periphery: PeripheryConfig;
+    periphery?: PeripheryConfig;
   }
 
   export interface FinanceUserConfig extends Omit<FinanceConfig, "markets" | "periphery" | "interestRateModel"> {

@@ -25,7 +25,7 @@ const func: DeployFunction = async ({
   ] = await Promise.all([
     get("Auditor"),
     get("DebtManager"),
-    get("EXA"),
+    getOrNull("EXA").then((d) => d ?? { address: ZeroAddress }),
     getOrNull("EXAPool").then((d) => d ?? { address: ZeroAddress }),
     getOrNull("EXAGauge").then((d) => d ?? { address: ZeroAddress }),
     getOrNull("BeefyEXA").then((d) => d ?? { address: ZeroAddress }),
@@ -46,7 +46,7 @@ const func: DeployFunction = async ({
     }),
   );
 
-  if (periphery.extraReserve == null) return;
+  if (periphery?.extraReserve == null) return;
   await validateUpgrade(
     "VotePreviewer",
     {
