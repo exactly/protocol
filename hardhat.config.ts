@@ -122,6 +122,9 @@ const hardhatConfig: Config = {
               },
             },
           },
+          "op-sepolia": {
+            rewards: { esEXA: { total: 300_000, debt: 1_111, start: "2024-01-30", period: 30 * 7 * 86_400 } },
+          },
         },
       },
       DAI: {
@@ -157,6 +160,9 @@ const hardhatConfig: Config = {
               },
             },
           },
+          "op-sepolia": {
+            rewards: { esEXA: { total: 600_000, debt: 6_000_000, start: "2024-01-30", period: 30 * 7 * 86_400 } },
+          },
         },
       },
       WBTC: {
@@ -178,6 +184,9 @@ const hardhatConfig: Config = {
                 period: 23 * 7 * 86_400,
               },
             },
+          },
+          "op-sepolia": {
+            rewards: { esEXA: { total: 12_000, debt: 0.35, start: "2024-01-30", period: 30 * 7 * 86_400 } },
           },
         },
       },
@@ -216,6 +225,9 @@ const hardhatConfig: Config = {
                 depositAllocationWeightAddend: 0.03,
               },
             },
+          },
+          "op-sepolia": {
+            rewards: { esEXA: { total: 70_000, debt: 0.05, start: "2024-01-30", period: 30 * 7 * 86_400 } },
           },
         },
       },
