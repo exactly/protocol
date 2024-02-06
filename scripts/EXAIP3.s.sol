@@ -10,7 +10,7 @@ contract EXAIP3Script is BaseScript {
   using Strings for address;
 
   uint40 public constant START_DATE = 1_717_200_000; // 2024-06-01T00:00:00.000Z
-  uint40 public constant DURATION = 2 * 365 days; // 2 years
+  uint40 public constant DURATION = 4 * 365 days; // 4 years
   address public constant SENDER = 0xC0d6Bc5d052d1e74523AD79dD5A954276c9286D3; // admin multisig
 
   function run() external {
