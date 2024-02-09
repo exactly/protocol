@@ -351,7 +351,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Withdraws a certain amount from a maturity.
-  /// @dev It's expected that this function can't be paused to prevent freezing account funds.
   /// @param maturity maturity date where the assets will be withdrawn.
   /// @param positionAssets position size to be reduced.
   /// @param minAssetsRequired minimum amount required by the account (if discount included for early withdrawal).
@@ -364,7 +363,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 minAssetsRequired,
     address receiver,
     address owner
-  ) external returns (uint256 assetsDiscounted) {
+  ) external whenNotPaused returns (uint256 assetsDiscounted) {
     if (positionAssets == 0) revert ZeroWithdraw();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
@@ -692,9 +691,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
-  /// @dev It's expected that this function can't be paused to prevent freezing account funds.
   /// @param assets amount of assets to be withdrawn from the floating pool.
-  function beforeWithdraw(uint256 assets, uint256) internal override {
+  function beforeWithdraw(uint256 assets, uint256) internal override whenNotPaused {
     updateFloatingAssetsAverage();
     depositToTreasury(updateFloatingDebt());
     uint256 earnings = accrueAccumulatedEarnings();
@@ -750,11 +748,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Moves amount of shares from the caller's account to `to`.
-  /// @dev It's expected that this function can't be paused to prevent freezing account funds.
-  /// Makes sure that the caller doesn't have shortfall after transferring.
+  /// @dev Makes sure that the caller doesn't have shortfall after transferring.
   /// @param to address to which the assets will be transferred.
   /// @param shares amount of shares to be transferred.
-  function transfer(address to, uint256 shares) public override returns (bool) {
+  function transfer(address to, uint256 shares) public override whenNotPaused returns (bool) {
     auditor.checkShortfall(this, msg.sender, previewRedeem(shares));
     RewardsController memRewardsController = rewardsController;
     if (address(memRewardsController) != address(0)) {
@@ -765,12 +762,11 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Moves amount of shares from `from` to `to` using the allowance mechanism.
-  /// @dev It's expected that this function can't be paused to prevent freezing account funds.
-  /// Makes sure that `from` address doesn't have shortfall after transferring.
+  /// @dev Makes sure that `from` address doesn't have shortfall after transferring.
   /// @param from address from which the assets will be transferred.
   /// @param to address to which the assets will be transferred.
   /// @param shares amount of shares to be transferred.
-  function transferFrom(address from, address to, uint256 shares) public override returns (bool) {
+  function transferFrom(address from, address to, uint256 shares) public override whenNotPaused returns (bool) {
     auditor.checkShortfall(this, from, previewRedeem(shares));
     RewardsController memRewardsController = rewardsController;
     if (address(memRewardsController) != address(0)) {

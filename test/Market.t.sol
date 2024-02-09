@@ -2578,6 +2578,125 @@ contract MarketTest is Test {
     assertEq(assetsOwed, assets + assets.mulWadDown(rate.mulDivDown(FixedLib.INTERVAL - block.timestamp, 365 days)));
   }
 
+  function testPausable() external {
+    assertFalse(market.paused());
+    market.grantRole(market.PAUSER_ROLE(), address(this));
+    market.pause();
+    assertTrue(market.paused());
+    market.unpause();
+    assertFalse(market.paused());
+  }
+
+  function testFullPause() external {
+    market.grantRole(market.PAUSER_ROLE(), address(this));
+
+    market.deposit(10 ether, address(this));
+    market.pause();
+    vm.expectRevert(bytes(""));
+    market.deposit(10 ether, address(this));
+
+    market.unpause();
+    market.withdraw(1 ether, address(this), address(this));
+    market.pause();
+    vm.expectRevert(bytes(""));
+    market.withdraw(1 ether, address(this), address(this));
+
+    market.unpause();
+    market.borrow(2 ether, address(this), address(this));
+    market.pause();
+    vm.expectRevert(bytes(""));
+    market.borrow(2 ether, address(this), address(this));
+
+    market.unpause();
+    market.repay(1 ether, address(this));
+    market.pause();
+    vm.expectRevert(bytes(""));
+    market.repay(1 ether, address(this));
+
+    market.unpause();
+    market.refund(1 ether, address(this));
+    market.pause();
+    vm.expectRevert(bytes(""));
+    market.refund(1 ether, address(this));
+
+    market.unpause();
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
+    market.pause();
+    vm.expectRevert(bytes(""));
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
+
+    market.unpause();
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    market.pause();
+    vm.expectRevert(bytes(""));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+
+    market.unpause();
+    market.depositAtMaturity(FixedLib.INTERVAL, 2 ether, 2 ether, address(this));
+    skip(FixedLib.INTERVAL);
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 0.5 ether, 0.5 ether, address(this), address(this));
+    market.pause();
+    vm.expectRevert(bytes(""));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 0.5 ether, 0.5 ether, address(this), address(this));
+
+    market.unpause();
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 1 ether, 2 ether, address(this), address(this));
+    market.repayAtMaturity(FixedLib.INTERVAL * 2, 1 ether, 2 ether, address(this));
+    market.pause();
+    vm.expectRevert(bytes(""));
+    market.repayAtMaturity(FixedLib.INTERVAL * 2, 1 ether, 2 ether, address(this));
+
+    // liquidate
+    market.unpause();
+    marketWETH.deposit(1 ether, BOB);
+    daiPriceFeed.setPrice(0.0001e18);
+    vm.startPrank(BOB);
+    auditor.enterMarket(marketWETH);
+    market.borrow(5 ether, BOB, BOB);
+    vm.stopPrank();
+
+    daiPriceFeed.setPrice(0.2e18);
+    market.liquidate(BOB, 1 ether, marketWETH);
+
+    market.pause();
+    vm.expectRevert(bytes(""));
+    market.liquidate(BOB, 1 ether, marketWETH);
+    market.unpause();
+
+    marketWETH.grantRole(marketWETH.PAUSER_ROLE(), address(this));
+    marketWETH.pause();
+    vm.expectRevert(bytes(""));
+    market.liquidate(BOB, 1 ether, marketWETH);
+    marketWETH.unpause();
+
+    market.redeem(1 ether, address(this), address(this));
+    market.pause();
+    vm.expectRevert(bytes(""));
+    market.redeem(1 ether, address(this), address(this));
+
+    market.unpause();
+    market.transfer(BOB, 1 ether);
+    market.pause();
+    vm.expectRevert(bytes(""));
+    market.transfer(BOB, 1 ether);
+
+    market.unpause();
+    market.approve(BOB, type(uint256).max);
+    vm.prank(BOB);
+    market.transferFrom(address(this), BOB, 1 ether);
+
+    market.pause();
+    vm.prank(BOB);
+    vm.expectRevert(bytes(""));
+    market.transferFrom(address(this), BOB, 1 ether);
+  }
+
+  function testPauserRole() external {
+    assertFalse(market.hasRole(market.PAUSER_ROLE(), address(this)));
+    market.grantRole(market.PAUSER_ROLE(), address(this));
+    assertTrue(market.hasRole(market.PAUSER_ROLE(), address(this)));
+  }
+
   event MarketUpdate(
     uint256 timestamp,
     uint256 floatingDepositShares,
