@@ -7,16 +7,17 @@ License text copyright (c) 2017 MariaDB Corporation Ab, All Rights Reserved.
 
 Parameters
 
-Licensor:             Exafin Ltd
+Licensor:             Exactly DAO
 
 Licensed Work:        Exactly Protocol
-                      The Licensed Work is (c) 2022 Exafin Ltd
+                      The Licensed Work is (c) 2022 Exactly DAO
 
 Additional Use Grant: Any uses listed and defined at
                       protocol-license-grants.exa.eth
 
-Change Date:          The earlier of 2024-11-11 or a date specified at
-                      protocol-license-date.exa.eth
+Change Date:          The earlier of 2 years after each version release
+                      (as in https://github.com/exactly/protocol/releases)
+                      or a date specified at protocol-license-date.exa.eth
 
 Change License:       GNU General Public License v3.0 or later
 
