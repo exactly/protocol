@@ -287,9 +287,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
 
     FixedLib.Pool storage pool = fixedPools[maturity];
-
-    uint256 backupEarnings = pool.accrueEarnings(maturity);
-    floatingAssets += backupEarnings;
+    floatingAssets += pool.accrueEarnings(maturity);
 
     RewardsController memRewardsController = rewardsController;
     if (address(memRewardsController) != address(0)) memRewardsController.handleBorrow(borrower);
@@ -373,9 +371,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
 
     FixedLib.Pool storage pool = fixedPools[maturity];
-
-    uint256 backupEarnings = pool.accrueEarnings(maturity);
-    floatingAssets += backupEarnings;
+    floatingAssets += pool.accrueEarnings(maturity);
 
     FixedLib.Position memory position = fixedDepositPositions[maturity][owner];
 
