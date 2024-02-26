@@ -7,7 +7,7 @@ import type {
   InterestRateModel__factory,
   MarketHarness,
   MockERC20,
-  MockInterestRateModel,
+  MockBorrowRate,
 } from "../../types";
 import { MarketEnv, FixedPoolState } from "./marketEnv";
 import futurePools from "./utils/futurePools";
@@ -21,7 +21,7 @@ describe("Fixed Rate Operations", () => {
   let tina: SignerWithAddress;
   let marketEnv: MarketEnv;
   let marketHarness: MarketHarness;
-  let mockInterestRateModel: MockInterestRateModel;
+  let mockInterestRateModel: MockBorrowRate;
   let asset: MockERC20;
   let snapshot: string;
   let mp: {
@@ -203,7 +203,7 @@ describe("Fixed Rate Operations", () => {
       beforeEach(async () => {
         borrowAmount = 5000;
         borrowFees = 250;
-        await mockInterestRateModel.setBorrowRate(parseUnits("0.05"));
+        await mockInterestRateModel.setRate(parseUnits("0.05"));
         await marketEnv.moveInTime(fourDaysToMaturity);
         floatingAssets = await marketHarness.floatingAssets();
         tx = await marketHarness
@@ -1159,7 +1159,7 @@ describe("Fixed Rate Operations", () => {
 
       beforeEach(async () => {
         marketEnv.switchWallet(laura);
-        await mockInterestRateModel.setBorrowRate(parseUnits("0.06"));
+        await mockInterestRateModel.setRate(parseUnits("0.06"));
         await marketEnv.moveInTime(twentyFourDaysToMaturity);
         await marketHarness
           .connect(laura)
@@ -1197,7 +1197,7 @@ describe("Fixed Rate Operations", () => {
         });
         describe("AND GIVEN a withdraw of 1050 - 16 days to maturity", () => {
           beforeEach(async () => {
-            await mockInterestRateModel.setBorrowRate(parseUnits("0.05"));
+            await mockInterestRateModel.setRate(parseUnits("0.05"));
             await marketEnv.moveInTime(sixteenDaysToMaturity);
             floatingAssets = await marketHarness.floatingAssets();
             tx = await marketHarness
@@ -1222,7 +1222,7 @@ describe("Fixed Rate Operations", () => {
           });
           describe("AND GIVEN another borrowMP of 10000 (601.5 fees owed by account) - 12 days to maturity", () => {
             beforeEach(async () => {
-              await mockInterestRateModel.setBorrowRate(parseUnits("0.06015"));
+              await mockInterestRateModel.setRate(parseUnits("0.06015"));
               await marketEnv.moveInTime(twelveDaysToMaturity);
               floatingAssets = await marketHarness.floatingAssets();
               tx = await marketHarness
@@ -1370,7 +1370,7 @@ describe("Fixed Rate Operations", () => {
       beforeEach(async () => {
         borrowAmount = 10000;
         marketEnv.switchWallet(laura);
-        await mockInterestRateModel.setBorrowRate(parseUnits("0.05"));
+        await mockInterestRateModel.setRate(parseUnits("0.05"));
         await marketEnv.moveInTime(fiveDaysToMaturity);
         await marketHarness
           .connect(laura)
@@ -1517,7 +1517,7 @@ describe("Fixed Rate Operations", () => {
       beforeEach(async () => {
         borrowAmount = 5000;
         marketEnv.switchWallet(laura);
-        await mockInterestRateModel.setBorrowRate(parseUnits("0.05"));
+        await mockInterestRateModel.setRate(parseUnits("0.05"));
         await marketEnv.moveInTime(fiveDaysToMaturity);
         await marketHarness
           .connect(laura)
@@ -1608,7 +1608,7 @@ describe("Fixed Rate Operations", () => {
 
       describe("WHEN an early withdrawal of 5250 (deposited + fees) and a borrow rate shoots to 10%", () => {
         beforeEach(async () => {
-          await mockInterestRateModel.setBorrowRate(parseUnits("0.1"));
+          await mockInterestRateModel.setRate(parseUnits("0.1"));
           floatingAssets = await marketHarness.floatingAssets();
           tx = await marketHarness
             .connect(laura)
@@ -1762,7 +1762,7 @@ describe("Fixed Rate Operations", () => {
       describe("GIVEN a borrowMP of 10000 (2000 fees owed by account) (5 days to maturity)", () => {
         beforeEach(async () => {
           marketEnv.switchWallet(laura);
-          await mockInterestRateModel.setBorrowRate(parseUnits("0.2"));
+          await mockInterestRateModel.setRate(parseUnits("0.2"));
           await marketEnv.moveInTime(fiveDaysToMaturity);
           await marketHarness
             .connect(laura)
@@ -1783,7 +1783,7 @@ describe("Fixed Rate Operations", () => {
         describe("GIVEN a borrowMP of 10000 (10000 fees owed by account) (4 days to maturity)", () => {
           beforeEach(async () => {
             marketEnv.switchWallet(tina);
-            await mockInterestRateModel.setBorrowRate(parseUnits("1")); // Crazy FEE
+            await mockInterestRateModel.setRate(parseUnits("1")); // Crazy FEE
             await marketEnv.moveInTime(fourDaysToMaturity);
             await marketHarness
               .connect(laura)

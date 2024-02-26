@@ -307,15 +307,14 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     {
       uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
       uint256 memFloatingDebt = floatingDebt;
-      fee = assets.mulWadDown(
-        interestRateModel.fixedRate(
-          maturity,
-          maxFuturePools,
-          fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssetsAverage),
-          floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
-          globalUtilization(memFloatingAssetsAverage, memFloatingDebt, floatingBackupBorrowed)
-        )
+      uint256 fixedRate = interestRateModel.fixedRate(
+        maturity,
+        maxFuturePools,
+        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssetsAverage),
+        floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
+        globalUtilization(memFloatingAssetsAverage, memFloatingDebt, floatingBackupBorrowed)
       );
+      fee = assets.mulWadDown(fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     }
     assetsOwed = assets + fee;
 
@@ -393,16 +392,14 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       uint256 memFloatingDebt = floatingDebt;
       uint256 memFloatingBackupBorrowed = floatingBackupBorrowed;
 
-      assetsDiscounted = positionAssets.divWadDown(
-        1e18 +
-          interestRateModel.fixedRate(
-            maturity,
-            maxFuturePools,
-            fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssetsAverage),
-            floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
-            globalUtilization(memFloatingAssetsAverage, memFloatingDebt, memFloatingBackupBorrowed)
-          )
+      uint256 fixedRate = interestRateModel.fixedRate(
+        maturity,
+        maxFuturePools,
+        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssetsAverage),
+        floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
+        globalUtilization(memFloatingAssetsAverage, memFloatingDebt, memFloatingBackupBorrowed)
       );
+      assetsDiscounted = positionAssets.divWadDown(1e18 + fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     } else {
       assetsDiscounted = positionAssets;
     }

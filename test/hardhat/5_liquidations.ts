@@ -415,7 +415,7 @@ describe("Liquidations", function () {
           await provider.send("evm_increaseTime", [9_011]);
 
           // distribute earnings to accumulator
-          await exactlyEnv.setBorrowRate("1");
+          await exactlyEnv.setRate("1");
           await marketDAI.setBackupFeeRate(parseUnits("1"));
           await marketDAI
             .connect(john)

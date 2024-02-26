@@ -2,29 +2,29 @@
 pragma solidity ^0.8.17;
 
 contract MockInterestRateModel {
-  uint256 public borrowRate;
+  uint256 public rate;
 
-  constructor(uint256 borrowRate_) {
-    borrowRate = borrowRate_;
+  constructor(uint256 rate_) {
+    rate = rate_;
   }
 
   function floatingRate(uint256) external view returns (uint256) {
-    return borrowRate;
+    return rate;
   }
 
   function floatingRate(uint256, uint256) external view returns (uint256) {
-    return borrowRate;
+    return rate;
   }
 
   function fixedRate(uint256, uint256, uint256, uint256, uint256) external view returns (uint256) {
-    return borrowRate;
+    return rate;
   }
 
-  function fixedBorrowRate(uint256, uint256, uint256, uint256, uint256) external view returns (uint256) {
-    return borrowRate;
+  function fixedBorrowRate(uint256 maturity, uint256, uint256, uint256, uint256) external view returns (uint256) {
+    return (rate * (maturity - block.timestamp)) / 365 days;
   }
 
-  function setBorrowRate(uint256 newRate) public {
-    borrowRate = newRate;
+  function setRate(uint256 newRate) public {
+    rate = newRate;
   }
 }

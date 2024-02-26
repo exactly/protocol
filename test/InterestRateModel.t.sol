@@ -238,13 +238,9 @@ contract InterestRateModelTest is Test {
     v.uFloating = floatingAssets > 0 ? floatingDebt.divWadUp(floatingAssets) : 0;
     v.uGlobal = globalUtilization(floatingAssets, floatingDebt, v.backupBorrowed + v.backupAmount);
 
-    v.refRate = irm.fixedRate(
-      (maturity + 1) * FixedLib.INTERVAL,
-      fixedBorrows.length,
-      v.uFixed,
-      v.uFloating,
-      v.uGlobal
-    );
+    v.refRate = irm
+      .fixedRate((maturity + 1) * FixedLib.INTERVAL, fixedBorrows.length, v.uFixed, v.uFloating, v.uGlobal)
+      .mulDivDown((maturity + 1) * FixedLib.INTERVAL - timestamp, 365 days);
 
     v.rate = irm.fixedBorrowRate(
       (maturity + 1) * FixedLib.INTERVAL,

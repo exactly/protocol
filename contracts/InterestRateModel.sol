@@ -220,7 +220,7 @@ contract InterestRateModel {
         fixedUtilization(supplied, newBorrowed, floatingAssets),
         floatingAssets != 0 ? floatingDebt.divWadUp(floatingAssets) : 0,
         globalUtilization(floatingAssets, floatingDebt, backupBorrowed + backupDebtAddition)
-      );
+      ).mulDivDown(maturity - block.timestamp, 365 days);
   }
 
   /// @dev deprecated in favor of `fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal)`

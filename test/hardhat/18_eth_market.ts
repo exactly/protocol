@@ -610,7 +610,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
   describe("slippage control", () => {
     let tx: Promise<ContractTransactionResponse>;
     beforeEach(async () => {
-      await irm.setBorrowRate(parseUnits("0.05"));
+      await irm.setRate(parseUnits("0.05"));
     });
     describe("WHEN trying to deposit a high rate amount expected", () => {
       beforeEach(async () => {

@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import type { Auditor, Market, MockERC20, MockInterestRateModel } from "../../types";
+import type { Auditor, Market, MockERC20, MockBorrowRate } from "../../types";
 import futurePools, { INTERVAL } from "./utils/futurePools";
 import timelockExecute from "./utils/timelockExecute";
 
@@ -13,7 +13,7 @@ describe("Smart Pool Earnings Distribution", function () {
   let marketDAI: Market;
   let marketWBTC: Market;
   let auditor: Auditor;
-  let irm: MockInterestRateModel;
+  let irm: MockBorrowRate;
 
   let owner: SignerWithAddress;
   let bob: SignerWithAddress;
@@ -33,11 +33,11 @@ describe("Smart Pool Earnings Distribution", function () {
     marketDAI = await getContract<Market>("MarketDAI", bob);
     marketWBTC = await getContract<Market>("MarketWBTC", bob);
 
-    await deployments.deploy("MockInterestRateModel", { args: [0], from: owner.address });
-    irm = await getContract<MockInterestRateModel>("MockInterestRateModel", bob);
+    await deployments.deploy("MockBorrowRate", { args: [0], from: owner.address });
+    irm = await getContract<MockBorrowRate>("MockBorrowRate", bob);
     await timelockExecute(owner, marketDAI, "setInterestRateModel", [irm.target]);
     await timelockExecute(owner, marketDAI, "setTreasury", [ZeroAddress, 0]);
-    await irm.setBorrowRate(parseUnits("0.1"));
+    await irm.setRate(parseUnits("0.1"));
 
     for (const signer of [bob, john]) {
       await dai.connect(owner).mint(signer.address, parseUnits("50000"));

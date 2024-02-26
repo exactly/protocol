@@ -1,29 +1,29 @@
 import { ethers } from "hardhat";
 import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import type {
-  Auditor,
-  Auditor__factory,
-  ERC1967Proxy__factory,
-  MarketHarness,
-  MarketHarness__factory,
-  MockERC20,
-  MockERC20__factory,
-  MockInterestRateModel,
-  MockInterestRateModel__factory,
-  MockPriceFeed__factory,
+import {
+  type Auditor,
+  type Auditor__factory,
+  type ERC1967Proxy__factory,
+  type MarketHarness,
+  type MarketHarness__factory,
+  type MockERC20,
+  type MockERC20__factory,
+  type MockBorrowRate,
+  type MockPriceFeed__factory,
+  MockBorrowRate__factory,
 } from "../../types";
 
 const { parseUnits, getContractFactory, getNamedSigner, Contract, provider } = ethers;
 
 /** @deprecated use deploy fixture */
 export class MarketEnv {
-  mockInterestRateModel: MockInterestRateModel;
+  mockInterestRateModel: MockBorrowRate;
   marketHarness: MarketHarness;
   asset: MockERC20;
   currentWallet: SignerWithAddress;
 
   constructor(
-    mockInterestRateModel_: MockInterestRateModel,
+    mockInterestRateModel_: MockBorrowRate,
     marketHarness_: MarketHarness,
     asset_: MockERC20,
     currentWallet_: SignerWithAddress,
@@ -55,10 +55,8 @@ export class MarketEnv {
   static async create() {
     const owner = await getNamedSigner("deployer");
 
-    const MockInterestRateModelFactory = (await getContractFactory(
-      "MockInterestRateModel",
-    )) as MockInterestRateModel__factory;
-    const mockInterestRateModel = await MockInterestRateModelFactory.deploy(0);
+    const MockBorrowRateFactory = (await getContractFactory("MockBorrowRate")) as MockBorrowRate__factory;
+    const mockInterestRateModel = await MockBorrowRateFactory.deploy(0);
     await mockInterestRateModel.waitForDeployment();
 
     const MockERC20 = (await getContractFactory("MockERC20")) as MockERC20__factory;

@@ -11,8 +11,8 @@ import type {
   Market__factory,
   MockERC20,
   MockERC20__factory,
-  MockInterestRateModel,
-  MockInterestRateModel__factory,
+  MockBorrowRate,
+  MockBorrowRate__factory,
   MockPriceFeed,
   MockPriceFeed__factory,
   WETH,
@@ -24,7 +24,7 @@ const { ZeroAddress, parseUnits, getContractFactory, getNamedSigner, Contract, p
 /** @deprecated use deploy fixture */
 export class DefaultEnv {
   auditor: Auditor;
-  interestRateModel: InterestRateModel | MockInterestRateModel;
+  interestRateModel: InterestRateModel | MockBorrowRate;
   marketContracts: Record<string, Market>;
   priceFeeds: Record<string, MockPriceFeed>;
   underlyingContracts: Record<string, MockERC20 | WETH>;
@@ -38,7 +38,7 @@ export class DefaultEnv {
 
   constructor(
     _auditor: Auditor,
-    _interestRateModel: InterestRateModel | MockInterestRateModel,
+    _interestRateModel: InterestRateModel | MockBorrowRate,
     _marketContracts: Record<string, Market>,
     _priceFeeds: Record<string, MockPriceFeed>,
     _underlyingContracts: Record<string, MockERC20 | WETH>,
@@ -87,9 +87,7 @@ export class DefaultEnv {
 
     const owner = await getNamedSigner("deployer");
 
-    const MockInterestRateModelFactory = (await getContractFactory(
-      "MockInterestRateModel",
-    )) as MockInterestRateModel__factory;
+    const MockBorrowRateFactory = (await getContractFactory("MockBorrowRate")) as MockBorrowRate__factory;
 
     const InterestRateModelFactory = (await getContractFactory("InterestRateModel")) as InterestRateModel__factory;
 
@@ -112,7 +110,7 @@ export class DefaultEnv {
 
     const interestRateModel = config?.useRealInterestRateModel
       ? realInterestRateModel
-      : await MockInterestRateModelFactory.deploy(0);
+      : await MockBorrowRateFactory.deploy(0);
     await interestRateModel.waitForDeployment();
 
     const Auditor = (await getContractFactory("Auditor")) as Auditor__factory;
@@ -292,8 +290,8 @@ export class DefaultEnv {
     return this.auditor.connect(this.currentWallet).enterMarket(market);
   }
 
-  public async setBorrowRate(rate: string) {
-    await (this.interestRateModel.connect(this.currentWallet) as MockInterestRateModel).setBorrowRate(parseUnits(rate));
+  public async setRate(rate: string) {
+    await (this.interestRateModel.connect(this.currentWallet) as MockBorrowRate).setRate(parseUnits(rate));
   }
 
   public async transfer(assetString: string, wallet: SignerWithAddress, units: string) {

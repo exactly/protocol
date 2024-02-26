@@ -421,7 +421,7 @@ contract RewardsControllerTest is Test {
   }
 
   function testAllClaimableUSDCWithAnotherAccountInPool() external {
-    irm.setBorrowRate(0);
+    irm.setRate(0);
     vm.prank(ALICE);
     marketUSDC.deposit(100e6, ALICE);
     vm.prank(ALICE);
@@ -1659,7 +1659,7 @@ contract RewardsControllerTest is Test {
 
     // distribute earnings to accumulator so it can cover bad debt
     marketUSDC.setBackupFeeRate(1e18);
-    irm.setBorrowRate(1e18);
+    irm.setRate(1e18);
     marketUSDC.borrowAtMaturity(FixedLib.INTERVAL, 30_000e6, 60_000e6, BOB, BOB);
     marketUSDC.depositAtMaturity(FixedLib.INTERVAL, 30_000e6, 30_000e6, BOB);
 
