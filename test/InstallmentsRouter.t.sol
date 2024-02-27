@@ -1,0 +1,186 @@
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity ^0.8.17; // solhint-disable-line one-contract-per-file
+
+import { Test } from "forge-std/Test.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
+import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
+import { WETH } from "solmate/src/tokens/WETH.sol";
+import { InterestRateModel } from "../contracts/InterestRateModel.sol";
+import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
+import {
+  ERC20,
+  Market,
+  Auditor,
+  Disagreement,
+  MarketNotListed,
+  FixedPointMathLib,
+  InstallmentsRouter
+} from "../contracts/periphery/InstallmentsRouter.sol";
+
+import { FixedLib, UnmatchedPoolState } from "../contracts/utils/FixedLib.sol";
+
+contract InstallmentsRouterTest is Test {
+  using FixedPointMathLib for uint256;
+
+  Auditor internal auditor;
+  Market internal market;
+  Market internal marketWETH;
+  ERC20 internal usdc;
+  WETH internal weth;
+  InstallmentsRouter internal router;
+
+  function setUp() external {
+    usdc = new MockERC20("USD Coin", "USDC", 6);
+    weth = new WETH();
+
+    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
+    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    vm.label(address(auditor), "Auditor");
+
+    market = Market(address(new ERC1967Proxy(address(new Market(usdc, auditor)), "")));
+    market.initialize(
+      3,
+      1e18,
+      InterestRateModel(address(new MockInterestRateModel(0.1e18))),
+      0.02e18 / uint256(1 days),
+      1e17,
+      0,
+      0.0046e18,
+      0.42e18
+    );
+    vm.label(address(market), "market");
+
+    marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(
+      3,
+      1e18,
+      InterestRateModel(address(new MockInterestRateModel(0.1e18))),
+      0.02e18 / uint256(1 days),
+      1e17,
+      0,
+      0.0046e18,
+      0.42e18
+    );
+    vm.label(address(marketWETH), "marketWETH");
+
+    auditor.enableMarket(market, new MockPriceFeed(18, 1e18), 0.8e18);
+    auditor.enableMarket(marketWETH, new MockPriceFeed(18, 1e18), 0.8e18);
+
+    router = new InstallmentsRouter(auditor, marketWETH);
+
+    deal(address(usdc), address(this), 1_000_000e6);
+    market.approve(address(router), type(uint256).max);
+    usdc.approve(address(market), type(uint256).max);
+    usdc.approve(address(router), type(uint256).max);
+    market.deposit(100_000e6, address(this));
+    auditor.enterMarket(market);
+
+    deal(address(weth), 1_000_000e18);
+    deal(address(weth), address(this), 1_000_000e18);
+    weth.deposit{ value: 100_000e18 }();
+    weth.approve(address(marketWETH), type(uint256).max);
+    marketWETH.approve(address(router), type(uint256).max);
+    marketWETH.deposit(100_000e18, address(this));
+  }
+
+  function testBorrowRouter() external {
+    uint256 initialBalance = usdc.balanceOf(address(this));
+    uint256 maturity = FixedLib.INTERVAL;
+    uint256[] memory amounts = new uint256[](3);
+    amounts[0] = 10_000e6;
+    amounts[1] = 10_000e6;
+    amounts[2] = 10_000e6;
+    router.borrow(market, maturity, amounts, type(uint256).max);
+    uint256 finalBalance = usdc.balanceOf(address(this));
+    assertEq(initialBalance + 30_000e6, finalBalance, "borrowed amounts are not correct");
+  }
+
+  function testMaxRepay() external {
+    uint256 maturity = FixedLib.INTERVAL;
+    uint256[] memory amounts = new uint256[](3);
+    amounts[0] = 10_000e6;
+    amounts[1] = 10_000e6;
+    amounts[2] = 10_000e6;
+    uint256 maxRepay = 31_000e6;
+    uint256[] memory assetsOwed = router.borrow(market, maturity, amounts, maxRepay);
+
+    uint256 totalOwed;
+    for (uint256 i = 0; i < assetsOwed.length; i++) {
+      totalOwed += assetsOwed[i];
+    }
+    assertLe(totalOwed, maxRepay, "maxRepay > totalOwed");
+  }
+
+  function testFakeMarket() external {
+    uint256 maturity = FixedLib.INTERVAL;
+    uint256[] memory amounts = new uint256[](1);
+    amounts[0] = 10_000e6;
+    Market fake = Market(address(new FakeMarket()));
+    vm.expectRevert(abi.encodeWithSelector(MarketNotListed.selector));
+    router.borrow(fake, maturity, amounts, type(uint256).max);
+  }
+
+  function testInsufficientMaxRepay() external {
+    uint256 maturity = FixedLib.INTERVAL;
+    uint256[] memory amounts = new uint256[](3);
+    amounts[0] = 10_000e6;
+    amounts[1] = 10_000e6;
+    amounts[2] = 10_000e6;
+    uint256 maxRepay = 29_000e6;
+
+    vm.expectRevert(Disagreement.selector);
+    router.borrow(market, maturity, amounts, maxRepay);
+  }
+
+  // test the event emit
+  function testMoreBorrowsThanMaxPools() external {
+    uint256 maturity = FixedLib.INTERVAL;
+    uint256[] memory amounts = new uint256[](4);
+    amounts[0] = 10_000e6;
+    amounts[1] = 10_000e6;
+    amounts[2] = 10_000e6;
+    amounts[3] = 10_000e6;
+
+    vm.expectRevert(
+      abi.encodeWithSelector(UnmatchedPoolState.selector, FixedLib.State.NOT_READY, FixedLib.State.VALID)
+    );
+    router.borrow(market, maturity, amounts, type(uint256).max);
+  }
+
+  function testEmitBorrowEvent() external {
+    uint256 maturity = FixedLib.INTERVAL;
+    uint256[] memory amounts = new uint256[](3);
+    amounts[0] = 10_000e6;
+    amounts[1] = 10_000e6;
+    amounts[2] = 10_000e6;
+    uint256 maxRepay = 31_000e6;
+
+    vm.expectEmit(true, true, true, false, address(router));
+    emit Borrow(market, maturity, amounts, new uint256[](3), address(this));
+    router.borrow(market, maturity, amounts, maxRepay);
+  }
+
+  function testBorrowUnwrappedETH() external {
+    uint256 maturity = FixedLib.INTERVAL;
+    uint256[] memory amounts = new uint256[](3);
+    amounts[0] = 10_000e18;
+    amounts[1] = 10_000e18;
+    amounts[2] = 10_000e18;
+    uint256 maxRepay = 32_000e18;
+    uint256 balanceBefore = address(this).balance;
+    router.borrowETH(maturity, amounts, maxRepay);
+    uint256 balanceAfter = address(this).balance;
+    assertEq(balanceAfter, balanceBefore + 30_000e18, "borrow != expected");
+  }
+
+  receive() external payable {}
+
+  event Borrow(Market market, uint256 maturity, uint256[] amounts, uint256[] assetsOwed, address indexed borrower);
+}
+
+contract FakeMarket {
+  function borrowAtMaturity(uint256, uint256, uint256, address, address) external pure returns (uint256) {
+    return 0;
+  }
+}
