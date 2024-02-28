@@ -108,6 +108,28 @@ contract InstallmentsRouter is AccessControlUpgradeable {
     msg.sender.safeTransferETH(assetsBorrowed);
   }
 
+  function borrow(
+    Market market,
+    uint256 firstMaturity,
+    uint256[] calldata amounts,
+    uint256 maxRepay,
+    Permit calldata marketPermit
+  ) external permit(market, marketPermit) returns (uint256[] memory assetsOwed) {
+    return borrow(market, firstMaturity, amounts, maxRepay);
+  }
+
+  function borrowETH(
+    uint256 maturity,
+    uint256[] calldata amounts,
+    uint256 maxRepay,
+    Permit calldata marketPermit
+  ) public permit(marketWETH, marketPermit) returns (uint256[] memory assetsOwed) {
+    uint256 assetsBorrowed;
+    (assetsOwed, assetsBorrowed) = borrow(marketWETH, maturity, amounts, maxRepay, address(this));
+    weth.withdraw(assetsBorrowed);
+    msg.sender.safeTransferETH(assetsBorrowed);
+  }
+
   /// @notice Checks if the Market is listed by the Auditor.
   /// @param market The Market to check.
   function checkMarket(Market market) internal view {
@@ -127,6 +149,22 @@ contract InstallmentsRouter is AccessControlUpgradeable {
     weth.deposit{ value: msg.value }();
     _;
   }
+
+  /// @notice Calls `market.permit` on behalf of `msg.sender`.
+  /// @param market The Market to call permit on.
+  /// @param p Arguments for the permit call.
+  modifier permit(Market market, Permit calldata p) {
+    IERC20PermitUpgradeable(address(market)).safePermit(msg.sender, address(this), p.value, p.deadline, p.v, p.r, p.s);
+    _;
+  }
+}
+
+struct Permit {
+  uint256 value;
+  uint256 deadline;
+  uint8 v;
+  bytes32 r;
+  bytes32 s;
 }
 
 error Disagreement();
