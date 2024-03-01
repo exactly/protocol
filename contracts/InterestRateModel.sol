@@ -109,7 +109,7 @@ contract InterestRateModel {
   ) public view returns (uint256) {
     if (block.timestamp >= maturity) revert AlreadyMatured();
     if (uFixed > uGlobal) revert UtilizationExceeded();
-    if (uFixed == 0) return floatingRate(uFloating, uGlobal);
+    if (uGlobal == 0) return baseRate(uFloating, 0);
 
     FixedVars memory v;
     v.sqFNatPools = (maxPools * 1e18).divWadDown(fixedAllocation);

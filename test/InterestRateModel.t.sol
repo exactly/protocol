@@ -253,6 +253,33 @@ contract InterestRateModelTest is Test {
     assertEq(v.rate, v.refRate, "rate != refRate");
   }
 
+  function testFuzzFixedRateGrowth(uint256 uFixed, uint256 uFloating, uint256 uGlobal, uint256 uFixed2) external {
+    uFixed = _bound(uFixed, 0, 1.01e18);
+    uFixed2 = _bound(uFixed2, uFixed, 1.01e18);
+    uFloating = _bound(uFloating, 0, 1.01e18 - uFixed2);
+    uGlobal = _bound(uGlobal, uFixed2 + uFloating + 0.01e18, 1.02e18);
+    irm = new InterestRateModelHarness(
+      Parameters({
+        minRate: 3.5e16,
+        naturalRate: 8e16,
+        maxUtilization: 1.3e18,
+        naturalUtilization: 0.75e18,
+        growthSpeed: 1.1e18,
+        sigmoidSpeed: 2.5e18,
+        spreadFactor: 0.2e18,
+        maturitySpeed: 0.5e18,
+        timePreference: 0.01e18,
+        fixedAllocation: 0.6e18,
+        maxRate: 15_000e16
+      }),
+      Market(address(0))
+    );
+
+    uint256 rate = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed, uFloating, uGlobal);
+    uint256 rate2 = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed2, uFloating, uGlobal);
+    assertGe(rate2, rate, "rate2 < rate");
+  }
+
   function boundCurve(
     uint256 minRate,
     uint256 naturalRate,

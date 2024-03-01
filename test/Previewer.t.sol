@@ -606,12 +606,12 @@ contract PreviewerTest is Test {
     assertEq(data[0].fixedPools[0].depositRate, depositRate);
     assertEq(data[0].fixedPools[0].utilization, 0.1 ether);
     assertEq(data[0].fixedPools[1].optimalDeposit, 0);
-    assertEq(data[0].fixedPools[1].minBorrowRate, 35027268004470054);
+    assertEq(data[0].fixedPools[1].minBorrowRate, 32312833259717580);
     assertEq(data[0].fixedPools[1].depositRate, 0);
     assertEq(data[0].fixedPools[1].utilization, 0);
     // MarketWETH
     assertEq(data[1].fixedPools[0].optimalDeposit, 0);
-    assertEq(data[1].fixedPools[0].minBorrowRate, 35000000010097624);
+    assertEq(data[1].fixedPools[0].minBorrowRate, 33083889313081921);
     assertEq(data[1].fixedPools[0].depositRate, 0);
     assertEq(data[1].fixedPools[0].utilization, 0);
     assertEq(data[1].fixedPools[1].optimalDeposit, 200 ether);

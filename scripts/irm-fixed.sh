@@ -18,7 +18,7 @@ rate=$(BC_LINE_LENGTH=666 bc -l <<< "
   uglobal   = ${input[9]} / wad
   timestamp = ${input[10]}
 
-  if (ufixed == 0) {
+  if (uglobal == 0) {
     rate      = base
   } else {
     sqalpha   = maxpools / fixalloc
