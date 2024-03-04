@@ -64,9 +64,11 @@ describe("Smart Pool Earnings Distribution", function () {
       await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + INTERVAL / 2]);
       await marketDAI.connect(john).deposit(parseUnits("10000"), john.address);
     });
+
     it("THEN bob eToken shares is 10000", async () => {
       expect(await marketDAI.balanceOf(bob.address)).to.equal(parseUnits("10000"));
     });
+
     it("THEN john eToken shares is aprox. 9950", async () => {
       // 10000 * 10000 / 10050 (50 earnings up to half maturity time)
       // assets.mulDivDown(supply, totalAssets())
@@ -75,6 +77,7 @@ describe("Smart Pool Earnings Distribution", function () {
         parseUnits("0000.00000001"),
       );
     });
+
     it("THEN preview deposit returned is the same as john's shares of assets", async () => {
       // 10000 * 19950.24875621 / 20050
       // assets.mulDivDown(supply, totalAssets())
@@ -83,9 +86,11 @@ describe("Smart Pool Earnings Distribution", function () {
         parseUnits("0000.00000001"),
       );
     });
+
     it("THEN the smart pool earnings accumulator did not account any earnings", async () => {
       expect(await marketDAI.earningsAccumulator()).to.be.eq(0);
     });
+
     describe("AND GIVEN 7 days go by and bob repays late", () => {
       beforeEach(async () => {
         await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + INTERVAL + 86_400 * 7 + 1]);
@@ -96,18 +101,22 @@ describe("Smart Pool Earnings Distribution", function () {
           bob.address,
         );
       });
+
       it("THEN the smart pool earnings accumulator has balance", async () => {
         let penaltyRate = await marketDAI.penaltyRate();
         penaltyRate = penaltyRate * 86_400n * 7n;
         expect(await marketDAI.earningsAccumulator()).to.be.gt((parseUnits("1100") * penaltyRate) / parseUnits("1"));
         expect(await marketDAI.earningsAccumulator()).to.be.lt((parseUnits("1100.01") * penaltyRate) / parseUnits("1"));
       });
+
       it("THEN preview deposit returned is less than previous deposits since depositing will first accrue earnings", async () => {
         expect(await marketDAI.previewDeposit(parseUnits("10000"))).to.be.lt(parseUnits("9950.24875621"));
       });
+
       describe("AND GIVEN accumulator factor is updated AND bob & john preview withdraw all their assets", () => {
         let assetsInMarket: bigint;
         let assetsToBeWithdrawn: bigint;
+
         beforeEach(async () => {
           assetsInMarket = await dai.balanceOf(marketDAI.target);
 
@@ -117,33 +126,41 @@ describe("Smart Pool Earnings Distribution", function () {
 
           assetsToBeWithdrawn = assetsBob + assetsJohn;
         });
+
         it("THEN the previous market DAI balance is equal to the total assets to be withdrawn + remaining earnings in accumulator", async () => {
           expect(assetsInMarket).to.be.closeTo(assetsToBeWithdrawn + (await marketDAI.earningsAccumulator()), 1);
           expect(
             (await dai.balanceOf(marketDAI.target)) - (assetsToBeWithdrawn + (await marketDAI.earningsAccumulator())),
           ).to.eq(1);
         });
+
         it("THEN the maturity used is also empty", async () => {
           expect((await marketDAI.fixedPools(futurePools(1)[0] + INTERVAL)).unassignedEarnings).to.be.eq(0);
         });
       });
+
       describe("AND GIVEN accumulator factor is not updated AND bob & john withdraw all their assets", () => {
         beforeEach(async () => {
           await marketDAI.redeem(await marketDAI.balanceOf(bob.address), bob.address, bob.address);
           await marketDAI.connect(john).redeem(await marketDAI.balanceOf(john.address), john.address, john.address);
         });
+
         it("THEN the market DAI balance is equal to the accumulator counter", async () => {
           expect(await dai.balanceOf(marketDAI.target)).to.be.eq(await marketDAI.earningsAccumulator());
         });
+
         describe("AND GIVEN bob deposits 10k again", () => {
           let accumulatorBefore: bigint;
+
           beforeEach(async () => {
             accumulatorBefore = await marketDAI.earningsAccumulator();
             await expect(marketDAI.deposit(parseUnits("10000"), bob.address)).to.not.be.reverted;
           });
+
           it("THEN he accrues earnings of the accumulator since he is the only deposit", async () => {
             expect(await marketDAI.previewRedeem(await marketDAI.balanceOf(bob.address))).to.be.gt(parseUnits("10000"));
           });
+
           it("THEN the accumulator is correctly updated", async () => {
             const bobAssetBalance = await marketDAI.previewRedeem(await marketDAI.balanceOf(bob.address));
             expect(await marketDAI.earningsAccumulator()).to.be.eq(
@@ -153,11 +170,13 @@ describe("Smart Pool Earnings Distribution", function () {
         });
       });
     });
+
     describe("AND GIVEN john deposits again 1k at day 20 (8 days until maturity)", () => {
       beforeEach(async () => {
         await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + INTERVAL - 86_400 * 8]);
         await marketDAI.connect(john).deposit(parseUnits("1000"), john.address);
       });
+
       it("THEN john eToken shares is aprox. 10944", async () => {
         // 9950.24875621 + 1000 * 19950.24875621 / 20071.42 (71.42 earnings up to day 5)
         // previousAssets + assets.mulDivDown(supply, totalAssets())
@@ -166,11 +185,13 @@ describe("Smart Pool Earnings Distribution", function () {
           parseUnits("00000.0000001"),
         );
       });
+
       describe("AND GIVEN john deposits another 1k at maturity date", () => {
         beforeEach(async () => {
           await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + INTERVAL]);
           await marketDAI.connect(john).deposit(parseUnits("1000"), john.address);
         });
+
         it("THEN john eToken shares is aprox. 10944", async () => {
           // 10944.2113277 + 1000 * 20944.2113277 / 21100
           // previousAssets + assets.mulDivDown(supply, totalAssets())
@@ -182,11 +203,13 @@ describe("Smart Pool Earnings Distribution", function () {
       });
     });
   });
+
   describe("GIVEN bob has plenty of WBTC collateral", () => {
     beforeEach(async () => {
       await marketWBTC.deposit(parseUnits("1", 8), bob.address);
       await auditor.enterMarket(marketWBTC.target);
     });
+
     describe("GIVEN bob deposits 10k and borrows 10k from a mp", () => {
       beforeEach(async () => {
         await marketDAI.deposit(parseUnits("10000"), bob.address);
@@ -201,11 +224,13 @@ describe("Smart Pool Earnings Distribution", function () {
           bob.address,
         );
       });
+
       describe("AND GIVEN john deposits 10k after maturity date", () => {
         beforeEach(async () => {
           await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + INTERVAL]);
           await marketDAI.connect(john).deposit(parseUnits("10000"), john.address);
         });
+
         it("THEN john eToken balance should be less than 10000", async () => {
           expect(await marketDAI.balanceOf(john.address)).to.be.lt(parseUnits("10000"));
         });

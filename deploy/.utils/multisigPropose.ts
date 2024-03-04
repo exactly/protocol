@@ -26,7 +26,7 @@ export default async (account: string, contract: BaseContract, functionName: str
       options: { nonce: await safeApiKit.getNextNonce(safeAddress) },
     });
     const safeTxHash = await safeSdk.getTransactionHash(safeTransaction);
-    const senderSignature = await safeSdk.signTransactionHash(safeTxHash);
+    const senderSignature = await safeSdk.signHash(safeTxHash);
     await safeApiKit.proposeTransaction({
       safeTxHash,
       safeAddress,

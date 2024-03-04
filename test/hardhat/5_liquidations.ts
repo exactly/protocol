@@ -84,10 +84,12 @@ describe("Liquidations", function () {
           await exactlyEnv.depositSP("DAI", "10000");
           await exactlyEnv.moveInTime(nextPoolID + 86_400 * 20);
         });
+
         describe("AND the liquidation incentive is increased to 15%", () => {
           beforeEach(async () => {
             await auditor.setLiquidationIncentive({ liquidator: parseUnits("0.15"), lenders: parseUnits("0") });
           });
+
           describe("AND the position is liquidated (19kdai)", () => {
             it("THEN the liquidator seizes 19k+15% of collateral (in WBTC, 34682541 sats)", async () => {
               // 19kusd of btc + 15% incentive for liquidators
@@ -103,6 +105,7 @@ describe("Liquidations", function () {
         describe("AND the position is liquidated a first time (19k DAI / 26.6k with penalties )", () => {
           let tx: Promise<ContractTransactionResponse>;
           let balancePreBTC: bigint;
+
           beforeEach(async () => {
             balancePreBTC = await exactlyEnv.getUnderlying("WBTC").connect(bob).balanceOf(bob.address);
             // 19000 USD of btc + penalties at its current price of 63000 USD + 10% incentive for liquidators
@@ -144,6 +147,7 @@ describe("Liquidations", function () {
                 .to.emit(marketWBTC, "Seize")
                 .withArgs(bob.address, alice.address, parseUnits("11565407", 0));
             });
+
             it("AND 7k DAI of debt has been repaid, making debt ~18k DAI", async () => {
               const debt = await marketDAI.previewDebt(alice.address);
               expect(debt).to.be.gt(parseUnits("11464"));
@@ -193,27 +197,33 @@ describe("Liquidations", function () {
         beforeEach(async () => {
           await exactlyEnv.setPrice(marketWBTC.target, parseUnits("32500", 8));
         });
+
         describe("the collateral can be entirely depleted and still have some debt left", () => {
           describe("WHEN depleting Alices WETH collateral", () => {
             beforeEach(async () => {
               await marketDAI.connect(bob).liquidate(alice.address, parseUnits("2727"), marketETH.target);
             });
+
             it("THEN theres nearly no WETH supplied by Alice", async () => {
               expect(await marketETH.maxWithdraw(alice.address)).to.be.lt(parseUnits("0.001"));
             });
+
             describe("AND WHEN liquidating $27500 of Alices WBTC collateral", () => {
               beforeEach(async () => {
                 await marketDAI.connect(bob).liquidate(alice.address, parseUnits("27500"), marketWBTC.target);
               });
+
               it("THEN liquidating the max amount (4500, half of the remaining debt) does not revert (it gets capped)", async () => {
                 await expect(marketDAI.connect(bob).liquidate(alice.address, parseUnits("4500"), marketETH.target)).to
                   .not.be.reverted;
               });
+
               describe("AND WHEN liquidating the rest of the collateral", () => {
                 beforeEach(async () => {
                   await exactlyEnv.setPrice(marketETH.target, parseUnits("10", 8));
                   await marketDAI.connect(bob).liquidate(alice.address, parseUnits("2045"), marketWBTC.target);
                 });
+
                 it("THEN Alice has zero WBTC deposited", async () => {
                   expect(await marketWBTC.maxWithdraw(alice.address)).to.be.lt(parseUnits("0.021", 8));
                 });
@@ -231,6 +241,7 @@ describe("Liquidations", function () {
           const [collateral, debt] = await auditor.accountLiquidity(alice.address, ethers.ZeroAddress, 0);
           expect(collateral - debt).to.be.lt("1");
         });
+
         it("AND alice has a big (18k) liquidity shortfall", async () => {
           const [collateral, debt] = await auditor.accountLiquidity(alice.address, ethers.ZeroAddress, 0);
           expect(debt - collateral).to.eq(parseUnits("18300"));
@@ -255,6 +266,7 @@ describe("Liquidations", function () {
           beforeEach(async () => {
             await dai.connect(bob).approve(marketDAI.target, parseUnits("1000"));
           });
+
           it("WHEN trying to liquidate, THEN it reverts with a ERC20 transfer error", async () => {
             // expect liquidation to fail because trying to liquidate
             // and repay with an amount that the contract doesn't have enough allowance for bob
@@ -269,10 +281,12 @@ describe("Liquidations", function () {
             await expect(marketDAI.connect(bob).liquidate(alice.address, parseUnits("10000"), marketETH.target)).to.not
               .be.reverted;
           });
+
           it("WHEN trying to liquidate as much as possible, THEN it doesn't revert because the max assets gets capped", async () => {
             await expect(marketDAI.connect(bob).liquidate(alice.address, ethers.MaxUint256, marketETH.target)).to.not.be
               .reverted;
           });
+
           it("WHEN liquidating slightly more than the close factor(0.5), (20000 DAI), THEN it doesn't revert", async () => {
             await expect(marketDAI.connect(bob).liquidate(alice.address, parseUnits("20000"), marketWBTC.target)).to.not
               .be.reverted;
@@ -281,9 +295,11 @@ describe("Liquidations", function () {
         // TODO: this should eventually be 'a position can be wiped out if its undercollateralized enough' kind of test suite
         describe("AND WHEN liquidating slightly less than the close factor (19000 DAI)", () => {
           let tx: ContractTransactionResponse;
+
           beforeEach(async () => {
             tx = await marketDAI.connect(bob).liquidate(alice.address, parseUnits("19000"), marketWBTC.target);
           });
+
           it("THEN roughly 19000 USD + 10% = 20900 of collateral (WBTC) is seized", async () => {
             // this is equivalent to 18999.9 USD, at the provided price of
             // 32500 + 10% liquidation incentive
@@ -291,6 +307,7 @@ describe("Liquidations", function () {
             await expect(tx).to.emit(marketWBTC, "Seize").withArgs(bob.address, alice.address, seizedWBTC);
             expect(await wbtc.balanceOf(bob.address)).to.eq(seizedWBTC);
           });
+
           it("AND 19000 DAI of debt is repaid (debt covered)", async () => {
             const bobDAIBalanceBefore = parseUnits("135000");
             await expect(tx)
@@ -315,6 +332,7 @@ describe("Liquidations", function () {
       await exactlyEnv.enterMarket("WETH");
       await provider.send("evm_increaseTime", [9_011]);
     });
+
     describe("AND GIVEN alice deposits 10k DAI to the smart pool AND borrows USD8k worth of WETH (80% collateralization rate)", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(alice);
@@ -325,6 +343,7 @@ describe("Liquidations", function () {
         await exactlyEnv.borrowMP("WETH", futurePools(1)[0], "0.93");
         await exactlyEnv.borrowMP("WETH", futurePools(2)[1], "0.93");
       });
+
       describe("WHEN WETH price doubles AND john borrows 10k DAI from a maturity pool (all liquidity in smart pool)", () => {
         beforeEach(async () => {
           await provider.send("evm_increaseTime", [3_600 * 2]);
@@ -332,6 +351,7 @@ describe("Liquidations", function () {
           exactlyEnv.switchWallet(john);
           await exactlyEnv.borrowMP("DAI", futurePools(1)[0], "10000");
         });
+
         it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY when trying to liquidate alice's positions", async () => {
           await eth.connect(john).approve(marketETH.target, parseUnits("1"));
 
@@ -339,6 +359,7 @@ describe("Liquidations", function () {
             marketETH.connect(john).liquidate(alice.address, parseUnits("1"), marketDAI.target),
           ).to.be.revertedWithCustomError(marketETH, "InsufficientProtocolLiquidity");
         });
+
         describe("AND GIVEN a DAI liquidity deposit to the smart pool", () => {
           beforeEach(async () => {
             exactlyEnv.switchWallet(john);
@@ -347,10 +368,12 @@ describe("Liquidations", function () {
             await eth.connect(john).approve(marketETH.target, parseUnits("1"));
             await provider.send("evm_increaseTime", [9_011]);
           });
+
           it("WHEN both of alice's positions are liquidated THEN it doesn't revert", async () => {
             await expect(marketETH.connect(john).liquidate(alice.address, parseUnits("1"), marketDAI.target)).to.not.be
               .reverted;
           });
+
           it("AND WHEN trying to liquidate in a market where alice doesn't have borrows THEN it reverts", async () => {
             await expect(
               marketWBTC.connect(john).liquidate(alice.address, parseUnits("0.5"), marketDAI.target),
@@ -369,6 +392,7 @@ describe("Liquidations", function () {
       await exactlyEnv.depositMP("DAI", futurePools(1)[0], "1000");
       await exactlyEnv.depositMP("DAI", futurePools(2)[1], "6000");
     });
+
     describe("AND GIVEN alice deposits USD10k worth of WETH to the smart pool AND borrows 7k DAI (70% collateralization rate)", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(alice);
@@ -379,9 +403,11 @@ describe("Liquidations", function () {
         await exactlyEnv.borrowMP("DAI", futurePools(2)[1], "6000");
         await provider.send("evm_increaseTime", [9_011]);
       });
+
       describe("WHEN 20 days goes by without payment, WETH price halves AND alice's first borrow is liquidated with a higher amount as repayment", () => {
         let johnETHBalanceBefore: bigint;
         let johnDAIBalanceBefore: bigint;
+
         beforeEach(async () => {
           await exactlyEnv.setPrice(marketETH.target, parseUnits("1500", 8));
           await exactlyEnv.moveInTimeAndMine(futurePools(1)[0] + 86_400 * 20);
@@ -393,6 +419,7 @@ describe("Liquidations", function () {
           // total alice borrows are 7000 (+ 400 penalties), so for dynamic close factor max to repay is 6800
           await marketDAI.connect(john).liquidate(alice.address, parseUnits("6400"), marketETH.target);
         });
+
         it("THEN the liquidator does not seize more ETH assets than it should", async () => {
           // if john liquidates and repays 6000 + 400 in penalties, then he should seize 4.26 ETH (1500 each) + liquidation incentive (10%)
           // 4.26 + 0.426 = 4.686 ETH
@@ -401,12 +428,14 @@ describe("Liquidations", function () {
           expect(johnETHBalanceAfter - johnETHBalanceBefore).to.be.gt(parseUnits("4.69"));
           expect(johnETHBalanceAfter - johnETHBalanceBefore).to.be.lt(parseUnits("4.70"));
         });
+
         it("THEN the liquidator doesn't receive back any DAI spare repayment amount", async () => {
           const johnDAIBalanceAfter = await dai.balanceOf(john.address);
           expect(johnDAIBalanceBefore).to.not.equal(johnDAIBalanceAfter);
           expect(johnDAIBalanceBefore - johnDAIBalanceAfter).to.be.eq(parseUnits("6400"));
         });
       });
+
       describe("WHEN WETH price suddenly decreases (now alice has bad debt) AND she gets liquidated", () => {
         beforeEach(async () => {
           await dai.connect(john).approve(marketDAI.target, MaxUint256);
@@ -427,9 +456,11 @@ describe("Liquidations", function () {
           await exactlyEnv.setPrice(marketETH.target, parseUnits("100", 8));
           await marketDAI.connect(john).liquidate(alice.address, MaxUint256, marketETH.target);
         });
+
         it("THEN alice's debt is cleared", async () => {
           expect(await marketDAI.previewDebt(alice.address)).to.be.eq(0);
         });
+
         it("THEN alice's collateral is zero", async () => {
           const accountSnapshot = await marketETH.accountSnapshot(alice.address);
           expect(accountSnapshot[0]).to.be.eq(0);

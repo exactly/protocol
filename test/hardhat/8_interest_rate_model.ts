@@ -61,6 +61,7 @@ describe("InterestRateModel", () => {
         ),
       ).to.be.reverted;
     });
+
     it("WHEN deploying a contract with A and B parameters yielding an invalid floating curve THEN it reverts", async () => {
       const minRate = parseUnits("0");
       const naturalRate = parseUnits("0");

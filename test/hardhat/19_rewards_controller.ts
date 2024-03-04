@@ -40,6 +40,7 @@ describe("RewardsController", function () {
       await marketUSDC.borrow(parseUnits("20", 6), alice.address, alice.address);
       await marketUSDC.borrow(parseUnits("20", 6), alice.address, alice.address);
     });
+
     it("THEN the claimable amount is positive", async () => {
       const claimableBalance = await rewardsController.allClaimable(alice.address, op.target);
       await rewardsController["claim((address,bool[])[],address,address[])"](
@@ -52,6 +53,7 @@ describe("RewardsController", function () {
       expect(claimableBalance).to.be.greaterThan(0);
       expect(claimedBalance).to.be.greaterThan(0);
     });
+
     it("AND trying to claim with invalid market THEN the claimable amount is 0", async () => {
       const marketOps = [{ market: alice.address, operations: [false, true] }];
       const claimableBalance = await rewardsController.claimable(marketOps, alice.address, op.target);
@@ -61,6 +63,7 @@ describe("RewardsController", function () {
       expect(claimableBalance).to.be.eq(0);
       expect(claimedBalance).to.be.eq(0);
     });
+
     it("AND calling allClaimable with invalid reward asset THEN the claimable amount is 0", async () => {
       const claimableBalance = await rewardsController.allClaimable(alice.address, alice.address);
       expect(claimableBalance).to.be.eq(0);
@@ -75,6 +78,7 @@ describe("RewardsController", function () {
       await marketUSDC.deposit(parseUnits("1000"), alice.address);
       await marketUSDC.borrow(1, alice.address, alice.address);
     });
+
     it("THEN a following operation should not revert", async () => {
       await expect(marketUSDC.deposit(parseUnits("100", 6), alice.address)).to.not.be.reverted;
     });
@@ -82,10 +86,12 @@ describe("RewardsController", function () {
 
   describe("WHEN withdrawing OP rewards from the RewardsController contract", () => {
     let balanceBefore: bigint;
+
     beforeEach(async () => {
       balanceBefore = await op.balanceOf(rewardsController.target);
       await timelockExecute(multisig, rewardsController, "withdraw", [op.target, multisig.address]);
     });
+
     it("THEN RewardsController is emptied", async () => {
       expect(balanceBefore).to.be.greaterThan(0);
       expect(await op.balanceOf(rewardsController.target)).to.eq(0);

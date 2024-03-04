@@ -27,6 +27,7 @@ describe("DebtManager", function () {
         .withArgs(debtManager.target, marketUSDC.target, ethers.MaxUint256);
     });
   });
+
   describe("AND GIVEN an approval of an invalid address to spend USDC from the leverage contract", () => {
     it("THEN the tx should revert", async () => {
       await expect(debtManager.approve(debtManager.target)).to.be.revertedWithCustomError(
