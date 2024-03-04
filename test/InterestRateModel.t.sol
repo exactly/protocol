@@ -6,7 +6,13 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { Market, InterestRateModel, Parameters } from "../contracts/InterestRateModel.sol";
+import {
+  Market,
+  Parameters,
+  AlreadyMatured,
+  InterestRateModel,
+  UtilizationExceeded
+} from "../contracts/InterestRateModel.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
 import { Auditor } from "../contracts/Auditor.sol";
 
@@ -278,6 +284,32 @@ contract InterestRateModelTest is Test {
     uint256 rate = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed, uFloating, uGlobal);
     uint256 rate2 = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed2, uFloating, uGlobal);
     assertGe(rate2, rate, "rate2 < rate");
+  }
+
+  function testFixedRateRevertAlreadyMatured() external {
+    irm = deployDefault();
+    vm.warp(FixedLib.INTERVAL);
+
+    vm.expectRevert(AlreadyMatured.selector);
+    irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.3e18, 0.8e18);
+  }
+
+  function testFixedRateRevertUtilizationExceeded() external {
+    irm = deployDefault();
+
+    vm.expectRevert(UtilizationExceeded.selector);
+    irm.fixedRate(FixedLib.INTERVAL, 25, 0.9e18, 0.3e18, 0.8e18);
+
+    vm.expectRevert(UtilizationExceeded.selector);
+    irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.9e18, 0.8e18);
+  }
+
+  function testMinTimeToMaturity() external {
+    irm = deployDefault();
+    vm.warp(FixedLib.INTERVAL - 1);
+    uint256 fixedRate = irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.3e18, 0.8e18);
+    uint256 floatingRate = irm.floatingRate(0.3e18, 0.8e18);
+    assertApproxEqRel(fixedRate, floatingRate, 4e13);
   }
 
   function boundCurve(
