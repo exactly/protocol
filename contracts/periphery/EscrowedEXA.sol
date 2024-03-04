@@ -100,6 +100,7 @@ contract EscrowedEXA is ERC20VotesUpgradeable, AccessControlUpgradeable {
         recipient: to,
         totalAmount: amount,
         cancelable: true,
+        transferable: true,
         durations: Durations({ cliff: 0, total: vestingPeriod }),
         broker: Broker({ account: address(0), fee: 0 })
       })
@@ -266,6 +267,7 @@ struct CreateWithDurations {
   uint128 totalAmount;
   EXA asset;
   bool cancelable;
+  bool transferable;
   Durations durations;
   Broker broker;
 }

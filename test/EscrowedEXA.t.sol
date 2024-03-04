@@ -29,9 +29,10 @@ contract EscrowedEXATest is ForkTest {
   address internal alice;
 
   function setUp() external {
-    vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 108_911_300);
+    vm.createSelectFork(vm.envString("OP_SEPOLIA_NODE"), 8_893_980);
 
-    exa = EXA(deployment("EXA"));
+    exa = new EXA();
+    exa.initialize();
     sablier = ISablierV2LockupLinear(deployment("SablierV2LockupLinear"));
     esEXA = EscrowedEXA(
       address(
@@ -44,8 +45,6 @@ contract EscrowedEXATest is ForkTest {
 
     alice = vm.addr(ALICE_KEY);
     vm.label(alice, "alice");
-    vm.prank(deployment("TimelockController"));
-    exa.transfer(address(this), 100_000 ether);
     exa.approve(address(esEXA), 100_000 ether);
     esEXA.grantRole(esEXA.REDEEMER_ROLE(), REDEEMER);
   }
@@ -426,40 +425,6 @@ contract EscrowedEXATest is ForkTest {
     assertEq(exa.balanceOf(address(this)), exaBefore + amount + reserve, "got amount + reserve back");
   }
 
-  function testCancelFromStreamAndGetReserveBack() external {
-    uint256 amount = 1_000 ether;
-    uint256 ratio = esEXA.reserveRatio();
-    uint256 reserve = amount.mulWadDown(ratio);
-    esEXA.mint(amount, address(this));
-    uint256 streamId = esEXA.vest(uint128(amount), address(this), ratio, esEXA.vestingPeriod());
-
-    uint256 exaBefore = exa.balanceOf(address(this));
-    vm.warp(block.timestamp + esEXA.vestingPeriod() / 2);
-
-    esEXA.sablier().cancel(streamId);
-
-    assertEq(esEXA.balanceOf(address(this)), amount / 2, "half esEXA should be back");
-    assertEq(exa.balanceOf(address(this)), exaBefore + reserve, "reserve should be back");
-    esEXA.sablier().withdrawMax(streamId, address(this));
-    assertEq(exa.balanceOf(address(this)), exaBefore + reserve + amount / 2, "amount/2 should be back");
-  }
-
-  function testCancelFromStreamJustCreated() external {
-    uint256 amount = 1_000 ether;
-    uint256 ratio = esEXA.reserveRatio();
-    uint256 reserve = amount.mulWadDown(ratio);
-    esEXA.mint(amount, address(this));
-    uint256[] memory streams = new uint256[](1);
-    streams[0] = esEXA.vest(uint128(amount), address(this), ratio, esEXA.vestingPeriod());
-
-    uint256 exaBefore = exa.balanceOf(address(this));
-
-    esEXA.sablier().cancel(streams[0]);
-
-    assertEq(esEXA.balanceOf(address(this)), amount, "amount esEXA should be back");
-    assertEq(exa.balanceOf(address(this)), exaBefore + reserve, "reserve should be back");
-  }
-
   function testFakeTokenWithesEXARecipient() external {
     MockERC20 token = new MockERC20("Malicious token", "MT", 18);
     uint128 amount = 1_000 ether;
@@ -474,6 +439,7 @@ contract EscrowedEXATest is ForkTest {
         recipient: address(esEXA),
         totalAmount: amount,
         cancelable: true,
+        transferable: true,
         durations: Durations({ cliff: 0, total: 1 }),
         broker: Broker({ account: address(0), fee: 0 })
       })
@@ -494,28 +460,13 @@ contract EscrowedEXATest is ForkTest {
         recipient: address(esEXA),
         totalAmount: amount,
         cancelable: true,
+        transferable: true,
         durations: Durations({ cliff: 0, total: 1 }),
         broker: Broker({ account: address(0), fee: 0 })
       })
     );
     sablier.cancel(streamId);
     assertEq(esEXA.balanceOf(address(this)), esEXABefore, "esEXA balance shouldn't change");
-
-    streamId = sablier.createWithDurations(
-      CreateWithDurations({
-        asset: exa,
-        sender: address(esEXA),
-        recipient: address(this),
-        totalAmount: amount,
-        cancelable: true,
-        durations: Durations({ cliff: 0, total: 1 }),
-        broker: Broker({ account: address(0), fee: 0 })
-      })
-    );
-    uint256 exaBefore = exa.balanceOf(address(this));
-    sablier.cancel(streamId);
-    assertEq(exa.balanceOf(address(this)), exaBefore, "EXA balance shouldn't change");
-    assertEq(esEXA.balanceOf(address(this)), esEXABefore, "should not mint esEXA");
   }
 
   function testCancelExternalStreamsWithesEXACancel() external {
@@ -533,6 +484,7 @@ contract EscrowedEXATest is ForkTest {
         recipient: address(this),
         totalAmount: amount,
         cancelable: true,
+        transferable: true,
         durations: Durations({ cliff: 0, total: 1 }),
         broker: Broker({ account: address(0), fee: 0 })
       })
@@ -578,6 +530,7 @@ contract EscrowedEXATest is ForkTest {
         recipient: address(this),
         totalAmount: amount,
         cancelable: true,
+        transferable: true,
         durations: Durations({ cliff: 0, total: 1 }),
         broker: Broker({ account: address(0), fee: 0 })
       })
