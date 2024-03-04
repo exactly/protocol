@@ -13,9 +13,7 @@ abstract contract ForkTest is Test {
   }
 
   function deployment(string memory name) internal returns (address addr) {
-    addr = vm
-      .readFile(string.concat("deployments/", getChain(block.chainid).chainAlias, "/", name, ".json"))
-      .readAddress(".address");
+    addr = vm.readFile(string.concat("deployments/", chain(), "/", name, ".json")).readAddress(".address");
     vm.label(addr, name);
 
     address impl = address(
@@ -25,6 +23,11 @@ abstract contract ForkTest is Test {
     else if (bytes10(addr.code) == 0x363d3d373d3d3d363d73) {
       vm.label(address(uint160(uint240(bytes30(addr.code)))), string.concat(name, "_Impl"));
     }
+  }
+
+  function chain() internal returns (string memory) {
+    if (block.chainid == 11155420) return "op-sepolia";
+    return getChain(block.chainid).chainAlias;
   }
 }
 
