@@ -75,8 +75,8 @@ contract InstallmentsRouterTest is Test {
     deal(address(usdc), address(this), 1_000_000e6);
     market.approve(address(router), type(uint256).max);
     usdc.approve(address(market), type(uint256).max);
-    usdc.approve(address(router), type(uint256).max);
     market.deposit(100_000e6, address(this));
+    usdc.approve(address(market), 0);
     auditor.enterMarket(market);
 
     bob = vm.addr(BOB_KEY);
@@ -86,8 +86,9 @@ contract InstallmentsRouterTest is Test {
     deal(address(weth), address(this), 1_000_000e18);
     weth.deposit{ value: 100_000e18 }();
     weth.approve(address(marketWETH), type(uint256).max);
-    marketWETH.approve(address(router), type(uint256).max);
     marketWETH.deposit(100_000e18, address(this));
+    weth.approve(address(marketWETH), 0);
+    marketWETH.approve(address(router), type(uint256).max);
   }
 
   function testBorrowRouter() external {
