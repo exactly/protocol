@@ -33,5 +33,6 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
 
 func.tags = ["DebtManager"];
 func.dependencies = ["Governance", "Auditor", "Markets", "Balancer", "Permit2"];
+func.skip = async ({ network }) => !!network.config.sunset;
 
 export default func;
