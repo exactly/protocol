@@ -3,7 +3,6 @@ pragma solidity ^0.8.17;
 
 import { WETH, SafeTransferLib } from "solmate/src/tokens/WETH.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {
   SafeERC20Upgradeable as SafeERC20,
   IERC20PermitUpgradeable
@@ -13,7 +12,7 @@ import { Market, ERC20, FixedLib } from "../Market.sol";
 
 /// @title InstallmentsRouter.
 /// @notice Router to make many borrows on a specific market with a single transaction.
-contract InstallmentsRouter is AccessControlUpgradeable {
+contract InstallmentsRouter {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for address;
   using SafeTransferLib for ERC20;
@@ -30,16 +29,6 @@ contract InstallmentsRouter is AccessControlUpgradeable {
     auditor = auditor_;
     marketWETH = marketWETH_;
     weth = WETH(payable(address(marketWETH_.asset())));
-
-    _disableInitializers();
-  }
-
-  /// @notice Initializes the contract.
-  /// @dev can only be called once.
-  function initialize() external initializer {
-    __AccessControl_init();
-
-    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
 
   /// @notice Receives ETH when unwrapping WETH.
