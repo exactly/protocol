@@ -37,8 +37,8 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
   );
 };
 
-func.tags = ["Staking"];
+func.tags = ["Swapper"];
 func.dependencies = ["EXA", "Governance", "Rewards", "Assets"];
-func.skip = async ({ deployments }) => !(await deployments.getOrNull("EXAGauge"));
+func.skip = async ({ deployments }) => !(await deployments.getOrNull("EXAPool"));
 
 export default func;
