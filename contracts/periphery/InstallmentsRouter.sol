@@ -49,7 +49,7 @@ contract InstallmentsRouter {
     uint256[] calldata amounts,
     uint256 maxRepay
   ) public returns (uint256[] memory assetsOwed) {
-    (assetsOwed, ) = borrow(market, firstMaturity, amounts, maxRepay, msg.sender);
+    return borrow(market, firstMaturity, amounts, maxRepay, msg.sender);
   }
 
   function borrow(
@@ -58,7 +58,7 @@ contract InstallmentsRouter {
     uint256[] calldata amounts,
     uint256 maxRepay,
     address receiver
-  ) internal returns (uint256[] memory assetsOwed, uint256 assetsBorrowed) {
+  ) internal returns (uint256[] memory assetsOwed) {
     assert(amounts.length != 0 && firstMaturity > block.timestamp);
     checkMarket(market);
 
@@ -72,7 +72,6 @@ contract InstallmentsRouter {
         receiver,
         msg.sender
       );
-      assetsBorrowed += amounts[i];
       assetsOwed[i] = owed;
       totalOwed += owed;
     }
@@ -91,10 +90,11 @@ contract InstallmentsRouter {
     uint256[] calldata amounts,
     uint256 maxRepay
   ) public returns (uint256[] memory assetsOwed) {
-    uint256 assetsBorrowed;
-    (assetsOwed, assetsBorrowed) = borrow(marketWETH, maturity, amounts, maxRepay, address(this));
-    weth.withdraw(assetsBorrowed);
-    msg.sender.safeTransferETH(assetsBorrowed);
+    uint256 totalAmount = 0;
+    for (uint256 i = 0; i < amounts.length; i++) totalAmount += amounts[i];
+    assetsOwed = borrow(marketWETH, maturity, amounts, maxRepay, address(this));
+    weth.withdraw(totalAmount);
+    msg.sender.safeTransferETH(totalAmount);
   }
 
   function borrow(
@@ -113,10 +113,11 @@ contract InstallmentsRouter {
     uint256 maxRepay,
     Permit calldata marketPermit
   ) public permit(marketWETH, marketPermit) returns (uint256[] memory assetsOwed) {
-    uint256 assetsBorrowed;
-    (assetsOwed, assetsBorrowed) = borrow(marketWETH, maturity, amounts, maxRepay, address(this));
-    weth.withdraw(assetsBorrowed);
-    msg.sender.safeTransferETH(assetsBorrowed);
+    assetsOwed = borrow(marketWETH, maturity, amounts, maxRepay, address(this));
+    uint256 totalAmount = 0;
+    for (uint256 i = 0; i < amounts.length; i++) totalAmount += amounts[i];
+    weth.withdraw(totalAmount);
+    msg.sender.safeTransferETH(totalAmount);
   }
 
   /// @notice Checks if the Market is listed by the Auditor.
