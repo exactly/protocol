@@ -28,7 +28,7 @@ contract InstallmentsRouter {
   constructor(Auditor auditor_, Market marketWETH_) {
     auditor = auditor_;
     marketWETH = marketWETH_;
-    weth = WETH(payable(address(marketWETH_.asset())));
+    weth = address(marketWETH_) != address(0) ? WETH(payable(address(marketWETH_.asset()))) : WETH(payable(0));
   }
 
   /// @notice Receives ETH when unwrapping WETH.
