@@ -1,0 +1,313 @@
+{
+  "address": "0x161E73769e18e7e2d882175F83159958E7e6Fa77",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "contract ERC20",
+          "name": "exa_",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "root_",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "contract ISablierV2LockupLinear",
+          "name": "sablier_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "streamId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "Claim",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "version",
+          "type": "uint8"
+        }
+      ],
+      "name": "Initialized",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint128",
+          "name": "amount",
+          "type": "uint128"
+        },
+        {
+          "internalType": "bytes32[]",
+          "name": "proof",
+          "type": "bytes32[]"
+        }
+      ],
+      "name": "claim",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "streamId",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "claimed",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "exa",
+      "outputs": [
+        {
+          "internalType": "contract ERC20",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "root",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "sablier",
+      "outputs": [
+        {
+          "internalType": "contract ISablierV2LockupLinear",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "streams",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0x96e85d100ce0345c232e58078af72ec1d3063ff016a884b4c6cc426550641ee5",
+  "receipt": {
+    "to": null,
+    "from": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
+    "contractAddress": "0x161E73769e18e7e2d882175F83159958E7e6Fa77",
+    "transactionIndex": 3,
+    "gasUsed": "458003",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000008000000000000000000000000400000000000000000000000000000000000000000000000000000000000000040000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0xe56a61336ca1765ba3226bdbe074e16ed051d3394204e1f68b61b8fcd05a675f",
+    "transactionHash": "0x96e85d100ce0345c232e58078af72ec1d3063ff016a884b4c6cc426550641ee5",
+    "logs": [
+      {
+        "transactionIndex": 3,
+        "blockNumber": 8898756,
+        "transactionHash": "0x96e85d100ce0345c232e58078af72ec1d3063ff016a884b4c6cc426550641ee5",
+        "address": "0x161E73769e18e7e2d882175F83159958E7e6Fa77",
+        "topics": [
+          "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498"
+        ],
+        "data": "0x00000000000000000000000000000000000000000000000000000000000000ff",
+        "logIndex": 4,
+        "blockHash": "0xe56a61336ca1765ba3226bdbe074e16ed051d3394204e1f68b61b8fcd05a675f"
+      }
+    ],
+    "blockNumber": 8898756,
+    "cumulativeGasUsed": "690246",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [
+    "0x7aC6D8376353f76B440bC5Ff04f9023AF54ffb6a",
+    "0xd9280c48ade2863290ace2fac4aa43024417d06cf42c599290cfce0d4d3fd384",
+    "0xe59D28bEF2D37E99b93E734ed1dDcFc4B9C1bf73"
+  ],
+  "numDeployments": 1,
+  "solcInputHash": "68c1f2da1fa9af8ddb3bbbd41fd709ed",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.23+commit.f704f362\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"contract ERC20\",\"name\":\"exa_\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"root_\",\"type\":\"bytes32\"},{\"internalType\":\"contract ISablierV2LockupLinear\",\"name\":\"sablier_\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"streamId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Claim\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint128\",\"name\":\"amount\",\"type\":\"uint128\"},{\"internalType\":\"bytes32[]\",\"name\":\"proof\",\"type\":\"bytes32[]\"}],\"name\":\"claim\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"streamId\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"claimed\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"exa\",\"outputs\":[{\"internalType\":\"contract ERC20\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"root\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"sablier\",\"outputs\":[{\"internalType\":\"contract ISablierV2LockupLinear\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"streams\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"events\":{\"Initialized(uint8)\":{\"details\":\"Triggered when the contract has been initialized or reinitialized.\"}},\"kind\":\"dev\",\"methods\":{\"constructor\":{\"custom:oz-upgrades-unsafe-allow\":\"constructor\"}},\"stateVariables\":{\"exa\":{\"custom:oz-upgrades-unsafe-allow\":\"state-variable-immutable\"},\"root\":{\"custom:oz-upgrades-unsafe-allow\":\"state-variable-immutable\"},\"sablier\":{\"custom:oz-upgrades-unsafe-allow\":\"state-variable-immutable\"}},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/periphery/Airdrop.sol\":\"Airdrop\"},\"debug\":{\"revertStrings\":\"strip\"},\"evmVersion\":\"shanghai\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[]},\"sources\":{\"@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts (last updated v4.9.0) (proxy/utils/Initializable.sol)\\n\\npragma solidity ^0.8.2;\\n\\nimport \\\"../../utils/AddressUpgradeable.sol\\\";\\n\\n/**\\n * @dev This is a base contract to aid in writing upgradeable contracts, or any kind of contract that will be deployed\\n * behind a proxy. Since proxied contracts do not make use of a constructor, it's common to move constructor logic to an\\n * external initializer function, usually called `initialize`. It then becomes necessary to protect this initializer\\n * function so it can only be called once. The {initializer} modifier provided by this contract will have this effect.\\n *\\n * The initialization functions use a version number. Once a version number is used, it is consumed and cannot be\\n * reused. This mechanism prevents re-execution of each \\\"step\\\" but allows the creation of new initialization steps in\\n * case an upgrade adds a module that needs to be initialized.\\n *\\n * For example:\\n *\\n * [.hljs-theme-light.nopadding]\\n * ```solidity\\n * contract MyToken is ERC20Upgradeable {\\n *     function initialize() initializer public {\\n *         __ERC20_init(\\\"MyToken\\\", \\\"MTK\\\");\\n *     }\\n * }\\n *\\n * contract MyTokenV2 is MyToken, ERC20PermitUpgradeable {\\n *     function initializeV2() reinitializer(2) public {\\n *         __ERC20Permit_init(\\\"MyToken\\\");\\n *     }\\n * }\\n * ```\\n *\\n * TIP: To avoid leaving the proxy in an uninitialized state, the initializer function should be called as early as\\n * possible by providing the encoded function call as the `_data` argument to {ERC1967Proxy-constructor}.\\n *\\n * CAUTION: When used with inheritance, manual care must be taken to not invoke a parent initializer twice, or to ensure\\n * that all initializers are idempotent. This is not verified automatically as constructors are by Solidity.\\n *\\n * [CAUTION]\\n * ====\\n * Avoid leaving a contract uninitialized.\\n *\\n * An uninitialized contract can be taken over by an attacker. This applies to both a proxy and its implementation\\n * contract, which may impact the proxy. To prevent the implementation contract from being used, you should invoke\\n * the {_disableInitializers} function in the constructor to automatically lock it when it is deployed:\\n *\\n * [.hljs-theme-light.nopadding]\\n * ```\\n * /// @custom:oz-upgrades-unsafe-allow constructor\\n * constructor() {\\n *     _disableInitializers();\\n * }\\n * ```\\n * ====\\n */\\nabstract contract Initializable {\\n    /**\\n     * @dev Indicates that the contract has been initialized.\\n     * @custom:oz-retyped-from bool\\n     */\\n    uint8 private _initialized;\\n\\n    /**\\n     * @dev Indicates that the contract is in the process of being initialized.\\n     */\\n    bool private _initializing;\\n\\n    /**\\n     * @dev Triggered when the contract has been initialized or reinitialized.\\n     */\\n    event Initialized(uint8 version);\\n\\n    /**\\n     * @dev A modifier that defines a protected initializer function that can be invoked at most once. In its scope,\\n     * `onlyInitializing` functions can be used to initialize parent contracts.\\n     *\\n     * Similar to `reinitializer(1)`, except that functions marked with `initializer` can be nested in the context of a\\n     * constructor.\\n     *\\n     * Emits an {Initialized} event.\\n     */\\n    modifier initializer() {\\n        bool isTopLevelCall = !_initializing;\\n        require(\\n            (isTopLevelCall && _initialized < 1) || (!AddressUpgradeable.isContract(address(this)) && _initialized == 1),\\n            \\\"Initializable: contract is already initialized\\\"\\n        );\\n        _initialized = 1;\\n        if (isTopLevelCall) {\\n            _initializing = true;\\n        }\\n        _;\\n        if (isTopLevelCall) {\\n            _initializing = false;\\n            emit Initialized(1);\\n        }\\n    }\\n\\n    /**\\n     * @dev A modifier that defines a protected reinitializer function that can be invoked at most once, and only if the\\n     * contract hasn't been initialized to a greater version before. In its scope, `onlyInitializing` functions can be\\n     * used to initialize parent contracts.\\n     *\\n     * A reinitializer may be used after the original initialization step. This is essential to configure modules that\\n     * are added through upgrades and that require initialization.\\n     *\\n     * When `version` is 1, this modifier is similar to `initializer`, except that functions marked with `reinitializer`\\n     * cannot be nested. If one is invoked in the context of another, execution will revert.\\n     *\\n     * Note that versions can jump in increments greater than 1; this implies that if multiple reinitializers coexist in\\n     * a contract, executing them in the right order is up to the developer or operator.\\n     *\\n     * WARNING: setting the version to 255 will prevent any future reinitialization.\\n     *\\n     * Emits an {Initialized} event.\\n     */\\n    modifier reinitializer(uint8 version) {\\n        require(!_initializing && _initialized < version, \\\"Initializable: contract is already initialized\\\");\\n        _initialized = version;\\n        _initializing = true;\\n        _;\\n        _initializing = false;\\n        emit Initialized(version);\\n    }\\n\\n    /**\\n     * @dev Modifier to protect an initialization function so that it can only be invoked by functions with the\\n     * {initializer} and {reinitializer} modifiers, directly or indirectly.\\n     */\\n    modifier onlyInitializing() {\\n        require(_initializing, \\\"Initializable: contract is not initializing\\\");\\n        _;\\n    }\\n\\n    /**\\n     * @dev Locks the contract, preventing any future reinitialization. This cannot be part of an initializer call.\\n     * Calling this in the constructor of a contract will prevent that contract from being initialized or reinitialized\\n     * to any version. It is recommended to use this to lock implementation contracts that are designed to be called\\n     * through proxies.\\n     *\\n     * Emits an {Initialized} event the first time it is successfully executed.\\n     */\\n    function _disableInitializers() internal virtual {\\n        require(!_initializing, \\\"Initializable: contract is initializing\\\");\\n        if (_initialized != type(uint8).max) {\\n            _initialized = type(uint8).max;\\n            emit Initialized(type(uint8).max);\\n        }\\n    }\\n\\n    /**\\n     * @dev Returns the highest version that has been initialized. See {reinitializer}.\\n     */\\n    function _getInitializedVersion() internal view returns (uint8) {\\n        return _initialized;\\n    }\\n\\n    /**\\n     * @dev Returns `true` if the contract is currently initializing. See {onlyInitializing}.\\n     */\\n    function _isInitializing() internal view returns (bool) {\\n        return _initializing;\\n    }\\n}\\n\",\"keccak256\":\"0x89be10e757d242e9b18d5a32c9fbe2019f6d63052bbe46397a430a1d60d7f794\",\"license\":\"MIT\"},\"@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts (last updated v4.9.0) (utils/Address.sol)\\n\\npragma solidity ^0.8.1;\\n\\n/**\\n * @dev Collection of functions related to the address type\\n */\\nlibrary AddressUpgradeable {\\n    /**\\n     * @dev Returns true if `account` is a contract.\\n     *\\n     * [IMPORTANT]\\n     * ====\\n     * It is unsafe to assume that an address for which this function returns\\n     * false is an externally-owned account (EOA) and not a contract.\\n     *\\n     * Among others, `isContract` will return false for the following\\n     * types of addresses:\\n     *\\n     *  - an externally-owned account\\n     *  - a contract in construction\\n     *  - an address where a contract will be created\\n     *  - an address where a contract lived, but was destroyed\\n     *\\n     * Furthermore, `isContract` will also return true if the target contract within\\n     * the same transaction is already scheduled for destruction by `SELFDESTRUCT`,\\n     * which only has an effect at the end of a transaction.\\n     * ====\\n     *\\n     * [IMPORTANT]\\n     * ====\\n     * You shouldn't rely on `isContract` to protect against flash loan attacks!\\n     *\\n     * Preventing calls from contracts is highly discouraged. It breaks composability, breaks support for smart wallets\\n     * like Gnosis Safe, and does not provide security since it can be circumvented by calling from a contract\\n     * constructor.\\n     * ====\\n     */\\n    function isContract(address account) internal view returns (bool) {\\n        // This method relies on extcodesize/address.code.length, which returns 0\\n        // for contracts in construction, since the code is only stored at the end\\n        // of the constructor execution.\\n\\n        return account.code.length > 0;\\n    }\\n\\n    /**\\n     * @dev Replacement for Solidity's `transfer`: sends `amount` wei to\\n     * `recipient`, forwarding all available gas and reverting on errors.\\n     *\\n     * https://eips.ethereum.org/EIPS/eip-1884[EIP1884] increases the gas cost\\n     * of certain opcodes, possibly making contracts go over the 2300 gas limit\\n     * imposed by `transfer`, making them unable to receive funds via\\n     * `transfer`. {sendValue} removes this limitation.\\n     *\\n     * https://consensys.net/diligence/blog/2019/09/stop-using-soliditys-transfer-now/[Learn more].\\n     *\\n     * IMPORTANT: because control is transferred to `recipient`, care must be\\n     * taken to not create reentrancy vulnerabilities. Consider using\\n     * {ReentrancyGuard} or the\\n     * https://solidity.readthedocs.io/en/v0.8.0/security-considerations.html#use-the-checks-effects-interactions-pattern[checks-effects-interactions pattern].\\n     */\\n    function sendValue(address payable recipient, uint256 amount) internal {\\n        require(address(this).balance >= amount, \\\"Address: insufficient balance\\\");\\n\\n        (bool success, ) = recipient.call{value: amount}(\\\"\\\");\\n        require(success, \\\"Address: unable to send value, recipient may have reverted\\\");\\n    }\\n\\n    /**\\n     * @dev Performs a Solidity function call using a low level `call`. A\\n     * plain `call` is an unsafe replacement for a function call: use this\\n     * function instead.\\n     *\\n     * If `target` reverts with a revert reason, it is bubbled up by this\\n     * function (like regular Solidity function calls).\\n     *\\n     * Returns the raw returned data. To convert to the expected return value,\\n     * use https://solidity.readthedocs.io/en/latest/units-and-global-variables.html?highlight=abi.decode#abi-encoding-and-decoding-functions[`abi.decode`].\\n     *\\n     * Requirements:\\n     *\\n     * - `target` must be a contract.\\n     * - calling `target` with `data` must not revert.\\n     *\\n     * _Available since v3.1._\\n     */\\n    function functionCall(address target, bytes memory data) internal returns (bytes memory) {\\n        return functionCallWithValue(target, data, 0, \\\"Address: low-level call failed\\\");\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`], but with\\n     * `errorMessage` as a fallback revert reason when `target` reverts.\\n     *\\n     * _Available since v3.1._\\n     */\\n    function functionCall(\\n        address target,\\n        bytes memory data,\\n        string memory errorMessage\\n    ) internal returns (bytes memory) {\\n        return functionCallWithValue(target, data, 0, errorMessage);\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],\\n     * but also transferring `value` wei to `target`.\\n     *\\n     * Requirements:\\n     *\\n     * - the calling contract must have an ETH balance of at least `value`.\\n     * - the called Solidity function must be `payable`.\\n     *\\n     * _Available since v3.1._\\n     */\\n    function functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) {\\n        return functionCallWithValue(target, data, value, \\\"Address: low-level call with value failed\\\");\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCallWithValue-address-bytes-uint256-}[`functionCallWithValue`], but\\n     * with `errorMessage` as a fallback revert reason when `target` reverts.\\n     *\\n     * _Available since v3.1._\\n     */\\n    function functionCallWithValue(\\n        address target,\\n        bytes memory data,\\n        uint256 value,\\n        string memory errorMessage\\n    ) internal returns (bytes memory) {\\n        require(address(this).balance >= value, \\\"Address: insufficient balance for call\\\");\\n        (bool success, bytes memory returndata) = target.call{value: value}(data);\\n        return verifyCallResultFromTarget(target, success, returndata, errorMessage);\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],\\n     * but performing a static call.\\n     *\\n     * _Available since v3.3._\\n     */\\n    function functionStaticCall(address target, bytes memory data) internal view returns (bytes memory) {\\n        return functionStaticCall(target, data, \\\"Address: low-level static call failed\\\");\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],\\n     * but performing a static call.\\n     *\\n     * _Available since v3.3._\\n     */\\n    function functionStaticCall(\\n        address target,\\n        bytes memory data,\\n        string memory errorMessage\\n    ) internal view returns (bytes memory) {\\n        (bool success, bytes memory returndata) = target.staticcall(data);\\n        return verifyCallResultFromTarget(target, success, returndata, errorMessage);\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],\\n     * but performing a delegate call.\\n     *\\n     * _Available since v3.4._\\n     */\\n    function functionDelegateCall(address target, bytes memory data) internal returns (bytes memory) {\\n        return functionDelegateCall(target, data, \\\"Address: low-level delegate call failed\\\");\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],\\n     * but performing a delegate call.\\n     *\\n     * _Available since v3.4._\\n     */\\n    function functionDelegateCall(\\n        address target,\\n        bytes memory data,\\n        string memory errorMessage\\n    ) internal returns (bytes memory) {\\n        (bool success, bytes memory returndata) = target.delegatecall(data);\\n        return verifyCallResultFromTarget(target, success, returndata, errorMessage);\\n    }\\n\\n    /**\\n     * @dev Tool to verify that a low level call to smart-contract was successful, and revert (either by bubbling\\n     * the revert reason or using the provided one) in case of unsuccessful call or if target was not a contract.\\n     *\\n     * _Available since v4.8._\\n     */\\n    function verifyCallResultFromTarget(\\n        address target,\\n        bool success,\\n        bytes memory returndata,\\n        string memory errorMessage\\n    ) internal view returns (bytes memory) {\\n        if (success) {\\n            if (returndata.length == 0) {\\n                // only check isContract if the call was successful and the return data is empty\\n                // otherwise we already know that it was a contract\\n                require(isContract(target), \\\"Address: call to non-contract\\\");\\n            }\\n            return returndata;\\n        } else {\\n            _revert(returndata, errorMessage);\\n        }\\n    }\\n\\n    /**\\n     * @dev Tool to verify that a low level call was successful, and revert if it wasn't, either by bubbling the\\n     * revert reason or using the provided one.\\n     *\\n     * _Available since v4.3._\\n     */\\n    function verifyCallResult(\\n        bool success,\\n        bytes memory returndata,\\n        string memory errorMessage\\n    ) internal pure returns (bytes memory) {\\n        if (success) {\\n            return returndata;\\n        } else {\\n            _revert(returndata, errorMessage);\\n        }\\n    }\\n\\n    function _revert(bytes memory returndata, string memory errorMessage) private pure {\\n        // Look for revert reason and bubble it up if present\\n        if (returndata.length > 0) {\\n            // The easiest way to bubble the revert reason is using memory via assembly\\n            /// @solidity memory-safe-assembly\\n            assembly {\\n                let returndata_size := mload(returndata)\\n                revert(add(32, returndata), returndata_size)\\n            }\\n        } else {\\n            revert(errorMessage);\\n        }\\n    }\\n}\\n\",\"keccak256\":\"0x9c80f545915582e63fe206c6ce27cbe85a86fc10b9cd2a0e8c9488fb7c2ee422\",\"license\":\"MIT\"},\"contracts/periphery/Airdrop.sol\":{\"content\":\"// SPDX-License-Identifier: AGPL-3.0\\npragma solidity ^0.8.17;\\n\\nimport { Initializable } from \\\"@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol\\\";\\nimport { MerkleProofLib } from \\\"solmate/src/utils/MerkleProofLib.sol\\\";\\nimport { SafeTransferLib, ERC20 } from \\\"solmate/src/utils/SafeTransferLib.sol\\\";\\n\\ncontract Airdrop is Initializable {\\n  using MerkleProofLib for bytes32[];\\n  using SafeTransferLib for ERC20;\\n\\n  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable\\n  ERC20 public immutable exa;\\n  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable\\n  bytes32 public immutable root;\\n  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable\\n  ISablierV2LockupLinear public immutable sablier;\\n\\n  mapping(address => bool) public claimed;\\n  mapping(address => uint256) public streams;\\n\\n  /// @custom:oz-upgrades-unsafe-allow constructor\\n  constructor(ERC20 exa_, bytes32 root_, ISablierV2LockupLinear sablier_) {\\n    exa = exa_;\\n    root = root_;\\n    sablier = sablier_;\\n\\n    _disableInitializers();\\n  }\\n\\n  function initialize() external initializer {\\n    exa.safeApprove(address(sablier), type(uint256).max);\\n  }\\n\\n  function claim(uint128 amount, bytes32[] calldata proof) external returns (uint256 streamId) {\\n    assert(!claimed[msg.sender]);\\n    assert(proof.verify(root, keccak256(abi.encode(msg.sender, amount))));\\n\\n    claimed[msg.sender] = true;\\n    streams[msg.sender] = streamId = sablier.createWithDurations(\\n      CreateWithDurations({\\n        asset: exa,\\n        sender: address(this),\\n        recipient: msg.sender,\\n        totalAmount: amount,\\n        cancelable: false,\\n        durations: Durations({ cliff: 0, total: 4 * 4 weeks }),\\n        broker: Broker({ account: address(0), fee: 0 })\\n      })\\n    );\\n    emit Claim(msg.sender, streamId, amount);\\n  }\\n\\n  event Claim(address indexed account, uint256 indexed streamId, uint256 amount);\\n}\\n\\ninterface ISablierV2LockupLinear {\\n  function createWithDurations(CreateWithDurations calldata params) external returns (uint256 streamId);\\n}\\n\\nstruct Durations {\\n  uint40 cliff;\\n  uint40 total;\\n}\\n\\nstruct Broker {\\n  address account;\\n  uint256 fee;\\n}\\n\\nstruct CreateWithDurations {\\n  address sender;\\n  address recipient;\\n  uint128 totalAmount;\\n  ERC20 asset;\\n  bool cancelable;\\n  Durations durations;\\n  Broker broker;\\n}\\n\",\"keccak256\":\"0xc1fc715e2730518be3de0cca753a5aad00734ec714da58d4aa9711cacc8ce745\",\"license\":\"AGPL-3.0\"},\"solmate/src/tokens/ERC20.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\npragma solidity >=0.8.0;\\n\\n/// @notice Modern and gas efficient ERC20 + EIP-2612 implementation.\\n/// @author Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC20.sol)\\n/// @author Modified from Uniswap (https://github.com/Uniswap/uniswap-v2-core/blob/master/contracts/UniswapV2ERC20.sol)\\n/// @dev Do not manually set balances without updating totalSupply, as the sum of all user balances must not exceed it.\\nabstract contract ERC20 {\\n    /*//////////////////////////////////////////////////////////////\\n                                 EVENTS\\n    //////////////////////////////////////////////////////////////*/\\n\\n    event Transfer(address indexed from, address indexed to, uint256 amount);\\n\\n    event Approval(address indexed owner, address indexed spender, uint256 amount);\\n\\n    /*//////////////////////////////////////////////////////////////\\n                            METADATA STORAGE\\n    //////////////////////////////////////////////////////////////*/\\n\\n    string public name;\\n\\n    string public symbol;\\n\\n    uint8 public immutable decimals;\\n\\n    /*//////////////////////////////////////////////////////////////\\n                              ERC20 STORAGE\\n    //////////////////////////////////////////////////////////////*/\\n\\n    uint256 public totalSupply;\\n\\n    mapping(address => uint256) public balanceOf;\\n\\n    mapping(address => mapping(address => uint256)) public allowance;\\n\\n    /*//////////////////////////////////////////////////////////////\\n                            EIP-2612 STORAGE\\n    //////////////////////////////////////////////////////////////*/\\n\\n    uint256 internal immutable INITIAL_CHAIN_ID;\\n\\n    bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;\\n\\n    mapping(address => uint256) public nonces;\\n\\n    /*//////////////////////////////////////////////////////////////\\n                               CONSTRUCTOR\\n    //////////////////////////////////////////////////////////////*/\\n\\n    constructor(\\n        string memory _name,\\n        string memory _symbol,\\n        uint8 _decimals\\n    ) {\\n        name = _name;\\n        symbol = _symbol;\\n        decimals = _decimals;\\n\\n        INITIAL_CHAIN_ID = block.chainid;\\n        INITIAL_DOMAIN_SEPARATOR = computeDomainSeparator();\\n    }\\n\\n    /*//////////////////////////////////////////////////////////////\\n                               ERC20 LOGIC\\n    //////////////////////////////////////////////////////////////*/\\n\\n    function approve(address spender, uint256 amount) public virtual returns (bool) {\\n        allowance[msg.sender][spender] = amount;\\n\\n        emit Approval(msg.sender, spender, amount);\\n\\n        return true;\\n    }\\n\\n    function transfer(address to, uint256 amount) public virtual returns (bool) {\\n        balanceOf[msg.sender] -= amount;\\n\\n        // Cannot overflow because the sum of all user\\n        // balances can't exceed the max uint256 value.\\n        unchecked {\\n            balanceOf[to] += amount;\\n        }\\n\\n        emit Transfer(msg.sender, to, amount);\\n\\n        return true;\\n    }\\n\\n    function transferFrom(\\n        address from,\\n        address to,\\n        uint256 amount\\n    ) public virtual returns (bool) {\\n        uint256 allowed = allowance[from][msg.sender]; // Saves gas for limited approvals.\\n\\n        if (allowed != type(uint256).max) allowance[from][msg.sender] = allowed - amount;\\n\\n        balanceOf[from] -= amount;\\n\\n        // Cannot overflow because the sum of all user\\n        // balances can't exceed the max uint256 value.\\n        unchecked {\\n            balanceOf[to] += amount;\\n        }\\n\\n        emit Transfer(from, to, amount);\\n\\n        return true;\\n    }\\n\\n    /*//////////////////////////////////////////////////////////////\\n                             EIP-2612 LOGIC\\n    //////////////////////////////////////////////////////////////*/\\n\\n    function permit(\\n        address owner,\\n        address spender,\\n        uint256 value,\\n        uint256 deadline,\\n        uint8 v,\\n        bytes32 r,\\n        bytes32 s\\n    ) public virtual {\\n        require(deadline >= block.timestamp, \\\"PERMIT_DEADLINE_EXPIRED\\\");\\n\\n        // Unchecked because the only math done is incrementing\\n        // the owner's nonce which cannot realistically overflow.\\n        unchecked {\\n            address recoveredAddress = ecrecover(\\n                keccak256(\\n                    abi.encodePacked(\\n                        \\\"\\\\x19\\\\x01\\\",\\n                        DOMAIN_SEPARATOR(),\\n                        keccak256(\\n                            abi.encode(\\n                                keccak256(\\n                                    \\\"Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)\\\"\\n                                ),\\n                                owner,\\n                                spender,\\n                                value,\\n                                nonces[owner]++,\\n                                deadline\\n                            )\\n                        )\\n                    )\\n                ),\\n                v,\\n                r,\\n                s\\n            );\\n\\n            require(recoveredAddress != address(0) && recoveredAddress == owner, \\\"INVALID_SIGNER\\\");\\n\\n            allowance[recoveredAddress][spender] = value;\\n        }\\n\\n        emit Approval(owner, spender, value);\\n    }\\n\\n    function DOMAIN_SEPARATOR() public view virtual returns (bytes32) {\\n        return block.chainid == INITIAL_CHAIN_ID ? INITIAL_DOMAIN_SEPARATOR : computeDomainSeparator();\\n    }\\n\\n    function computeDomainSeparator() internal view virtual returns (bytes32) {\\n        return\\n            keccak256(\\n                abi.encode(\\n                    keccak256(\\\"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)\\\"),\\n                    keccak256(bytes(name)),\\n                    keccak256(\\\"1\\\"),\\n                    block.chainid,\\n                    address(this)\\n                )\\n            );\\n    }\\n\\n    /*//////////////////////////////////////////////////////////////\\n                        INTERNAL MINT/BURN LOGIC\\n    //////////////////////////////////////////////////////////////*/\\n\\n    function _mint(address to, uint256 amount) internal virtual {\\n        totalSupply += amount;\\n\\n        // Cannot overflow because the sum of all user\\n        // balances can't exceed the max uint256 value.\\n        unchecked {\\n            balanceOf[to] += amount;\\n        }\\n\\n        emit Transfer(address(0), to, amount);\\n    }\\n\\n    function _burn(address from, uint256 amount) internal virtual {\\n        balanceOf[from] -= amount;\\n\\n        // Cannot underflow because a user's balance\\n        // will never be larger than the total supply.\\n        unchecked {\\n            totalSupply -= amount;\\n        }\\n\\n        emit Transfer(from, address(0), amount);\\n    }\\n}\\n\",\"keccak256\":\"0x43aa1509bb753f053143530705d9c4eee415691d26a4779769bf028a74e6ac69\",\"license\":\"MIT\"},\"solmate/src/utils/MerkleProofLib.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\npragma solidity >=0.8.0;\\n\\n/// @notice Gas optimized merkle proof verification library.\\n/// @author Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/MerkleProofLib.sol)\\nlibrary MerkleProofLib {\\n    function verify(\\n        bytes32[] calldata proof,\\n        bytes32 root,\\n        bytes32 leaf\\n    ) internal pure returns (bool isValid) {\\n        assembly {\\n            let computedHash := leaf // The hash starts as the leaf hash.\\n\\n            // Initialize data to the offset of the proof in the calldata.\\n            let data := proof.offset\\n\\n            // Iterate over proof elements to compute root hash.\\n            for {\\n                // Left shifting by 5 is like multiplying by 32.\\n                let end := add(data, shl(5, proof.length))\\n            } lt(data, end) {\\n                data := add(data, 32) // Shift 1 word per cycle.\\n            } {\\n                // Load the current proof element.\\n                let loadedData := calldataload(data)\\n\\n                // Slot where computedHash should be put in scratch space.\\n                // If computedHash > loadedData: slot 32, otherwise: slot 0.\\n                let computedHashSlot := shl(5, gt(computedHash, loadedData))\\n\\n                // Store elements to hash contiguously in scratch space.\\n                // The xor puts loadedData in whichever slot computedHash is\\n                // not occupying, so 0 if computedHashSlot is 32, 32 otherwise.\\n                mstore(computedHashSlot, computedHash)\\n                mstore(xor(computedHashSlot, 32), loadedData)\\n\\n                computedHash := keccak256(0, 64) // Hash both slots of scratch space.\\n            }\\n\\n            isValid := eq(computedHash, root) // The proof is valid if the roots match.\\n        }\\n    }\\n}\\n\",\"keccak256\":\"0x11c0653d9c3910e8924c3b7559edcbaa814bab5027ef65b98cc40e29edf9c536\",\"license\":\"MIT\"},\"solmate/src/utils/SafeTransferLib.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\npragma solidity >=0.8.0;\\n\\nimport {ERC20} from \\\"../tokens/ERC20.sol\\\";\\n\\n/// @notice Safe ETH and ERC20 transfer library that gracefully handles missing return values.\\n/// @author Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/SafeTransferLib.sol)\\n/// @dev Caution! This library won't check that a token has code, responsibility is delegated to the caller.\\nlibrary SafeTransferLib {\\n    /*//////////////////////////////////////////////////////////////\\n                             ETH OPERATIONS\\n    //////////////////////////////////////////////////////////////*/\\n\\n    function safeTransferETH(address to, uint256 amount) internal {\\n        bool success;\\n\\n        assembly {\\n            // Transfer the ETH and store if it succeeded or not.\\n            success := call(gas(), to, amount, 0, 0, 0, 0)\\n        }\\n\\n        require(success, \\\"ETH_TRANSFER_FAILED\\\");\\n    }\\n\\n    /*//////////////////////////////////////////////////////////////\\n                            ERC20 OPERATIONS\\n    //////////////////////////////////////////////////////////////*/\\n\\n    function safeTransferFrom(\\n        ERC20 token,\\n        address from,\\n        address to,\\n        uint256 amount\\n    ) internal {\\n        bool success;\\n\\n        assembly {\\n            // We'll write our calldata to this slot below, but restore it later.\\n            let memPointer := mload(0x40)\\n\\n            // Write the abi-encoded calldata into memory, beginning with the function selector.\\n            mstore(0, 0x23b872dd00000000000000000000000000000000000000000000000000000000)\\n            mstore(4, from) // Append the \\\"from\\\" argument.\\n            mstore(36, to) // Append the \\\"to\\\" argument.\\n            mstore(68, amount) // Append the \\\"amount\\\" argument.\\n\\n            success := and(\\n                // Set success to whether the call reverted, if not we check it either\\n                // returned exactly 1 (can't just be non-zero data), or had no return data.\\n                or(and(eq(mload(0), 1), gt(returndatasize(), 31)), iszero(returndatasize())),\\n                // We use 100 because that's the total length of our calldata (4 + 32 * 3)\\n                // Counterintuitively, this call() must be positioned after the or() in the\\n                // surrounding and() because and() evaluates its arguments from right to left.\\n                call(gas(), token, 0, 0, 100, 0, 32)\\n            )\\n\\n            mstore(0x60, 0) // Restore the zero slot to zero.\\n            mstore(0x40, memPointer) // Restore the memPointer.\\n        }\\n\\n        require(success, \\\"TRANSFER_FROM_FAILED\\\");\\n    }\\n\\n    function safeTransfer(\\n        ERC20 token,\\n        address to,\\n        uint256 amount\\n    ) internal {\\n        bool success;\\n\\n        assembly {\\n            // We'll write our calldata to this slot below, but restore it later.\\n            let memPointer := mload(0x40)\\n\\n            // Write the abi-encoded calldata into memory, beginning with the function selector.\\n            mstore(0, 0xa9059cbb00000000000000000000000000000000000000000000000000000000)\\n            mstore(4, to) // Append the \\\"to\\\" argument.\\n            mstore(36, amount) // Append the \\\"amount\\\" argument.\\n\\n            success := and(\\n                // Set success to whether the call reverted, if not we check it either\\n                // returned exactly 1 (can't just be non-zero data), or had no return data.\\n                or(and(eq(mload(0), 1), gt(returndatasize(), 31)), iszero(returndatasize())),\\n                // We use 68 because that's the total length of our calldata (4 + 32 * 2)\\n                // Counterintuitively, this call() must be positioned after the or() in the\\n                // surrounding and() because and() evaluates its arguments from right to left.\\n                call(gas(), token, 0, 0, 68, 0, 32)\\n            )\\n\\n            mstore(0x60, 0) // Restore the zero slot to zero.\\n            mstore(0x40, memPointer) // Restore the memPointer.\\n        }\\n\\n        require(success, \\\"TRANSFER_FAILED\\\");\\n    }\\n\\n    function safeApprove(\\n        ERC20 token,\\n        address to,\\n        uint256 amount\\n    ) internal {\\n        bool success;\\n\\n        assembly {\\n            // We'll write our calldata to this slot below, but restore it later.\\n            let memPointer := mload(0x40)\\n\\n            // Write the abi-encoded calldata into memory, beginning with the function selector.\\n            mstore(0, 0x095ea7b300000000000000000000000000000000000000000000000000000000)\\n            mstore(4, to) // Append the \\\"to\\\" argument.\\n            mstore(36, amount) // Append the \\\"amount\\\" argument.\\n\\n            success := and(\\n                // Set success to whether the call reverted, if not we check it either\\n                // returned exactly 1 (can't just be non-zero data), or had no return data.\\n                or(and(eq(mload(0), 1), gt(returndatasize(), 31)), iszero(returndatasize())),\\n                // We use 68 because that's the total length of our calldata (4 + 32 * 2)\\n                // Counterintuitively, this call() must be positioned after the or() in the\\n                // surrounding and() because and() evaluates its arguments from right to left.\\n                call(gas(), token, 0, 0, 68, 0, 32)\\n            )\\n\\n            mstore(0x60, 0) // Restore the zero slot to zero.\\n            mstore(0x40, memPointer) // Restore the memPointer.\\n        }\\n\\n        require(success, \\\"APPROVE_FAILED\\\");\\n    }\\n}\\n\",\"keccak256\":\"0x5f2e1158c68c1f3d15b80e8a7dd92b6849f873066969562ad33c0abb80e536ff\",\"license\":\"MIT\"}},\"version\":1}",
+  "bytecode": "0x60e060405234801561000f575f80fd5b5060405161082e38038061082e83398101604081905261002e916100d1565b6001600160a01b0380841660805260a0839052811660c05261004e610056565b505050610111565b5f54610100900460ff1615610069575f80fd5b5f5460ff908116146100b8575f805460ff191660ff9081179091556040519081527f7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb38474024989060200160405180910390a15b565b6001600160a01b03811681146100ce575f80fd5b50565b5f805f606084860312156100e3575f80fd5b83516100ee816100ba565b602085015160408601519194509250610106816100ba565b809150509250925092565b60805160a05160c0516106d261015c5f395f818160830152818161021b01526103c701525f818161016a01526102c901525f818160c7015281816101f9015261036001526106d25ff3fe608060405234801561000f575f80fd5b506004361061007a575f3560e01c8063836992751161005857806383699275146100f3578063c884ef8314610120578063dadb4ce914610152578063ebf0c71714610165575f80fd5b8063482879aa1461007e5780637965b636146100c25780638129fc1c146100e9575b5f80fd5b6100a57f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b0390911681526020015b60405180910390f35b6100a57f000000000000000000000000000000000000000000000000000000000000000081565b6100f161018c565b005b61011261010136600461051d565b60026020525f908152604090205481565b6040519081526020016100b9565b61014261012e36600461051d565b60016020525f908152604090205460ff1681565b60405190151581526020016100b9565b61011261016036600461054a565b610289565b6101127f000000000000000000000000000000000000000000000000000000000000000081565b5f54610100900460ff16158080156101aa57505f54600160ff909116105b806101c35750303b1580156101c357505f5460ff166001145b6101cb575f80fd5b5f805460ff1916600117905580156101ec575f805461ff0019166101001790555b6102416001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000167f00000000000000000000000000000000000000000000000000000000000000005f19610497565b8015610286575f805461ff0019169055604051600181527f7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb38474024989060200160405180910390a15b50565b335f9081526001602052604081205460ff16156102a8576102a86105d6565b604080513360208201526001600160801b0386169181019190915261030d907f00000000000000000000000000000000000000000000000000000000000000009060600160408051601f198184030181529190528051602090910120859185916104df565b610319576103196105d6565b335f818152600160208181526040808420805460ff1916909317909255815160e081018352308152808201949094526001600160801b038816848301526001600160a01b037f00000000000000000000000000000000000000000000000000000000000000008116606086015260808501849052825180840184528481526293a8008184015260a0860152825180840184528481529182019390935260c084015251631b4103a960e01b81527f000000000000000000000000000000000000000000000000000000000000000090911691631b4103a9916103fd91906004016105ea565b6020604051808303815f875af1158015610419573d5f803e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061043d9190610685565b335f8181526002602090815260409182902084905590516001600160801b038816815292935083927f34fcbac0073d7c3d388e51312faf357774904998eeb8fca628b9e6f65ee1cbf7910160405180910390a39392505050565b5f60405163095ea7b360e01b5f52836004528260245260205f60445f80895af13d15601f3d1160015f511416171691505f6060528060405250806104d9575f80fd5b50505050565b5f81858560051b81015b8082101561051057813580841160051b93845260209384185260405f2092909101906104e9565b5050909214949350505050565b5f6020828403121561052d575f80fd5b81356001600160a01b0381168114610543575f80fd5b9392505050565b5f805f6040848603121561055c575f80fd5b83356001600160801b0381168114610572575f80fd5b9250602084013567ffffffffffffffff8082111561058e575f80fd5b818601915086601f8301126105a1575f80fd5b8135818111156105af575f80fd5b8760208260051b85010111156105c3575f80fd5b6020830194508093505050509250925092565b634e487b7160e01b5f52600160045260245ffd5b5f6101208201905060018060a01b038084511683528060208501511660208401526001600160801b0360408501511660408401528060608501511660608401525060808301511515608083015260a083015164ffffffffff8082511660a08501528060208301511660c0850152505060c083015161067e60e084018280516001600160a01b03168252602090810151910152565b5092915050565b5f60208284031215610695575f80fd5b505191905056fea2646970667358221220e69ad31cba2f6fbc1c05d7b7586d4a3d33f2692845c4514e87ae63bed17a6cb264736f6c63430008170033",
+  "deployedBytecode": "0x608060405234801561000f575f80fd5b506004361061007a575f3560e01c8063836992751161005857806383699275146100f3578063c884ef8314610120578063dadb4ce914610152578063ebf0c71714610165575f80fd5b8063482879aa1461007e5780637965b636146100c25780638129fc1c146100e9575b5f80fd5b6100a57f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b0390911681526020015b60405180910390f35b6100a57f000000000000000000000000000000000000000000000000000000000000000081565b6100f161018c565b005b61011261010136600461051d565b60026020525f908152604090205481565b6040519081526020016100b9565b61014261012e36600461051d565b60016020525f908152604090205460ff1681565b60405190151581526020016100b9565b61011261016036600461054a565b610289565b6101127f000000000000000000000000000000000000000000000000000000000000000081565b5f54610100900460ff16158080156101aa57505f54600160ff909116105b806101c35750303b1580156101c357505f5460ff166001145b6101cb575f80fd5b5f805460ff1916600117905580156101ec575f805461ff0019166101001790555b6102416001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000167f00000000000000000000000000000000000000000000000000000000000000005f19610497565b8015610286575f805461ff0019169055604051600181527f7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb38474024989060200160405180910390a15b50565b335f9081526001602052604081205460ff16156102a8576102a86105d6565b604080513360208201526001600160801b0386169181019190915261030d907f00000000000000000000000000000000000000000000000000000000000000009060600160408051601f198184030181529190528051602090910120859185916104df565b610319576103196105d6565b335f818152600160208181526040808420805460ff1916909317909255815160e081018352308152808201949094526001600160801b038816848301526001600160a01b037f00000000000000000000000000000000000000000000000000000000000000008116606086015260808501849052825180840184528481526293a8008184015260a0860152825180840184528481529182019390935260c084015251631b4103a960e01b81527f000000000000000000000000000000000000000000000000000000000000000090911691631b4103a9916103fd91906004016105ea565b6020604051808303815f875af1158015610419573d5f803e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061043d9190610685565b335f8181526002602090815260409182902084905590516001600160801b038816815292935083927f34fcbac0073d7c3d388e51312faf357774904998eeb8fca628b9e6f65ee1cbf7910160405180910390a39392505050565b5f60405163095ea7b360e01b5f52836004528260245260205f60445f80895af13d15601f3d1160015f511416171691505f6060528060405250806104d9575f80fd5b50505050565b5f81858560051b81015b8082101561051057813580841160051b93845260209384185260405f2092909101906104e9565b5050909214949350505050565b5f6020828403121561052d575f80fd5b81356001600160a01b0381168114610543575f80fd5b9392505050565b5f805f6040848603121561055c575f80fd5b83356001600160801b0381168114610572575f80fd5b9250602084013567ffffffffffffffff8082111561058e575f80fd5b818601915086601f8301126105a1575f80fd5b8135818111156105af575f80fd5b8760208260051b85010111156105c3575f80fd5b6020830194508093505050509250925092565b634e487b7160e01b5f52600160045260245ffd5b5f6101208201905060018060a01b038084511683528060208501511660208401526001600160801b0360408501511660408401528060608501511660608401525060808301511515608083015260a083015164ffffffffff8082511660a08501528060208301511660c0850152505060c083015161067e60e084018280516001600160a01b03168252602090810151910152565b5092915050565b5f60208284031215610695575f80fd5b505191905056fea2646970667358221220e69ad31cba2f6fbc1c05d7b7586d4a3d33f2692845c4514e87ae63bed17a6cb264736f6c63430008170033",
+  "devdoc": {
+    "events": {
+      "Initialized(uint8)": {
+        "details": "Triggered when the contract has been initialized or reinitialized."
+      }
+    },
+    "kind": "dev",
+    "methods": {
+      "constructor": {
+        "custom:oz-upgrades-unsafe-allow": "constructor"
+      }
+    },
+    "stateVariables": {
+      "exa": {
+        "custom:oz-upgrades-unsafe-allow": "state-variable-immutable"
+      },
+      "root": {
+        "custom:oz-upgrades-unsafe-allow": "state-variable-immutable"
+      },
+      "sablier": {
+        "custom:oz-upgrades-unsafe-allow": "state-variable-immutable"
+      }
+    },
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 543,
+        "contract": "contracts/periphery/Airdrop.sol:Airdrop",
+        "label": "_initialized",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_uint8"
+      },
+      {
+        "astId": 546,
+        "contract": "contracts/periphery/Airdrop.sol:Airdrop",
+        "label": "_initializing",
+        "offset": 1,
+        "slot": "0",
+        "type": "t_bool"
+      },
+      {
+        "astId": 24134,
+        "contract": "contracts/periphery/Airdrop.sol:Airdrop",
+        "label": "claimed",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_mapping(t_address,t_bool)"
+      },
+      {
+        "astId": 24138,
+        "contract": "contracts/periphery/Airdrop.sol:Airdrop",
+        "label": "streams",
+        "offset": 0,
+        "slot": "2",
+        "type": "t_mapping(t_address,t_uint256)"
+      }
+    ],
+    "types": {
+      "t_address": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      },
+      "t_bool": {
+        "encoding": "inplace",
+        "label": "bool",
+        "numberOfBytes": "1"
+      },
+      "t_mapping(t_address,t_bool)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => bool)",
+        "numberOfBytes": "32",
+        "value": "t_bool"
+      },
+      "t_mapping(t_address,t_uint256)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => uint256)",
+        "numberOfBytes": "32",
+        "value": "t_uint256"
+      },
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      },
+      "t_uint8": {
+        "encoding": "inplace",
+        "label": "uint8",
+        "numberOfBytes": "1"
+      }
+    }
+  }
+}
