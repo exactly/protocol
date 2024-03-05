@@ -30,7 +30,11 @@ const hardhatConfig: Config = {
       url: env.ETHEREUM_NODE ?? "",
     },
     optimism: { priceDecimals: 8, timelockDelay: 24 * 3_600, url: env.OPTIMISM_NODE ?? "" },
-    "op-sepolia": { priceDecimals: 8, url: env.OP_SEPOLIA_NODE ?? "" },
+    "op-sepolia": {
+      priceDecimals: 8,
+      finance: { escrow: { vestingPeriod: 7 * 86_400, reserveRatio: 0.25 } },
+      url: env.OP_SEPOLIA_NODE ?? "",
+    },
   },
   namedAccounts: {
     deployer: {
