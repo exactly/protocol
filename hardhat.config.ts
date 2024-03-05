@@ -430,17 +430,20 @@ declare module "hardhat/types/config" {
     priceDecimals: number;
     timelockDelay?: number;
     finance?: Partial<FinanceConfig>;
+    sunset?: boolean;
   }
 
   export interface HardhatNetworkConfig {
     priceDecimals: number;
     timelockDelay: undefined;
     finance: FinanceConfig;
+    sunset: undefined;
   }
 
   export interface HttpNetworkConfig {
     priceDecimals: number;
     timelockDelay?: number;
     finance: FinanceConfig;
+    sunset?: boolean;
   }
 }
