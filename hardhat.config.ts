@@ -24,6 +24,7 @@ const hardhatConfig: Config = {
   },
   networks: {
     ethereum: {
+      sunset: true,
       priceDecimals: 18,
       timelockDelay: 24 * 3_600,
       finance: { treasuryFeeRate: 0, futurePools: 3 },
