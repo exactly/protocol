@@ -19,12 +19,16 @@ contract InstallmentsRouter {
   using SafeERC20 for IERC20PermitUpgradeable;
 
   /// @notice Auditor contract that lists the markets that can be borrowed.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
   /// @notice Market for the WETH asset.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Market public immutable marketWETH;
   /// @notice WETH token.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   WETH public immutable weth;
 
+  /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(Auditor auditor_, Market marketWETH_) {
     auditor = auditor_;
     marketWETH = marketWETH_;
