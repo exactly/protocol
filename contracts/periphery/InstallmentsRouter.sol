@@ -148,7 +148,9 @@ contract InstallmentsRouter {
   /// @param market The Market to call permit on.
   /// @param p Arguments for the permit call.
   modifier permit(Market market, Permit calldata p) {
-    IERC20PermitUpgradeable(address(market)).safePermit(msg.sender, address(this), p.value, p.deadline, p.v, p.r, p.s);
+    try
+      IERC20PermitUpgradeable(address(market)).permit(msg.sender, address(this), p.value, p.deadline, p.v, p.r, p.s)
+    {} catch {} // solhint-disable no-empty-blocks
     _;
   }
 }
