@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17; // solhint-disable-line one-contract-per-file
 
-import { Test } from "forge-std/Test.sol";
+import { Test, stdError } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
@@ -15,15 +15,12 @@ import {
   Auditor,
   Disagreement,
   MarketNotListed,
-  FixedPointMathLib,
   InstallmentsRouter
 } from "../contracts/periphery/InstallmentsRouter.sol";
 
 import { FixedLib, UnmatchedPoolState } from "../contracts/utils/FixedLib.sol";
 
 contract InstallmentsRouterTest is Test {
-  using FixedPointMathLib for uint256;
-
   Auditor internal auditor;
   Market internal market;
   Market internal marketWETH;
@@ -121,9 +118,10 @@ contract InstallmentsRouterTest is Test {
 
   function testFakeMarket() external {
     uint256 maturity = FixedLib.INTERVAL;
-    uint256[] memory amounts = new uint256[](1);
+    uint256[] memory amounts = new uint256[](2);
     amounts[0] = 10_000e6;
-    Market fake = Market(address(new FakeMarket()));
+    amounts[1] = 10_000e6;
+    Market fake = Market(address(0));
     vm.expectRevert(abi.encodeWithSelector(MarketNotListed.selector));
     router.borrow(fake, maturity, amounts, type(uint256).max);
   }
@@ -152,19 +150,6 @@ contract InstallmentsRouterTest is Test {
       abi.encodeWithSelector(UnmatchedPoolState.selector, FixedLib.State.NOT_READY, FixedLib.State.VALID)
     );
     router.borrow(market, maturity, amounts, type(uint256).max);
-  }
-
-  function testEmitBorrowEvent() external {
-    uint256 maturity = FixedLib.INTERVAL;
-    uint256[] memory amounts = new uint256[](3);
-    amounts[0] = 10_000e6;
-    amounts[1] = 10_000e6;
-    amounts[2] = 10_000e6;
-    uint256 maxRepay = 31_000e6;
-
-    vm.expectEmit(true, true, true, false, address(router));
-    emit Borrow(market, maturity, amounts, new uint256[](3), address(this));
-    router.borrow(market, maturity, amounts, maxRepay);
   }
 
   function testBorrowUnwrappedETH() external {
@@ -268,11 +253,18 @@ contract InstallmentsRouterTest is Test {
     assertEq(bob.balance, balanceBefore + 30_000e18, "borrow != expected");
   }
 
-  event Borrow(Market market, uint256 maturity, uint256[] amounts, uint256[] assetsOwed, address indexed borrower);
-}
+  function testAmountsLength() external {
+    uint256 maturity = FixedLib.INTERVAL;
+    uint256[] memory amounts = new uint256[](1);
+    amounts[0] = 10_000e6;
 
-contract FakeMarket {
-  function borrowAtMaturity(uint256, uint256, uint256, address, address) external pure returns (uint256) {
-    return 0;
+    vm.expectRevert(stdError.assertionError);
+    router.borrow(market, maturity, amounts, type(uint256).max);
+  }
+
+  function testMissingMarketWETH() external {
+    router = new InstallmentsRouter(auditor, Market(address(0)));
+    vm.expectRevert(abi.encodeWithSelector(MarketNotListed.selector));
+    router.borrowETH(FixedLib.INTERVAL, new uint256[](3), type(uint256).max);
   }
 }
