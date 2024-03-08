@@ -24,6 +24,7 @@ import {
   ZeroDeposit,
   ZeroWithdraw,
   Disagreement,
+  MarketFrozen,
   InsufficientProtocolLiquidity
 } from "../contracts/Market.sol";
 
@@ -2697,6 +2698,111 @@ contract MarketTest is Test {
     assertTrue(market.hasRole(market.PAUSER_ROLE(), address(this)));
   }
 
+  function testInitiallyUnfrozen() external {
+    assertFalse(market.isFrozen());
+  }
+
+  function testOnlyAdminCanFreezeUnfreeze() external {
+    vm.startPrank(BOB);
+    vm.expectRevert(bytes(""));
+    market.setFrozen(false);
+    vm.expectRevert(bytes(""));
+    market.setFrozen(false);
+    vm.stopPrank();
+
+    market.setFrozen(true);
+    assertTrue(market.isFrozen());
+    market.setFrozen(false);
+    assertFalse(market.isFrozen());
+  }
+
+  function testDepositWhenFrozen() external {
+    market.setFrozen(true);
+    vm.expectRevert(MarketFrozen.selector);
+    market.deposit(10 ether, address(this));
+  }
+
+  function testDepositAtMaturityWhenFrozen() external {
+    market.setFrozen(true);
+    vm.expectRevert(MarketFrozen.selector);
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
+  }
+
+  function testDepositAfterFreezing() external {
+    market.setFrozen(true);
+    market.setFrozen(false);
+    market.deposit(10 ether, address(this));
+  }
+
+  function testDepositAtMaturityAfterFreezing() external {
+    market.setFrozen(true);
+    market.setFrozen(false);
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
+  }
+
+  function testBorrowWhenFrozen() external {
+    market.setFrozen(true);
+    vm.expectRevert(MarketFrozen.selector);
+    market.borrow(1 ether, address(this), address(this));
+  }
+
+  function testBorrowAtMaturityWhenFrozen() external {
+    market.setFrozen(true);
+    vm.expectRevert(MarketFrozen.selector);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this), address(this));
+  }
+
+  function testBorrowAfterFreezing() external {
+    market.deposit(2 ether, address(this));
+    market.setFrozen(true);
+    market.setFrozen(false);
+    market.borrow(1 ether, address(this), address(this));
+  }
+
+  function testBorrowAtMaturityAfterFreezing() external {
+    market.deposit(2 ether, address(this));
+    market.setFrozen(true);
+    market.setFrozen(false);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
+  }
+
+  function testRepayWhenFrozen() external {
+    market.deposit(2 ether, address(this));
+    market.borrow(1 ether, address(this), address(this));
+    market.setFrozen(true);
+    market.repay(1 ether, address(this));
+  }
+
+  function testWithdrawWhenFrozen() external {
+    market.deposit(2 ether, address(this));
+    market.setFrozen(true);
+    market.withdraw(2 ether, address(this), address(this));
+  }
+
+  function testLiquidateWhenFrozen() external {
+    market.deposit(10 ether, address(this));
+    marketWETH.deposit(1 ether, BOB);
+    daiPriceFeed.setPrice(0.0001e18);
+    vm.startPrank(BOB);
+    auditor.enterMarket(marketWETH);
+    market.borrow(5 ether, BOB, BOB);
+    vm.stopPrank();
+
+    market.setFrozen(true);
+    daiPriceFeed.setPrice(0.2e18);
+    market.liquidate(BOB, 1 ether, marketWETH);
+  }
+
+  function testEmitFrozen() external {
+    vm.expectEmit(true, true, true, true, address(market));
+    emit Frozen(address(this), true);
+    market.setFrozen(true);
+
+    vm.expectEmit(true, true, true, true, address(market));
+    emit Frozen(address(this), false);
+    market.setFrozen(false);
+  }
+
   event MarketUpdate(
     uint256 timestamp,
     uint256 floatingDepositShares,
@@ -2755,6 +2861,7 @@ contract MarketTest is Test {
     uint256 seizedAssets
   );
   event SpreadBadDebt(address indexed borrower, uint256 assets);
+  event Frozen(address account, bool isFrozen);
 }
 
 contract MarketHarness is Market {

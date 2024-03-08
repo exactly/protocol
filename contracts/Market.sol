@@ -89,6 +89,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Address of the rewards controller that will accrue rewards for accounts operating with the Market.
   RewardsController public rewardsController;
 
+  /// @notice Flag to prevent new borrows and deposits.
+  bool public isFrozen;
+
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
     auditor = auditor_;
@@ -138,7 +141,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 assets,
     address receiver,
     address borrower
-  ) external whenNotPaused returns (uint256 borrowShares) {
+  ) external whenNotPaused whenNotFrozen returns (uint256 borrowShares) {
     spendAllowance(borrower, assets);
 
     RewardsController memRewardsController = rewardsController;
@@ -231,7 +234,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 assets,
     uint256 minAssetsRequired,
     address receiver
-  ) external whenNotPaused returns (uint256 positionAssets) {
+  ) external whenNotPaused whenNotFrozen returns (uint256 positionAssets) {
     if (assets == 0) revert ZeroDeposit();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
@@ -281,7 +284,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 maxAssets,
     address receiver,
     address borrower
-  ) external whenNotPaused returns (uint256 assetsOwed) {
+  ) external whenNotPaused whenNotFrozen returns (uint256 assetsOwed) {
     if (assets == 0) revert ZeroBorrow();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
@@ -704,7 +707,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be deposited to the floating pool.
-  function afterDeposit(uint256 assets, uint256) internal override whenNotPaused {
+  function afterDeposit(uint256 assets, uint256) internal override whenNotPaused whenNotFrozen {
     updateFloatingAssetsAverage();
     uint256 treasuryFee = updateFloatingDebt();
     uint256 earnings = accrueAccumulatedEarnings();
@@ -1122,6 +1125,20 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     _unpause();
   }
 
+  function setFrozen(bool isFrozen_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    isFrozen = isFrozen_;
+    emit Frozen(msg.sender, isFrozen_);
+  }
+
+  function requireNotFrozen() internal view {
+    if (isFrozen) revert MarketFrozen();
+  }
+
+  modifier whenNotFrozen() {
+    requireNotFrozen();
+    _;
+  }
+
   /// @notice Event emitted when an account borrows amount of assets from a floating pool.
   /// @param caller address which borrowed the asset.
   /// @param receiver address that received the borrowed assets.
@@ -1300,6 +1317,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param utilization new floating utilization.
   event FloatingDebtUpdate(uint256 timestamp, uint256 utilization);
 
+  /// @notice Emitted when `account` sets the `isFrozen` flag.
+  event Frozen(address account, bool isFrozen);
+
   /// @notice Stores fixed deposits and fixed borrows map and floating borrow shares of an account.
   /// @param fixedDeposits encoded map maturity dates where the account supplied to.
   /// @param fixedBorrows encoded map maturity dates where the account borrowed from.
@@ -1313,6 +1333,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
 error Disagreement();
 error InsufficientProtocolLiquidity();
+error MarketFrozen();
 error NotAuditor();
 error SelfLiquidation();
 error ZeroBorrow();
