@@ -25,6 +25,7 @@ import {
   ZeroWithdraw,
   Disagreement,
   MarketFrozen,
+  NotPausingRole,
   InsufficientProtocolLiquidity
 } from "../contracts/Market.sol";
 
@@ -2801,6 +2802,29 @@ contract MarketTest is Test {
     vm.expectEmit(true, true, true, true, address(market));
     emit Frozen(address(this), false);
     market.setFrozen(false);
+  }
+
+  function testEmergencyAdminRole() external {
+    assertFalse(market.hasRole(market.EMERGENCY_ADMIN_ROLE(), address(this)));
+    vm.expectRevert(NotPausingRole.selector);
+    market.pause();
+
+    market.grantRole(market.EMERGENCY_ADMIN_ROLE(), address(this));
+    assertFalse(market.paused());
+    // emergency admin can pause without having the pauser role
+    assertFalse(market.hasRole(market.PAUSER_ROLE(), address(this)));
+    market.pause();
+    assertTrue(market.paused());
+
+    // but emergency admin can not unpause
+    vm.expectRevert(bytes(""));
+    market.unpause();
+
+    // pauser can unpause
+    market.grantRole(market.PAUSER_ROLE(), address(this));
+    assertTrue(market.hasRole(market.PAUSER_ROLE(), address(this)));
+    market.unpause();
+    assertFalse(market.paused());
   }
 
   event MarketUpdate(

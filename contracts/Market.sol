@@ -22,6 +22,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   using FixedLib for uint256;
 
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+  bytes32 public constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN_ROLE");
 
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
@@ -1116,7 +1117,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Sets the pause state to true in case of emergency, triggered by an authorized account.
-  function pause() external onlyRole(PAUSER_ROLE) {
+  function pause() external onlyPausingRoles {
     _pause();
   }
 
@@ -1136,6 +1137,17 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   modifier whenNotFrozen() {
     requireNotFrozen();
+    _;
+  }
+
+  function requirePausingRoles() internal view {
+    if (!hasRole(EMERGENCY_ADMIN_ROLE, msg.sender) && !hasRole(PAUSER_ROLE, msg.sender)) {
+      revert NotPausingRole();
+    }
+  }
+
+  modifier onlyPausingRoles() {
+    requirePausingRoles();
     _;
   }
 
@@ -1335,6 +1347,7 @@ error Disagreement();
 error InsufficientProtocolLiquidity();
 error MarketFrozen();
 error NotAuditor();
+error NotPausingRole();
 error SelfLiquidation();
 error ZeroBorrow();
 error ZeroDeposit();
