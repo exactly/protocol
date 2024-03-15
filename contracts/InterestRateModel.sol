@@ -99,7 +99,7 @@ contract InterestRateModel {
   /// @param uFixed fixed utilization of the pool.
   /// @param uFloating floating utilization of the pool.
   /// @param uGlobal global utilization of the pool.
-  /// @return the minimum between `floatingRate` and `maxRate` with given conditions.
+  /// @return the minimum between `base * spread` and `maxRate` with given conditions.
   function fixedRate(
     uint256 maturity,
     uint256 maxPools,
