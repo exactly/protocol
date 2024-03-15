@@ -203,13 +203,7 @@ contract InterestRateModel {
   ) external view returns (uint256) {
     if (block.timestamp >= maturity) revert AlreadyMatured();
     uint256 floatingAssets = previewFloatingAssetsAverage(maturity);
-    uint256 backupBorrowed = market.floatingBackupBorrowed();
-    uint256 floatingDebt = totalFloatingBorrowAssets(
-      floatingAssets,
-      market.floatingDebt(),
-      backupBorrowed,
-      market.lastFloatingDebtUpdate()
-    );
+    uint256 floatingDebt = market.totalFloatingBorrowAssets();
     uint256 newBorrowed = borrowed + amount;
     uint256 backupDebtAddition = newBorrowed - Math.min(Math.max(borrowed, supplied), newBorrowed);
 
@@ -219,21 +213,15 @@ contract InterestRateModel {
         market.maxFuturePools(),
         fixedUtilization(supplied, newBorrowed, floatingAssets),
         floatingAssets != 0 ? floatingDebt.divWadUp(floatingAssets) : 0,
-        globalUtilization(floatingAssets, floatingDebt, backupBorrowed + backupDebtAddition)
+        globalUtilization(floatingAssets, floatingDebt, market.floatingBackupBorrowed() + backupDebtAddition)
       ).mulDivDown(maturity - block.timestamp, 365 days);
   }
 
   /// @dev deprecated in favor of `fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal)`
   function minFixedRate(uint256, uint256, uint256) external view returns (uint256 rate, uint256 utilization) {
     uint256 floatingAssets = market.floatingAssetsAverage();
-    uint256 backupBorrowed = market.floatingBackupBorrowed();
-    uint256 floatingDebt = totalFloatingBorrowAssets(
-      floatingAssets,
-      market.floatingDebt(),
-      backupBorrowed,
-      market.lastFloatingDebtUpdate()
-    );
-    utilization = globalUtilization(floatingAssets, floatingDebt, backupBorrowed);
+    uint256 floatingDebt = market.totalFloatingBorrowAssets();
+    utilization = globalUtilization(floatingAssets, floatingDebt, market.floatingBackupBorrowed());
     rate = baseRate(floatingAssets != 0 ? floatingDebt.divWadUp(floatingAssets) : 0, utilization);
   }
 
@@ -252,22 +240,6 @@ contract InterestRateModel {
         )
       ).expWad()).toUint256();
     return memFloatingAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(memFloatingAssets);
-  }
-
-  function totalFloatingBorrowAssets(
-    uint256 floatingAssets,
-    uint256 floatingDebt,
-    uint256 backupBorrowed,
-    uint256 lastFloatingDebtUpdate
-  ) internal view returns (uint256) {
-    return
-      floatingDebt +
-      floatingDebt.mulWadDown(
-        floatingRate(
-          floatingAssets != 0 ? floatingDebt.divWadUp(floatingAssets) : 0,
-          globalUtilization(floatingAssets, floatingDebt, backupBorrowed)
-        ).mulDivDown(block.timestamp - lastFloatingDebtUpdate, 365 days)
-      );
   }
 
   function globalUtilization(
