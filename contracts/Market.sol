@@ -1126,26 +1126,31 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     _unpause();
   }
 
+  /// @notice Sets `isFrozen` state, triggered by an authorized account.
   function setFrozen(bool isFrozen_) external onlyRole(DEFAULT_ADMIN_ROLE) {
     isFrozen = isFrozen_;
     emit Frozen(msg.sender, isFrozen_);
   }
 
+  /// @dev Throws if the market is frozen.
   function requireNotFrozen() internal view {
     if (isFrozen) revert MarketFrozen();
   }
 
+  /// @dev Modifier to make a function callable only when the market is not frozen.
   modifier whenNotFrozen() {
     requireNotFrozen();
     _;
   }
 
+  /// @dev Throws if the caller is not an `EMERGENCY_ADMIN_ROLE` or `PAUSER_ROLE`.
   function requirePausingRoles() internal view {
     if (!hasRole(EMERGENCY_ADMIN_ROLE, msg.sender) && !hasRole(PAUSER_ROLE, msg.sender)) {
       revert NotPausingRole();
     }
   }
 
+  /// @dev Modifier to make a function callable only by pausing roles.
   modifier onlyPausingRoles() {
     requirePausingRoles();
     _;
