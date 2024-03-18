@@ -294,7 +294,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     {
       uint256 backupDebtAddition = pool.borrow(assets);
-      if (backupDebtAddition > 0) {
+      if (backupDebtAddition != 0) {
         uint256 newFloatingBackupBorrowed = floatingBackupBorrowed + backupDebtAddition;
         depositToTreasury(updateFloatingDebt());
         if (newFloatingBackupBorrowed + floatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
@@ -336,7 +336,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         chargeTreasuryFee(fee),
         assets
       );
-      if (newUnassignedEarnings > 0) pool.unassignedEarnings += newUnassignedEarnings;
+      if (newUnassignedEarnings != 0) pool.unassignedEarnings += newUnassignedEarnings;
       collectFreeLunch(newBackupEarnings);
 
       fixedBorrowPositions[maturity][borrower] = FixedLib.Position(position.principal + assets, position.fee + fee);
@@ -584,9 +584,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       }
     }
 
-    if (maxAssets > 0 && account.floatingBorrowShares > 0) {
+    if (maxAssets != 0 && account.floatingBorrowShares != 0) {
       uint256 borrowShares = previewRepay(maxAssets);
-      if (borrowShares > 0) {
+      if (borrowShares != 0) {
         (uint256 actualRepayAssets, ) = noTransferRefund(borrowShares, borrower);
         repaidAssets += actualRepayAssets;
       }
@@ -643,11 +643,11 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       packedMaturities >>= 1;
       maturity += FixedLib.INTERVAL;
     }
-    if (account.floatingBorrowShares > 0 && (accumulator = previewRepay(accumulator)) > 0) {
+    if (account.floatingBorrowShares != 0 && (accumulator = previewRepay(accumulator)) != 0) {
       (uint256 badDebt, ) = noTransferRefund(accumulator, borrower);
       totalBadDebt += badDebt;
     }
-    if (totalBadDebt > 0) {
+    if (totalBadDebt != 0) {
       earningsAccumulator -= totalBadDebt;
       emit SpreadBadDebt(borrower, totalBadDebt);
     }
@@ -813,7 +813,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     }
     // calculate floating borrowed debt
     uint256 shares = account.floatingBorrowShares;
-    if (shares > 0) debt += previewRefund(shares);
+    if (shares != 0) debt += previewRefund(shares);
   }
 
   /// @notice Charges treasury fee to certain amount of earnings.
@@ -830,7 +830,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function collectFreeLunch(uint256 earnings) internal {
     if (earnings == 0) return;
 
-    if (treasuryFeeRate > 0) {
+    if (treasuryFeeRate != 0) {
       depositToTreasury(earnings);
     } else {
       earningsAccumulator += earnings;
@@ -840,7 +840,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Deposits amount of assets on behalf of the treasury address.
   /// @param fee amount of assets to be deposited.
   function depositToTreasury(uint256 fee) internal {
-    if (fee > 0) {
+    if (fee != 0) {
       _mint(treasury, previewDeposit(fee));
       floatingAssets += fee;
     }
