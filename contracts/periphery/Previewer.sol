@@ -375,6 +375,7 @@ contract Previewer {
 
   function fixedPools(Market market) internal view returns (FixedPool[] memory pools) {
     FixedPoolVars memory f;
+    f.totalFloatingBorrowAssets = market.totalFloatingBorrowAssets();
     f.freshFloatingDebt = newFloatingDebt(market);
     f.maxFuturePools = market.maxFuturePools();
     pools = new FixedPool[](f.maxFuturePools);
@@ -390,15 +391,14 @@ contract Previewer {
       f.optimalDeposit = pool.borrowed - Math.min(pool.borrowed, pool.supplied);
       pool.unassignedEarnings -= f.backupEarnings;
       f.liquidity = (market.floatingAssets() + f.freshFloatingDebt).mulWadDown(1e18 - market.reserveFactor());
-      f.floatingUtilization = f.floatingAssetsAverage > 0 ? f.freshFloatingDebt.divWadUp(f.floatingAssetsAverage) : 0;
+      f.floatingUtilization = f.floatingAssetsAverage > 0
+        ? f.totalFloatingBorrowAssets.divWadUp(f.floatingAssetsAverage)
+        : 0;
       f.fixedUtilization = f.floatingAssetsAverage > 0 && pool.borrowed > pool.supplied
         ? (pool.borrowed - pool.supplied).divWadUp(f.floatingAssetsAverage)
         : 0;
-      f.globalUtilization = f.floatingAssetsAverage > 0
-        ? 1e18 -
-          (f.floatingAssetsAverage - f.freshFloatingDebt - market.floatingBackupBorrowed()).divWadDown(
-            f.floatingAssetsAverage
-          )
+      f.globalUtilization = f.floatingAssetsAverage != 0
+        ? (f.totalFloatingBorrowAssets + market.floatingBackupBorrowed()).divWadUp(f.floatingAssetsAverage)
         : 0;
       pools[i] = FixedPool({
         maturity: f.maturity,
@@ -658,6 +658,7 @@ contract Previewer {
     uint256 floatingUtilization;
     uint256 fixedUtilization;
     uint256 globalUtilization;
+    uint256 totalFloatingBorrowAssets;
   }
 }
 
