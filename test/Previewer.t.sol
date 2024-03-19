@@ -2176,6 +2176,12 @@ contract PreviewerTest is Test {
     assertEq(data[0].isCollateral, false);
   }
 
+  function testReserveFactor() external {
+    market.setReserveFactor(0.05e18);
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].reserveFactor, market.reserveFactor());
+  }
+
   function previewFloatingAssetsAverage(uint256 maturity) internal view returns (uint256) {
     (, , uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(maturity);
     uint256 floatingDepositAssets = market.floatingAssets() +

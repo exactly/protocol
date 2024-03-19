@@ -37,6 +37,7 @@ contract Previewer {
     uint256 penaltyRate;
     uint256 adjustFactor;
     uint8 maxFuturePools;
+    uint256 reserveFactor;
     FixedPool[] fixedPools;
     RewardRate[] rewardRates;
     uint256 floatingBorrowRate;
@@ -143,6 +144,7 @@ contract Previewer {
         penaltyRate: market.penaltyRate(),
         adjustFactor: m.adjustFactor,
         maxFuturePools: market.maxFuturePools(),
+        reserveFactor: market.reserveFactor(),
         fixedPools: fixedPools(market),
         rewardRates: rewardRates(market, basePrice),
         floatingBorrowRate: irm.floatingRate(0),
