@@ -385,10 +385,9 @@ contract Previewer {
         f.maturity - pool.lastAccrual
       );
       f.floatingAssetsAverage = previewFloatingAssetsAverage(market, f.backupEarnings);
-      f.floatingAssets = market.floatingAssets();
       f.optimalDeposit = pool.borrowed - Math.min(pool.borrowed, pool.supplied);
       pool.unassignedEarnings -= f.backupEarnings;
-      f.liquidity = (f.floatingAssets + f.freshFloatingDebt).mulWadDown(1e18 - market.reserveFactor());
+      f.liquidity = (market.floatingAssets() + f.freshFloatingDebt).mulWadDown(1e18 - market.reserveFactor());
       f.floatingUtilization = f.floatingAssetsAverage > 0 ? f.freshFloatingDebt.divWadUp(f.floatingAssetsAverage) : 0;
       f.fixedUtilization = f.floatingAssetsAverage > 0 && pool.borrowed > pool.supplied
         ? (pool.borrowed - pool.supplied).divWadUp(f.floatingAssetsAverage)
@@ -649,7 +648,6 @@ contract Previewer {
   struct FixedPoolVars {
     uint256 floatingAssetsAverage;
     uint256 freshFloatingDebt;
-    uint256 floatingAssets;
     uint256 optimalDeposit;
     uint256 backupEarnings;
     uint256 maxFuturePools;
