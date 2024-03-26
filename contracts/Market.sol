@@ -103,6 +103,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Initializes the contract.
   /// @dev can only be called once.
   function initialize(
+    string calldata name_,
+    string calldata symbol_,
     uint8 maxFuturePools_,
     uint128 earningsAccumulatorSmoothFactor_,
     InterestRateModel interestRateModel_,
@@ -115,15 +117,13 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     __AccessControl_init();
     __Pausable_init();
 
-    string memory assetSymbol = asset.symbol();
-    name = string.concat("exactly ", assetSymbol);
-    symbol = string.concat("exa", assetSymbol);
     lastAccumulatorAccrual = uint32(block.timestamp);
     lastFloatingDebtUpdate = uint32(block.timestamp);
     lastAverageUpdate = uint32(block.timestamp);
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
+    setName(name_, symbol_);
     setMaxFuturePools(maxFuturePools_);
     setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
     setInterestRateModel(interestRateModel_);
@@ -1036,6 +1036,14 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @dev Internal function to avoid code duplication.
   function emitFixedEarningsUpdate(uint256 maturity) internal {
     emit FixedEarningsUpdate(block.timestamp, maturity, fixedPools[maturity].unassignedEarnings);
+  }
+
+  /// @notice Sets name and symbol for the Market.
+  /// @param name_ the name for the Market.
+  /// @param symbol_ the symbol for the Market.
+  function setName(string calldata name_, string calldata symbol_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    name = name_;
+    symbol = symbol_;
   }
 
   /// @notice Sets the rate charged to the fixed depositors that the floating pool suppliers will retain for initially
