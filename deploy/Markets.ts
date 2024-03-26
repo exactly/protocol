@@ -56,6 +56,7 @@ const func: DeployFunction = async ({
               init: {
                 methodName: "initialize",
                 args: [
+                  symbol,
                   finance.futurePools,
                   earningsAccumulatorSmoothFactor,
                   ZeroAddress, // irm

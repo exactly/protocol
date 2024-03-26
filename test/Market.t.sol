@@ -56,12 +56,23 @@ contract MarketTest is Test {
     irm = new MockInterestRateModel(0.1e18);
 
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
-    market.initialize(3, 1e18, InterestRateModel(address(irm)), 0.02e18 / uint256(1 days), 1e17, 0, 0.0046e18, 0.42e18);
+    market.initialize(
+      "DAI",
+      3,
+      1e18,
+      InterestRateModel(address(irm)),
+      0.02e18 / uint256(1 days),
+      1e17,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     vm.label(address(market), "MarketDAI");
     daiPriceFeed = new MockPriceFeed(18, 1e18);
 
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "WETH",
       12,
       1e18,
       InterestRateModel(address(irm)),
@@ -728,6 +739,7 @@ contract MarketTest is Test {
     MockERC20 usdc = new MockERC20("USD Coin", "USDC", 6);
     Market marketUSDC = Market(address(new ERC1967Proxy(address(new Market(usdc, auditor)), "")));
     marketUSDC.initialize(
+      "USDC.e",
       3,
       1e18,
       InterestRateModel(address(irm)),
@@ -2446,6 +2458,7 @@ contract MarketTest is Test {
     MockStETH stETH = new MockStETH(1090725952265553962);
     Market marketStETH = Market(address(new ERC1967Proxy(address(new Market(stETH, auditor)), "")));
     marketStETH.initialize(
+      "",
       3,
       1e18,
       InterestRateModel(address(irm)),
@@ -2479,6 +2492,7 @@ contract MarketTest is Test {
     MockERC20 wbtc = new MockERC20("WBTC", "WBTC", 8);
     Market marketWBTC = Market(address(new ERC1967Proxy(address(new Market(wbtc, auditor)), "")));
     marketWBTC.initialize(
+      "WBTC",
       3,
       1e18,
       InterestRateModel(address(irm)),
@@ -2515,6 +2529,7 @@ contract MarketTest is Test {
       MockERC20 asset = new MockERC20(symbols[i], symbols[i], 18);
       markets[i] = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
       markets[i].initialize(
+        "",
         3,
         1e18,
         InterestRateModel(address(irm)),
@@ -2825,6 +2840,18 @@ contract MarketTest is Test {
     assertTrue(market.hasRole(market.PAUSER_ROLE(), address(this)));
     market.unpause();
     assertFalse(market.paused());
+  }
+
+  function testSetAssetSymbol() external {
+    market.setAssetSymbol("TEST");
+    assertEq(market.symbol(), "exaTEST");
+    assertEq(market.name(), "exactly TEST");
+  }
+
+  function testSetAssetSymbolNotAdmin() external {
+    vm.prank(BOB);
+    vm.expectRevert(bytes(""));
+    market.setAssetSymbol("TEST");
   }
 
   event MarketUpdate(

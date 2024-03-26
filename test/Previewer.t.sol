@@ -59,7 +59,7 @@ contract PreviewerTest is Test {
       }),
       market
     );
-    market.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    market.initialize("", 12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
     vm.label(address(market), "MarketDAI");
     auditor.enableMarket(market, daiPriceFeed, 0.8e18);
 
@@ -444,6 +444,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "",
       12,
       1e18,
       new InterestRateModel(
@@ -557,6 +558,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "WETH",
       12,
       1e18,
       new InterestRateModel(
@@ -707,6 +709,7 @@ contract PreviewerTest is Test {
     weth.mint(address(this), 1_000 ether);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "WETH",
       12,
       1e18,
       new InterestRateModel(
@@ -880,6 +883,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "WETH",
       12,
       1e18,
       new InterestRateModel(
@@ -1214,6 +1218,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "WETH",
       12,
       1e18,
       new InterestRateModel(
@@ -1294,6 +1299,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "WETH",
       12,
       1e18,
       new InterestRateModel(
@@ -1346,6 +1352,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "WETH",
       12,
       1e18,
       new InterestRateModel(
@@ -1410,6 +1417,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "WETH",
       12,
       1e18,
       new InterestRateModel(
@@ -1529,6 +1537,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "WETH",
       12,
       1e18,
       new InterestRateModel(
@@ -1578,6 +1587,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "WETH",
       12,
       1e18,
       new InterestRateModel(
@@ -1899,6 +1909,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "WETH",
       12,
       1e18,
       new InterestRateModel(
@@ -1937,6 +1948,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "WETH",
       12,
       1e18,
       new InterestRateModel(

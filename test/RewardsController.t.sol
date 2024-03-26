@@ -44,6 +44,7 @@ contract RewardsControllerTest is Test {
 
     marketUSDC = Market(address(new ERC1967Proxy(address(new Market(usdc, auditor)), "")));
     marketUSDC.initialize(
+      "USDC.e",
       3,
       1e18,
       InterestRateModel(address(irm)),
@@ -58,6 +59,7 @@ contract RewardsControllerTest is Test {
 
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
+      "WETH",
       3,
       1e18,
       InterestRateModel(address(irm)),
@@ -72,6 +74,7 @@ contract RewardsControllerTest is Test {
 
     marketWBTC = Market(address(new ERC1967Proxy(address(new Market(wbtc, auditor)), "")));
     marketWBTC.initialize(
+      "WBTC",
       3,
       1e18,
       InterestRateModel(address(irm)),
@@ -1528,7 +1531,17 @@ contract RewardsControllerTest is Test {
     MockERC20 rewardAsset = new MockERC20("Reward", "RWD", 10);
     MockERC20 asset = new MockERC20("Asset", "AST", 6);
     Market market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
-    market.initialize(3, 1e18, InterestRateModel(address(irm)), 0.02e18 / uint256(1 days), 1e17, 0, 0.0046e18, 0.42e18);
+    market.initialize(
+      "AST",
+      3,
+      1e18,
+      InterestRateModel(address(irm)),
+      0.02e18 / uint256(1 days),
+      1e17,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     auditor.enableMarket(market, new MockPriceFeed(18, 1e18), 0.8e18);
 
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);

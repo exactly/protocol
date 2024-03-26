@@ -150,6 +150,7 @@ export class DefaultEnv {
         await marketProxy.waitForDeployment();
         const market = new Contract(marketProxy.target as string, Market.interface, owner) as unknown as Market;
         await market.initialize(
+          symbol,
           12,
           parseUnits("1"),
           interestRateModel.target,
