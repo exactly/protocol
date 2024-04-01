@@ -25,8 +25,8 @@ describe("RewardsController", function () {
     await deployments.fixture("Markets");
 
     op = await getContract<MockERC20>("OP", alice);
-    usdc = await getContract<MockERC20>("USDC", alice);
-    marketUSDC = await getContract<Market>("MarketUSDC", alice);
+    usdc = await getContract<MockERC20>("USDC.e", alice);
+    marketUSDC = await getContract<Market>("MarketUSDC.e", alice);
     rewardsController = await getContract<RewardsController>("RewardsController", alice);
 
     await op.mint(rewardsController.target, parseUnits("600000"));

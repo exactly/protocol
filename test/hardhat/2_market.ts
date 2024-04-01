@@ -53,6 +53,15 @@ describe("Market", function () {
     await provider.send("evm_increaseTime", [9_011]);
   });
 
+  describe("name and symbol", () => {
+    it("WHEN calling symbol and name THEN returns the expected symbol and name", async () => {
+      const marketUSDC = await getContract<Market>("MarketUSDC.e");
+      expect(await (await getContract<MockERC20>("USDC.e")).symbol()).to.equal("USDC");
+      expect(await marketUSDC.symbol()).to.equal("exaUSDC.e");
+      expect(await marketUSDC.name()).to.equal("exactly USDC.e");
+    });
+  });
+
   describe("small positions", () => {
     describe("WHEN depositing 3wei of a dai", () => {
       beforeEach(async () => {

@@ -32,12 +32,12 @@ describe("Liquidity computations", function () {
     await fixture("Markets");
 
     dai = await getContract<MockERC20>("DAI", laura);
-    usdc = await getContract<MockERC20>("USDC", laura);
+    usdc = await getContract<MockERC20>("USDC.e", laura);
     wbtc = await getContract<MockERC20>("WBTC", laura);
     weth = await getContract<WETH>("WETH", laura);
     auditor = await getContract<Auditor>("Auditor", laura);
     marketDAI = await getContract<Market>("MarketDAI", laura);
-    marketUSDC = await getContract<Market>("MarketUSDC", laura);
+    marketUSDC = await getContract<Market>("MarketUSDC.e", laura);
     marketWBTC = await getContract<Market>("MarketWBTC", laura);
     marketWETH = await getContract<Market>("MarketWETH", laura);
 

@@ -25,11 +25,11 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
       .filter((asset) => asset && !finance.markets[asset])
       .map((asset) => [asset, {}] as [string, MarketConfig]),
   ]) {
-    const decimals = { USDC: 6, WBTC: 8 }[symbol] ?? 18;
+    const decimals = { "USDC.e": 6, USDC: 6, WBTC: 8 }[symbol] ?? 18;
     await deploy(symbol, {
       skipIfAlreadyDeployed: true,
       contract: symbol === "WETH" ? "MockWETH" : "MockERC20",
-      ...(symbol !== "WETH" && { args: [symbol, symbol, decimals] }),
+      ...(symbol !== "WETH" && { args: [symbol, { "USDC.e": "USDC" }[symbol] ?? symbol, decimals] }),
       from: deployer,
       log: true,
     });

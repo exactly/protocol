@@ -15,8 +15,8 @@ describe("DebtManager", function () {
 
   beforeEach(async () => {
     await deployments.fixture("DebtManager");
-    usdc = await ethers.getContract<ERC20>("USDC");
-    marketUSDC = await ethers.getContract<Market>("MarketUSDC");
+    usdc = await ethers.getContract<ERC20>("USDC.e");
+    marketUSDC = await ethers.getContract<Market>("MarketUSDC.e");
     debtManager = await ethers.getContract<DebtManager>("DebtManager", alice);
   });
 

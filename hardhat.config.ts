@@ -136,7 +136,7 @@ const hardhatConfig: Config = {
         networks: ["ethereum", "op-sepolia"],
         adjustFactor: 0.9,
       },
-      USDC: {
+      "USDC.e": {
         adjustFactor: 0.91,
         interestRateModel: { minRate: 3.5e-2, naturalRate: 8e-2, naturalUtilization: 0.75, growthSpeed: 1.1 },
         overrides: {

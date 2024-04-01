@@ -34,9 +34,9 @@ const func: DeployFunction = async ({
   const dampSpeedDown = parseUnits(String(finance.dampSpeed.down));
   const treasuryFeeRate = parseUnits(String(finance.treasuryFeeRate ?? 0));
 
-  for (const [symbol, config] of Object.entries(finance.markets)) {
-    const asset = await getContract<ERC20>(symbol);
-    const marketName = `Market${symbol}`;
+  for (const [assetSymbol, config] of Object.entries(finance.markets)) {
+    const asset = await getContract<ERC20>(assetSymbol);
+    const marketName = `Market${assetSymbol}`;
     await validateUpgrade(
       marketName,
       {
@@ -56,7 +56,7 @@ const func: DeployFunction = async ({
               init: {
                 methodName: "initialize",
                 args: [
-                  symbol,
+                  assetSymbol,
                   finance.futurePools,
                   earningsAccumulatorSmoothFactor,
                   ZeroAddress, // irm
@@ -76,7 +76,7 @@ const func: DeployFunction = async ({
 
     const market = await getContract<Market>(marketName, await getSigner(deployer));
 
-    if (symbol === "WETH") {
+    if (assetSymbol === "WETH") {
       await validateUpgrade("MarketETHRouter", { args: [market.target], envKey: "ROUTER" }, async (name, opts) =>
         deploy(name, {
           ...opts,
@@ -96,9 +96,9 @@ const func: DeployFunction = async ({
 
     const { address: interestRateModel } = await tenderlify(
       "InterestRateModel",
-      await deploy(`InterestRateModel${symbol}`, {
+      await deploy(`InterestRateModel${assetSymbol}`, {
         skipIfAlreadyDeployed: !JSON.parse(
-          env[`DEPLOY_IRM_${symbol}`] ?? (await market.interestRateModel()) === ZeroAddress ? "true" : "false",
+          env[`DEPLOY_IRM_${assetSymbol}`] ?? (await market.interestRateModel()) === ZeroAddress ? "true" : "false",
         ),
         contract: "InterestRateModel",
         args: [
@@ -122,6 +122,9 @@ const func: DeployFunction = async ({
       }),
     );
 
+    if ((await market.symbol()) !== `exa${assetSymbol}` || (await market.name()) !== `exactly ${assetSymbol}`) {
+      await executeOrPropose(market, "setAssetSymbol", [assetSymbol]);
+    }
     if ((await market.maxFuturePools()) !== BigInt(finance.futurePools)) {
       await executeOrPropose(market, "setMaxFuturePools", [finance.futurePools]);
     }
@@ -151,7 +154,7 @@ const func: DeployFunction = async ({
       await executeOrPropose(market, "setTreasury", [treasury, treasuryFeeRate]);
     }
 
-    const { address: priceFeed } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
+    const { address: priceFeed } = await get(`${mockPrices[assetSymbol] ? "Mock" : ""}PriceFeed${assetSymbol}`);
     const adjustFactor = parseUnits(String(config.adjustFactor));
     if (!(await auditor.allMarkets()).includes(market.target as string)) {
       await executeOrPropose(auditor, "enableMarket", [market.target, priceFeed, adjustFactor]);
@@ -190,10 +193,10 @@ const func: DeployFunction = async ({
 
     const newRewards = (
       await Promise.all(
-        Object.entries(finance.markets).map(async ([symbol, { rewards: marketRewards }]) => {
+        Object.entries(finance.markets).map(async ([assetSymbol, { rewards: marketRewards }]) => {
           if (!marketRewards) return;
 
-          const market = await getContract<Market>(`Market${symbol}`);
+          const market = await getContract<Market>(`Market${assetSymbol}`);
           return Promise.all(
             Object.entries(marketRewards).map(async ([asset, cfg]) => {
               const [reward, { address: priceFeed }] = await Promise.all([
