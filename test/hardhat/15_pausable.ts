@@ -28,7 +28,7 @@ describe("Market - Pausable", function () {
     });
 
     it("AND WHEN a pause is called from third parties, THEN it should revert with AccessControl error", async () => {
-      await expect(market.connect(account).pause()).to.be.revertedWithoutReason();
+      await expect(market.connect(account).pause()).to.be.revertedWithCustomError(market, "NotPausingRole");
     });
 
     it("AND WHEN an unpause is called from third parties, THEN it should revert with AccessControl error", async () => {
