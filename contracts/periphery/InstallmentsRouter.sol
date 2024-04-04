@@ -135,11 +135,6 @@ contract InstallmentsRouter {
     if (msg.sender != address(weth)) revert NotFromWETH();
   }
 
-  modifier wrap() {
-    weth.deposit{ value: msg.value }();
-    _;
-  }
-
   modifier permit(Market market, Permit calldata p) {
     try
       IERC20PermitUpgradeable(address(market)).permit(msg.sender, address(this), p.value, p.deadline, p.v, p.r, p.s)
