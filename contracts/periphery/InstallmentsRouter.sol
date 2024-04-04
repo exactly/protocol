@@ -60,7 +60,7 @@ contract InstallmentsRouter {
 
     assetsOwed = new uint256[](amounts.length);
     uint256 totalOwed;
-    for (uint256 i = 0; i < amounts.length; i++) {
+    for (uint256 i = 0; i < amounts.length; ++i) {
       uint256 owed = market.borrowAtMaturity(
         firstMaturity + i * FixedLib.INTERVAL,
         amounts[i],
@@ -97,7 +97,7 @@ contract InstallmentsRouter {
   ) external returns (uint256[] memory assetsOwed) {
     assetsOwed = borrow(marketWETH, maturity, amounts, maxRepay, address(this));
     uint256 totalAmount = 0;
-    for (uint256 i = 0; i < amounts.length; i++) totalAmount += amounts[i];
+    for (uint256 i = 0; i < amounts.length; ++i) totalAmount += amounts[i];
     weth.withdraw(totalAmount);
     msg.sender.safeTransferETH(totalAmount);
   }
@@ -117,7 +117,7 @@ contract InstallmentsRouter {
   ) external permit(marketWETH, marketPermit) returns (uint256[] memory assetsOwed) {
     assetsOwed = borrow(marketWETH, maturity, amounts, maxRepay, address(this));
     uint256 totalAmount = 0;
-    for (uint256 i = 0; i < amounts.length; i++) totalAmount += amounts[i];
+    for (uint256 i = 0; i < amounts.length; ++i) totalAmount += amounts[i];
     weth.withdraw(totalAmount);
     msg.sender.safeTransferETH(totalAmount);
   }
