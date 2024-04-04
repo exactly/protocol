@@ -25,13 +25,13 @@ contract MockBalancerVault is ReentrancyGuard {
       ERC20 token = tokens[i];
       uint256 amount = amounts[i];
 
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(token > previousToken, token == ERC20(address(0)) ? "Zero token" : "Unsorted tokens");
       previousToken = token;
 
       preLoanBalances[i] = token.balanceOf(address(this));
 
-      require(preLoanBalances[i] >= amount, "insufficient flashloan balance"); // solhint-disable-line custom-errors
+      require(preLoanBalances[i] >= amount, "insufficient flashloan balance"); // solhint-disable-line gas-custom-errors
       token.safeTransfer(address(recipient), amount);
     }
 
@@ -39,7 +39,7 @@ contract MockBalancerVault is ReentrancyGuard {
 
     for (uint256 i = 0; i < tokens.length; ++i) {
       uint256 postLoanBalance = tokens[i].balanceOf(address(this));
-      require(postLoanBalance >= preLoanBalances[i], "invalid post balance"); // solhint-disable-line custom-errors
+      require(postLoanBalance >= preLoanBalances[i], "invalid post balance"); // solhint-disable-line gas-custom-errors
     }
   }
 }
