@@ -49,10 +49,10 @@ contract DebtManagerTest is ForkTest {
 
     op = ERC20(deployment("OP"));
     weth = ERC20(deployment("WETH"));
-    usdc = ERC20(deployment("USDC"));
+    usdc = ERC20(deployment("USDC.e"));
     wstETH = ERC20(deployment("wstETH"));
     marketOP = Market(deployment("MarketOP"));
-    marketUSDC = Market(deployment("MarketUSDC"));
+    marketUSDC = Market(deployment("MarketUSDC.e"));
     marketWETH = Market(deployment("MarketWETH"));
     marketwstETH = Market(deployment("MarketwstETH"));
     auditor = Auditor(deployment("Auditor"));

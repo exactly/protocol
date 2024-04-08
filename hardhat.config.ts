@@ -273,10 +273,10 @@ const hardhatConfig: Config = {
         extraReserve: 50,
         uniswapFees: [
           { assets: ["WETH", "OP"], fee: 0.3 },
-          { assets: ["USDC", "OP"], fee: 0.3 },
-          { assets: ["USDC", "WETH"], fee: 0.05 },
+          { assets: ["USDC.e", "OP"], fee: 0.3 },
+          { assets: ["USDC.e", "WETH"], fee: 0.05 },
           { assets: ["WETH", "wstETH"], fee: 0.01 },
-          { assets: ["USDC", "wstETH"], fee: 0.05 },
+          { assets: ["USDC.e", "wstETH"], fee: 0.05 },
         ],
       },
       ethereum: {

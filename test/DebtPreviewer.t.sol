@@ -33,10 +33,10 @@ contract DebtPreviewerTest is ForkTest {
     IPermit2 permit2 = IPermit2(deployment("Permit2"));
     marketOP = Market(deployment("MarketOP"));
     marketWETH = Market(deployment("MarketWETH"));
-    marketUSDC = Market(deployment("MarketUSDC"));
+    marketUSDC = Market(deployment("MarketUSDC.e"));
     marketwstETH = Market(deployment("MarketwstETH"));
     weth = ERC20(deployment("WETH"));
-    usdc = ERC20(deployment("USDC"));
+    usdc = ERC20(deployment("USDC.e"));
     wstETH = ERC20(deployment("wstETH"));
     debtManager = DebtManager(
       address(
