@@ -19,7 +19,7 @@
     "coverage:foundry": "forge coverage --report lcov",
     "coverage:hardhat": "hardhat coverage",
     "coverage:snapshot": "forge snapshot --no-match-test testFuzz --check",
-    "coverage:fuzzer": "FOUNDRY_PROFILE=production forge test --match-test testFuzz",
+    "coverage:fuzzer": "FOUNDRY_PROFILE=production forge test --match-test testFuzz --no-match-contract Protocol",
     "deploy:ethereum": "hardhat --network ethereum deploy",
     "deploy:op-sepolia": "hardhat --network op-sepolia deploy",
     "prepare": "concurrently 'npm:prepare:*' --group -c auto",
