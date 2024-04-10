@@ -60,14 +60,10 @@ contract InstallmentsRouter {
 
     assetsOwed = new uint256[](amounts.length);
     uint256 totalOwed;
+    uint256 maturity = firstMaturity;
     for (uint256 i = 0; i < amounts.length; ++i) {
-      uint256 owed = market.borrowAtMaturity(
-        firstMaturity + i * FixedLib.INTERVAL,
-        amounts[i],
-        type(uint256).max,
-        receiver,
-        msg.sender
-      );
+      uint256 owed = market.borrowAtMaturity(maturity, amounts[i], type(uint256).max, receiver, msg.sender);
+      maturity += FixedLib.INTERVAL;
       assetsOwed[i] = owed;
       totalOwed += owed;
       if (totalOwed > maxRepay) revert Disagreement();
