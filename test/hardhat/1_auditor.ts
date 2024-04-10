@@ -4,6 +4,7 @@ import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"
 import type { Auditor, Market, MockERC20, MockPriceFeed, WETH } from "../../types";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
+import burnDeadShares from "./utils/burnDeadShares";
 
 const { ZeroAddress, MaxUint256, parseUnits, getUnnamedSigners, getNamedSigner, getContract } = ethers;
 
@@ -33,6 +34,9 @@ describe("Auditor from Account Space", function () {
     priceFeedDAI = await getContract<MockPriceFeed>("PriceFeedDAI", account);
     marketDAI = await getContract<Market>("MarketDAI", account);
     marketWETH = await getContract<Market>("MarketWETH", account);
+
+    await burnDeadShares(marketDAI);
+    await burnDeadShares(marketWETH);
 
     await timelockExecute(owner, auditor, "setAdjustFactor", [marketDAI.target, parseUnits("0.95")]);
     await dai.connect(owner).mint(account.address, parseUnits("100000"));

@@ -2,7 +2,7 @@ import { env } from "process";
 import { ethers, network } from "hardhat";
 import type { MarketConfig } from "hardhat/types/config";
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { MockPriceFeed } from "../../types";
+import type { MockERC20, MockPriceFeed } from "../../types";
 
 const { parseUnits, formatUnits, getContract, getSigner } = ethers;
 const {
@@ -73,6 +73,12 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
         log("setting price", symbol, formatUnits(mockPrices[symbol], priceDecimals));
         await (await mockPriceFeed.setPrice(mockPrices[symbol])).wait();
       }
+    }
+  }
+
+  if (!live) {
+    for (const symbol of Object.keys(finance.markets)) {
+      await (await getContract<MockERC20>(symbol, signer)).mint(deployer, 1);
     }
   }
 };

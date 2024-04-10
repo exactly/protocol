@@ -4,6 +4,7 @@ import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"
 import type { Auditor, Market, MockERC20, MockBorrowRate } from "../../types";
 import futurePools, { INTERVAL } from "./utils/futurePools";
 import timelockExecute from "./utils/timelockExecute";
+import burnDeadShares from "./utils/burnDeadShares";
 
 const { ZeroAddress, parseUnits, getUnnamedSigners, getNamedSigner, getContract, provider } = ethers;
 
@@ -34,6 +35,8 @@ describe("Smart Pool Earnings Distribution", function () {
     auditor = await getContract<Auditor>("Auditor", bob);
     marketDAI = await getContract<Market>("MarketDAI", bob);
     marketWBTC = await getContract<Market>("MarketWBTC", bob);
+
+    await burnDeadShares(marketDAI);
 
     await deployments.deploy("MockBorrowRate", { args: [0], from: owner.address });
     irm = await getContract<MockBorrowRate>("MockBorrowRate", bob);

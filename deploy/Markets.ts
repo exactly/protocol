@@ -7,6 +7,7 @@ import executeOrPropose from "./.utils/executeOrPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
 import tenderlify from "./.utils/tenderlify";
 import grantRole from "./.utils/grantRole";
+import DEAD_ADDRESS from "./.utils/DEAD_ADDRESS";
 
 const func: DeployFunction = async ({
   network: {
@@ -154,8 +155,14 @@ const func: DeployFunction = async ({
       await executeOrPropose(market, "setTreasury", [treasury, treasuryFeeRate]);
     }
 
+    if ((await market.maxWithdraw(DEAD_ADDRESS)) === 0n) {
+      if ((await asset.allowance(deployer, market.target)) === 0n) await asset.approve(market.target, 1n);
+      await market.deposit(1n, DEAD_ADDRESS);
+    }
+
     const { address: priceFeed } = await get(`${mockPrices[assetSymbol] ? "Mock" : ""}PriceFeed${assetSymbol}`);
     const adjustFactor = parseUnits(String(config.adjustFactor));
+
     if (!(await auditor.allMarkets()).includes(market.target as string)) {
       await executeOrPropose(auditor, "enableMarket", [market.target, priceFeed, adjustFactor]);
     } else {

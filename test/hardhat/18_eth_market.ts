@@ -6,6 +6,7 @@ import type { Auditor, Market, MarketETHRouter, MockInterestRateModel, WETH } fr
 import decodeMaturities from "./utils/decodeMaturities";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
+import burnDeadShares from "./utils/burnDeadShares";
 
 const { parseUnits, getUnnamedSigners, getNamedSigner, getContract, provider } = ethers;
 
@@ -32,6 +33,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
     auditor = await getContract<Auditor>("Auditor", alice);
     routerETH = await getContract<MarketETHRouter>("MarketETHRouter", alice);
     marketWETH = await getContract<Market>("MarketWETH", alice);
+
+    await burnDeadShares(marketWETH);
 
     const owner = await getNamedSigner("multisig");
     await deployments.deploy("MockInterestRateModel", { args: [0], from: owner.address });

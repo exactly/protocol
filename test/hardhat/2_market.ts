@@ -5,6 +5,7 @@ import type { Auditor, Market, MockERC20, MockInterestRateModel, WETH } from "..
 import decodeMaturities from "./utils/decodeMaturities";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
+import burnDeadShares from "./utils/burnDeadShares";
 
 const { parseUnits, getUnnamedSigners, getNamedSigner, getContract, provider } = ethers;
 const { deploy, fixture } = deployments;
@@ -37,6 +38,9 @@ describe("Market", function () {
     marketDAI = await getContract<Market>("MarketDAI", maria);
     marketWETH = await getContract<Market>("MarketWETH", maria);
     penaltyRate = await marketDAI.penaltyRate();
+
+    await burnDeadShares(marketDAI);
+    await burnDeadShares(marketWETH);
 
     await deploy("MockInterestRateModel", { args: [0], from: owner.address });
     irm = await getContract<MockInterestRateModel>("MockInterestRateModel", maria);
