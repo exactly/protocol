@@ -118,7 +118,7 @@ contract InstallmentsRouter {
     msg.sender.safeTransferETH(totalAmount);
   }
 
-  /// @notice Checks if the Market is listed by the Auditor.
+  /// @notice Reverts if the Market is not listed by the Auditor.
   /// @param market The Market to check.
   function checkMarket(Market market) internal view {
     (, , , bool listed, ) = auditor.markets(market);
@@ -132,6 +132,7 @@ contract InstallmentsRouter {
   }
 
   modifier permit(Market market, Permit calldata p) {
+    // If the permit fails, the account may have already approved. This prevents DoS attacks.
     try
       IERC20PermitUpgradeable(address(market)).permit(msg.sender, address(this), p.value, p.deadline, p.v, p.r, p.s)
     {} catch {} // solhint-disable-line no-empty-blocks
