@@ -18,10 +18,12 @@ describe("Smart Pool Earnings Distribution", function () {
   let owner: SignerWithAddress;
   let bob: SignerWithAddress;
   let john: SignerWithAddress;
+  let pools: number[];
 
   before(async () => {
     owner = await getNamedSigner("multisig");
     [bob, john] = await getUnnamedSigners();
+    pools = await futurePools(1);
   });
 
   beforeEach(async () => {
@@ -51,17 +53,17 @@ describe("Smart Pool Earnings Distribution", function () {
     beforeEach(async () => {
       await marketDAI.deposit(parseUnits("10000"), bob.address);
 
-      await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0]]);
+      await provider.send("evm_setNextBlockTimestamp", [pools[0]]);
 
       await marketDAI.borrowAtMaturity(
-        futurePools(1)[0] + INTERVAL,
+        pools[0] + INTERVAL,
         parseUnits("1000"),
         parseUnits("1100"),
         bob.address,
         bob.address,
       );
 
-      await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + INTERVAL / 2]);
+      await provider.send("evm_setNextBlockTimestamp", [pools[0] + INTERVAL / 2]);
       await marketDAI.connect(john).deposit(parseUnits("10000"), john.address);
     });
 
@@ -93,13 +95,8 @@ describe("Smart Pool Earnings Distribution", function () {
 
     describe("AND GIVEN 7 days go by and bob repays late", () => {
       beforeEach(async () => {
-        await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + INTERVAL + 86_400 * 7 + 1]);
-        await marketDAI.repayAtMaturity(
-          futurePools(1)[0] + INTERVAL,
-          parseUnits("1254"),
-          parseUnits("1255"),
-          bob.address,
-        );
+        await provider.send("evm_setNextBlockTimestamp", [pools[0] + INTERVAL + 86_400 * 7 + 1]);
+        await marketDAI.repayAtMaturity(pools[0] + INTERVAL, parseUnits("1254"), parseUnits("1255"), bob.address);
       });
 
       it("THEN the smart pool earnings accumulator has balance", async () => {
@@ -135,7 +132,7 @@ describe("Smart Pool Earnings Distribution", function () {
         });
 
         it("THEN the maturity used is also empty", async () => {
-          expect((await marketDAI.fixedPools(futurePools(1)[0] + INTERVAL)).unassignedEarnings).to.be.eq(0);
+          expect((await marketDAI.fixedPools(pools[0] + INTERVAL)).unassignedEarnings).to.be.eq(0);
         });
       });
 
@@ -173,7 +170,7 @@ describe("Smart Pool Earnings Distribution", function () {
 
     describe("AND GIVEN john deposits again 1k at day 20 (8 days until maturity)", () => {
       beforeEach(async () => {
-        await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + INTERVAL - 86_400 * 8]);
+        await provider.send("evm_setNextBlockTimestamp", [pools[0] + INTERVAL - 86_400 * 8]);
         await marketDAI.connect(john).deposit(parseUnits("1000"), john.address);
       });
 
@@ -188,7 +185,7 @@ describe("Smart Pool Earnings Distribution", function () {
 
       describe("AND GIVEN john deposits another 1k at maturity date", () => {
         beforeEach(async () => {
-          await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + INTERVAL]);
+          await provider.send("evm_setNextBlockTimestamp", [pools[0] + INTERVAL]);
           await marketDAI.connect(john).deposit(parseUnits("1000"), john.address);
         });
 
@@ -215,9 +212,9 @@ describe("Smart Pool Earnings Distribution", function () {
         await marketDAI.deposit(parseUnits("10000"), bob.address);
         await timelockExecute(owner, marketDAI, "setReserveFactor", [0]);
 
-        await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0]]);
+        await provider.send("evm_setNextBlockTimestamp", [pools[0]]);
         await marketDAI.borrowAtMaturity(
-          futurePools(1)[0] + INTERVAL,
+          pools[0] + INTERVAL,
           parseUnits("10000"),
           parseUnits("11000"),
           bob.address,
@@ -227,7 +224,7 @@ describe("Smart Pool Earnings Distribution", function () {
 
       describe("AND GIVEN john deposits 10k after maturity date", () => {
         beforeEach(async () => {
-          await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + INTERVAL]);
+          await provider.send("evm_setNextBlockTimestamp", [pools[0] + INTERVAL]);
           await marketDAI.connect(john).deposit(parseUnits("10000"), john.address);
         });
 

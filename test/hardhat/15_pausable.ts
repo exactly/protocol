@@ -5,13 +5,12 @@ import type { Market } from "../../types";
 import { DefaultEnv } from "./defaultEnv";
 import futurePools from "./utils/futurePools";
 
-const nextPoolId = futurePools(1)[0];
-
 describe("Market - Pausable", function () {
   let exactlyEnv: DefaultEnv;
   let market: Market;
   let owner: SignerWithAddress;
   let account: SignerWithAddress;
+  let nextPoolId: number;
 
   describe("GIVEN a deployed Market contract", () => {
     let PAUSER_ROLE: string;
@@ -25,6 +24,7 @@ describe("Market - Pausable", function () {
       PAUSER_ROLE = await market.PAUSER_ROLE();
 
       await market.grantRole(PAUSER_ROLE, owner.address);
+      nextPoolId = (await futurePools(1))[0];
     });
 
     it("AND WHEN a pause is called from third parties, THEN it should revert with AccessControl error", async () => {

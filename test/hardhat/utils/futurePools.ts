@@ -1,6 +1,8 @@
+import { ethers } from "hardhat";
+
 export const INTERVAL = 86_400 * 7 * 4;
 
-export default (n = 3, interval = INTERVAL) => {
-  const now = Math.floor(Date.now() / 1_000);
-  return [...new Array(n)].map((_, i) => now - (now % interval) + interval * (i + 1));
+export default async (n = 3) => {
+  const { timestamp } = (await ethers.provider.getBlock("latest"))!;
+  return [...new Array(n)].map((_, i) => timestamp - (timestamp % INTERVAL) + INTERVAL * (i + 1));
 };

@@ -17,9 +17,11 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
   let marketWETH: Market;
 
   let alice: SignerWithAddress;
+  let pools: number[];
 
   before(async () => {
     [alice] = await getUnnamedSigners();
+    pools = await futurePools(1);
   });
 
   beforeEach(async () => {
@@ -46,13 +48,13 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
       let tx: ContractTransactionResponse;
 
       beforeEach(async () => {
-        tx = await routerETH.depositAtMaturity(futurePools(1)[0], parseUnits("5"), { value: parseUnits("5") });
+        tx = await routerETH.depositAtMaturity(pools[0], parseUnits("5"), { value: parseUnits("5") });
       });
 
       it("THEN a DepositAtMaturity event is emitted", async () => {
         await expect(tx)
           .to.emit(marketWETH, "DepositAtMaturity")
-          .withArgs(futurePools(1)[0], routerETH.target, alice.address, parseUnits("5"), parseUnits("0"));
+          .withArgs(pools[0], routerETH.target, alice.address, parseUnits("5"), parseUnits("0"));
       });
 
       it("AND the ETHMarket contract has a balance of 5 WETH", async () => {
@@ -60,13 +62,13 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
       });
 
       it("AND the ETHMarket registers a supply of 5 WETH for the account", async () => {
-        const position = await marketWETH.fixedDepositPositions(futurePools(1)[0], alice.address);
+        const position = await marketWETH.fixedDepositPositions(pools[0], alice.address);
         expect(position[0]).to.be.equal(parseUnits("5"));
       });
 
       it("AND contract's state variable fixedDeposits registers the maturity where the account deposited to", async () => {
         const { fixedDeposits } = await marketWETH.accounts(alice.address);
-        expect(decodeMaturities(fixedDeposits)).contains(futurePools(1)[0]);
+        expect(decodeMaturities(fixedDeposits)).contains(pools[0]);
       });
     });
 
@@ -79,13 +81,13 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         let tx: ContractTransactionResponse;
 
         beforeEach(async () => {
-          tx = await marketWETH.depositAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("5"), alice.address);
+          tx = await marketWETH.depositAtMaturity(pools[0], parseUnits("5"), parseUnits("5"), alice.address);
         });
 
         it("THEN a DepositToMaturityPool event is emitted", async () => {
           await expect(tx)
             .to.emit(marketWETH, "DepositAtMaturity")
-            .withArgs(futurePools(1)[0], alice.address, alice.address, parseUnits("5"), parseUnits("0"));
+            .withArgs(pools[0], alice.address, alice.address, parseUnits("5"), parseUnits("0"));
         });
 
         it("AND the ETHMarket contract has a balance of 5 WETH", async () => {
@@ -93,13 +95,13 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         });
 
         it("AND the ETHMarket registers a supply of 5 WETH for the account", async () => {
-          const position = await marketWETH.fixedDepositPositions(futurePools(1)[0], alice.address);
+          const position = await marketWETH.fixedDepositPositions(pools[0], alice.address);
           expect(position[0]).to.be.equal(parseUnits("5"));
         });
 
         it("AND contract's state variable fixedDeposits registers the maturity where the account deposited to", async () => {
           const { fixedDeposits } = await marketWETH.accounts(alice.address);
-          expect(decodeMaturities(fixedDeposits)).contains(futurePools(1)[0]);
+          expect(decodeMaturities(fixedDeposits)).contains(pools[0]);
         });
       });
     });
@@ -246,8 +248,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
     describe("GIVEN alice has a deposit to ETH maturity AND maturity is reached", () => {
       beforeEach(async () => {
         await weth.deposit({ value: parseUnits("10") });
-        await marketWETH.depositAtMaturity(futurePools(1)[0], parseUnits("10"), parseUnits("10"), alice.address);
-        await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0]]);
+        await marketWETH.depositAtMaturity(pools[0], parseUnits("10"), parseUnits("10"), alice.address);
+        await provider.send("evm_setNextBlockTimestamp", [pools[0]]);
       });
 
       describe("WHEN she withdraws to ETH", () => {
@@ -256,20 +258,13 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
 
         beforeEach(async () => {
           aliceETHBalanceBefore = await provider.getBalance(alice.address);
-          tx = await routerETH.withdrawAtMaturity(futurePools(1)[0], parseUnits("10"), 0);
+          tx = await routerETH.withdrawAtMaturity(pools[0], parseUnits("10"), 0);
         });
 
         it("THEN a WithdrawFromMaturityPool event is emmitted", async () => {
           await expect(tx)
             .to.emit(marketWETH, "WithdrawAtMaturity")
-            .withArgs(
-              futurePools(1)[0],
-              routerETH.target,
-              routerETH.target,
-              alice.address,
-              parseUnits("10"),
-              parseUnits("10"),
-            );
+            .withArgs(pools[0], routerETH.target, routerETH.target, alice.address, parseUnits("10"), parseUnits("10"));
         });
 
         it("AND alices ETH balance increases accordingly", async () => {
@@ -293,26 +288,13 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         let tx: ContractTransactionResponse;
 
         beforeEach(async () => {
-          tx = await marketWETH.withdrawAtMaturity(
-            futurePools(1)[0],
-            parseUnits("10"),
-            0,
-            alice.address,
-            alice.address,
-          );
+          tx = await marketWETH.withdrawAtMaturity(pools[0], parseUnits("10"), 0, alice.address, alice.address);
         });
 
         it("THEN a WithdrawFromMaturityPool event is emmitted", async () => {
           await expect(tx)
             .to.emit(marketWETH, "WithdrawAtMaturity")
-            .withArgs(
-              futurePools(1)[0],
-              alice.address,
-              alice.address,
-              alice.address,
-              parseUnits("10"),
-              parseUnits("10"),
-            );
+            .withArgs(pools[0], alice.address, alice.address, alice.address, parseUnits("10"), parseUnits("10"));
         });
 
         it("AND alices WETH balance increases accordingly", async () => {
@@ -339,22 +321,22 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         let tx: ContractTransactionResponse;
 
         beforeEach(async () => {
-          tx = await routerETH.borrowAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("6"));
+          tx = await routerETH.borrowAtMaturity(pools[0], parseUnits("5"), parseUnits("6"));
         });
 
         it("THEN a BorrowFromMaturityPool event is emitted", async () => {
           await expect(tx)
             .to.emit(marketWETH, "BorrowAtMaturity")
-            .withArgs(futurePools(1)[0], routerETH.target, routerETH.target, alice.address, parseUnits("5"), 0);
+            .withArgs(pools[0], routerETH.target, routerETH.target, alice.address, parseUnits("5"), 0);
         });
 
         it("AND a 5 WETH borrow is registered", async () => {
-          expect((await marketWETH.fixedPools(futurePools(1)[0]))[0]).to.equal(parseUnits("5"));
+          expect((await marketWETH.fixedPools(pools[0]))[0]).to.equal(parseUnits("5"));
         });
 
         it("AND contract's state variable fixedBorrows registers the maturity where the account borrowed from", async () => {
           const { fixedBorrows } = await marketWETH.accounts(alice.address);
-          expect(decodeMaturities(fixedBorrows)).contains(futurePools(1)[0]);
+          expect(decodeMaturities(fixedBorrows)).contains(pools[0]);
         });
       });
 
@@ -363,7 +345,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
 
         beforeEach(async () => {
           tx = await marketWETH.borrowAtMaturity(
-            futurePools(1)[0],
+            pools[0],
             parseUnits("5"),
             parseUnits("6"),
             alice.address,
@@ -374,43 +356,37 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         it("THEN a BorrowFromMaturityPool event is emitted", async () => {
           await expect(tx)
             .to.emit(marketWETH, "BorrowAtMaturity")
-            .withArgs(futurePools(1)[0], alice.address, alice.address, alice.address, parseUnits("5"), 0);
+            .withArgs(pools[0], alice.address, alice.address, alice.address, parseUnits("5"), 0);
         });
 
         it("AND a 5 WETH borrow is registered", async () => {
-          expect((await marketWETH.fixedPools(futurePools(1)[0]))[0]).to.equal(parseUnits("5"));
+          expect((await marketWETH.fixedPools(pools[0]))[0]).to.equal(parseUnits("5"));
         });
 
         it("AND contract's state variable fixedBorrows registers the maturity where the account borrowed from", async () => {
           const { fixedBorrows } = await marketWETH.accounts(alice.address);
-          expect(decodeMaturities(fixedBorrows)).contains(futurePools(1)[0]);
+          expect(decodeMaturities(fixedBorrows)).contains(pools[0]);
         });
       });
 
       describe("repayToMaturityPoolETH vs repayToMaturityPool", () => {
         describe("AND she borrows some WETH (erc20) AND maturity is reached", () => {
           beforeEach(async () => {
-            await marketWETH.borrowAtMaturity(
-              futurePools(1)[0],
-              parseUnits("5"),
-              parseUnits("6"),
-              alice.address,
-              alice.address,
-            );
-            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0]]);
+            await marketWETH.borrowAtMaturity(pools[0], parseUnits("5"), parseUnits("6"), alice.address, alice.address);
+            await provider.send("evm_setNextBlockTimestamp", [pools[0]]);
           });
 
           describe("WHEN repaying in WETH (erc20)", () => {
             let tx: ContractTransactionResponse;
 
             beforeEach(async () => {
-              tx = await marketWETH.repayAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("6"), alice.address);
+              tx = await marketWETH.repayAtMaturity(pools[0], parseUnits("5"), parseUnits("6"), alice.address);
             });
 
             it("THEN a RepayToMaturityPool event is emitted", async () => {
               await expect(tx)
                 .to.emit(marketWETH, "RepayAtMaturity")
-                .withArgs(futurePools(1)[0], alice.address, alice.address, parseUnits("5"), parseUnits("5"));
+                .withArgs(pools[0], alice.address, alice.address, parseUnits("5"), parseUnits("5"));
             });
 
             it("AND Alice's debt is cleared", async () => {
@@ -427,8 +403,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
 
         describe("AND she borrows some ETH (native) AND maturity is reached", () => {
           beforeEach(async () => {
-            await routerETH.borrowAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("6"));
-            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0]]);
+            await routerETH.borrowAtMaturity(pools[0], parseUnits("5"), parseUnits("6"));
+            await provider.send("evm_setNextBlockTimestamp", [pools[0]]);
           });
 
           describe("WHEN repaying in ETH (native)", () => {
@@ -437,13 +413,13 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
 
             beforeEach(async () => {
               aliceETHBalanceBefore = await provider.getBalance(alice.address);
-              tx = await routerETH.repayAtMaturity(futurePools(1)[0], parseUnits("5"), { value: parseUnits("5") });
+              tx = await routerETH.repayAtMaturity(pools[0], parseUnits("5"), { value: parseUnits("5") });
             });
 
             it("THEN a RepayToMaturityPool event is emitted", async () => {
               await expect(tx)
                 .to.emit(marketWETH, "RepayAtMaturity")
-                .withArgs(futurePools(1)[0], routerETH.target, alice.address, parseUnits("5"), parseUnits("5"));
+                .withArgs(pools[0], routerETH.target, alice.address, parseUnits("5"), parseUnits("5"));
             });
 
             it("AND Alice's debt is cleared", async () => {
@@ -465,7 +441,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
 
             beforeEach(async () => {
               aliceETHBalanceBefore = await provider.getBalance(alice.address);
-              await routerETH.repayAtMaturity(futurePools(1)[0], parseUnits("10"), { value: parseUnits("10") });
+              await routerETH.repayAtMaturity(pools[0], parseUnits("10"), { value: parseUnits("10") });
             });
 
             it("AND Alice's debt is cleared", async () => {
@@ -718,7 +694,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
 
     describe("WHEN trying to deposit a high rate amount expected", () => {
       beforeEach(async () => {
-        tx = routerETH.depositAtMaturity(futurePools(1)[0], parseUnits("10"), { value: parseUnits("5") });
+        tx = routerETH.depositAtMaturity(pools[0], parseUnits("10"), { value: parseUnits("5") });
       });
 
       it("THEN the tx should revert with Disagreement", async () => {
@@ -732,7 +708,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         await marketWETH.deposit(parseUnits("60"), alice.address);
         await auditor.enterMarket(marketWETH.target);
         await provider.send("evm_increaseTime", [9_011]);
-        tx = routerETH.borrowAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("5"));
+        tx = routerETH.borrowAtMaturity(pools[0], parseUnits("5"), parseUnits("5"));
       });
 
       it("THEN the tx should revert with Disagreement", async () => {
@@ -742,8 +718,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
 
     describe("WHEN trying to withdraw with a high rate amount expected", () => {
       beforeEach(async () => {
-        await routerETH.depositAtMaturity(futurePools(1)[0], parseUnits("5"), { value: parseUnits("5") });
-        tx = routerETH.withdrawAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("10"));
+        await routerETH.depositAtMaturity(pools[0], parseUnits("5"), { value: parseUnits("5") });
+        tx = routerETH.withdrawAtMaturity(pools[0], parseUnits("5"), parseUnits("10"));
       });
 
       it("THEN the tx should revert with Disagreement", async () => {
@@ -757,8 +733,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         await marketWETH.deposit(parseUnits("60"), alice.address);
         await auditor.enterMarket(marketWETH.target);
         await provider.send("evm_increaseTime", [9_011]);
-        await routerETH.borrowAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("10"));
-        tx = routerETH.repayAtMaturity(futurePools(1)[0], parseUnits("5"), { value: parseUnits("4") });
+        await routerETH.borrowAtMaturity(pools[0], parseUnits("5"), parseUnits("10"));
+        tx = routerETH.repayAtMaturity(pools[0], parseUnits("5"), { value: parseUnits("4") });
       });
 
       it("THEN the tx should revert with Disagreement", async () => {

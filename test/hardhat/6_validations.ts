@@ -5,8 +5,6 @@ import type { Auditor, Market, Previewer__factory } from "../../types";
 import futurePools, { INTERVAL } from "./utils/futurePools";
 import { DefaultEnv } from "./defaultEnv";
 
-const nextPoolId = futurePools(1)[0];
-
 const { ZeroAddress, MaxUint256, parseUnits, getContractFactory } = ethers;
 
 describe("Validations", function () {
@@ -16,6 +14,7 @@ describe("Validations", function () {
 
   let owner: SignerWithAddress;
   let account: SignerWithAddress;
+  let nextPoolId: number;
 
   before(async () => {
     owner = await ethers.getNamedSigner("deployer");
@@ -24,6 +23,7 @@ describe("Validations", function () {
     exactlyEnv = await DefaultEnv.create({ useRealInterestRateModel: true });
     auditor = exactlyEnv.auditor;
     market = exactlyEnv.getMarket("DAI");
+    nextPoolId = (await futurePools(1))[0];
   });
 
   describe("Auditor: GIVEN an unlisted market as parameter", () => {

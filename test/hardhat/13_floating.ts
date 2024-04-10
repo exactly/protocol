@@ -18,10 +18,12 @@ describe("Smart Pool", function () {
   let john: SignerWithAddress;
   let bobBalancePre: bigint;
   let johnBalancePre: bigint;
+  let pools: number[];
 
-  before(() => {
+  before(async () => {
     bobBalancePre = parseUnits("2000");
     johnBalancePre = parseUnits("2000");
+    pools = await futurePools(3);
   });
 
   beforeEach(async () => {
@@ -156,7 +158,7 @@ describe("Smart Pool", function () {
     describe("AND GIVEN bob borrows 0.35 WBTC from a maturity", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(bob);
-        await exactlyEnv.borrowMP("WBTC", futurePools(3)[2], "0.35");
+        await exactlyEnv.borrowMP("WBTC", pools[2], "0.35");
       });
 
       it("WHEN bob tries to transfer his eWBTC THEN it fails with InsufficientAccountLiquidity error", async () => {
@@ -191,7 +193,7 @@ describe("Smart Pool", function () {
       exactlyEnv.switchWallet(bob);
       await exactlyEnv.depositSP("DAI", "100");
       // add liquidity to the maturity
-      await exactlyEnv.depositMP("DAI", futurePools(3)[2], "60");
+      await exactlyEnv.depositMP("DAI", pools[2], "60");
     });
 
     it("WHEN trying to transfer to another account the entire position (100 eDAI) THEN it should not revert", async () => {
@@ -200,7 +202,7 @@ describe("Smart Pool", function () {
 
     describe("AND GIVEN bob borrows 60 DAI from a maturity", () => {
       beforeEach(async () => {
-        await exactlyEnv.borrowMP("DAI", futurePools(3)[2], "60");
+        await exactlyEnv.borrowMP("DAI", pools[2], "60");
       });
 
       it("WHEN trying to transfer to another account the entire position (100 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {

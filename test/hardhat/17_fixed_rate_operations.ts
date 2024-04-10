@@ -14,7 +14,6 @@ import futurePools from "./utils/futurePools";
 
 const { ZeroAddress, provider, parseUnits } = ethers;
 const anyValue = () => true;
-const nextPoolID = futurePools(3)[2];
 
 describe("Fixed Rate Operations", () => {
   let laura: SignerWithAddress;
@@ -30,6 +29,8 @@ describe("Fixed Rate Operations", () => {
     unassignedEarnings: bigint;
     lastAccrual: bigint;
   };
+  let nextPoolID: number;
+  let sixDaysToMaturity: number;
 
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
@@ -38,6 +39,8 @@ describe("Fixed Rate Operations", () => {
     marketHarness = marketEnv.marketHarness;
     mockInterestRateModel = marketEnv.mockInterestRateModel;
     asset = marketEnv.asset;
+    nextPoolID = (await futurePools(3))[2];
+    sixDaysToMaturity = nextPoolID - 86_400 * 5;
 
     await asset.mint(laura.address, parseUnits("20000000000"));
     await asset.connect(laura).approve(marketHarness.target, parseUnits("20000000000"));
@@ -144,7 +147,6 @@ describe("Fixed Rate Operations", () => {
   });
 
   describe("GIVEN a depositMP with an amount of 10000 (0 fees earned)", () => {
-    const sixDaysToMaturity = nextPoolID - 86_400 * 5;
     let depositAmount: number;
     let withdrawAmount: number;
     let borrowAmount: number;
@@ -170,7 +172,7 @@ describe("Fixed Rate Operations", () => {
       depositAmount = 10000;
 
       marketEnv.switchWallet(laura);
-      await marketEnv.moveInTime(sixDaysToMaturity);
+      await marketEnv.moveInTime(nextPoolID - 86_400 * 5);
       floatingAssets = await marketHarness.floatingAssets();
       tx = await marketHarness
         .connect(laura)
@@ -218,11 +220,12 @@ describe("Fixed Rate Operations", () => {
     });
 
     describe("AND GIVEN a borrowMP with an amount of 5000 (250 charged in fees to accumulator) (4 days to go)", () => {
-      const fourDaysToMaturity = nextPoolID - 86_400 * 4;
+      let fourDaysToMaturity: number;
 
       beforeEach(async () => {
         borrowAmount = 5000;
         borrowFees = 250;
+        fourDaysToMaturity = nextPoolID - 86_400 * 4;
         await mockInterestRateModel.setRate(parseUnits("0.05"));
         await marketEnv.moveInTime(fourDaysToMaturity);
         floatingAssets = await marketHarness.floatingAssets();
@@ -281,11 +284,12 @@ describe("Fixed Rate Operations", () => {
       });
 
       describe("AND GIVEN another borrowMP call with an amount of 5000 (250 charged in fees to earningsAccumulator) (3 days to go)", () => {
-        const threeDaysToMaturity = nextPoolID - 86_400 * 3;
+        let threeDaysToMaturity: number;
 
         beforeEach(async () => {
           borrowAmount = 5000;
           borrowFees = 250;
+          threeDaysToMaturity = nextPoolID - 86_400 * 3;
           await marketEnv.moveInTime(threeDaysToMaturity);
           floatingAssets = await marketHarness.floatingAssets();
           tx = await marketHarness
@@ -347,12 +351,14 @@ describe("Fixed Rate Operations", () => {
         });
 
         describe("AND GIVEN another borrowMP call with an amount of 5000 (250 charged in fees to unassigned) (2 days to go)", () => {
-          const oneDayToMaturity = nextPoolID - 86_400;
-          const twoDaysToMaturity = nextPoolID - 86_400 * 2;
+          let oneDayToMaturity: number;
+          let twoDaysToMaturity: number;
 
           beforeEach(async () => {
             borrowAmount = 5000;
             borrowFees = 250;
+            oneDayToMaturity = nextPoolID - 86_400;
+            twoDaysToMaturity = nextPoolID - 86_400 * 2;
             await marketEnv.moveInTime(twoDaysToMaturity);
             floatingAssets = await marketHarness.floatingAssets();
             tx = await marketHarness
@@ -808,11 +814,11 @@ describe("Fixed Rate Operations", () => {
             });
 
             describe("AND GIVEN an EARLY repayMP with an amount of 5250 (12 hours to maturity)", () => {
-              const twelveHoursToMaturity = nextPoolID - 3_600 * 12;
+              let twelveHoursToMaturity: number;
 
               beforeEach(async () => {
                 repayAmount = 5250;
-
+                twelveHoursToMaturity = nextPoolID - 3_600 * 12;
                 await marketEnv.moveInTime(twelveHoursToMaturity);
                 floatingAssets = await marketHarness.floatingAssets();
                 tx = await marketHarness
@@ -869,11 +875,11 @@ describe("Fixed Rate Operations", () => {
             });
 
             describe("AND GIVEN a total EARLY repayMP with an amount of 15750 (all debt)", () => {
-              const twelveHoursToMaturity = nextPoolID - 3_600 * 12;
+              let twelveHoursToMaturity;
 
               beforeEach(async () => {
                 repayAmount = 15750;
-
+                twelveHoursToMaturity = nextPoolID - 3_600 * 12;
                 await marketEnv.moveInTime(twelveHoursToMaturity);
                 floatingAssets = await marketHarness.floatingAssets();
                 tx = await marketHarness
@@ -1273,15 +1279,21 @@ describe("Fixed Rate Operations", () => {
     describe("GIVEN a borrowMP of 10000 (600 fees owed by account) - 24 days to maturity", () => {
       let tx: ContractTransactionResponse;
       let returnValue: bigint;
-      const twentyFourDaysToMaturity = nextPoolID - 86_400 * 24;
-      const twentyDaysToMaturity = nextPoolID - 86_400 * 20;
-      const sixteenDaysToMaturity = nextPoolID - 86_400 * 16;
-      const twelveDaysToMaturity = nextPoolID - 86_400 * 12;
-      const eightDaysToMaturity = nextPoolID - 86_400 * 8;
-      const fourDaysToMaturity = nextPoolID - 86_400 * 4;
+      let twentyFourDaysToMaturity: number;
+      let twentyDaysToMaturity: number;
+      let sixteenDaysToMaturity: number;
+      let twelveDaysToMaturity: number;
+      let eightDaysToMaturity: number;
+      let fourDaysToMaturity: number;
 
       beforeEach(async () => {
         marketEnv.switchWallet(laura);
+        twentyFourDaysToMaturity = nextPoolID - 86_400 * 24;
+        twentyDaysToMaturity = nextPoolID - 86_400 * 20;
+        sixteenDaysToMaturity = nextPoolID - 86_400 * 16;
+        twelveDaysToMaturity = nextPoolID - 86_400 * 12;
+        eightDaysToMaturity = nextPoolID - 86_400 * 8;
+        fourDaysToMaturity = nextPoolID - 86_400 * 4;
         await mockInterestRateModel.setRate(parseUnits("0.06"));
         await marketEnv.moveInTime(twentyFourDaysToMaturity);
         await marketHarness
@@ -1473,11 +1485,14 @@ describe("Fixed Rate Operations", () => {
     let returnValue: bigint;
     let borrowAmount: number;
     let fixedPoolState: FixedPoolState;
-    const fiveDaysToMaturity = nextPoolID - 86_400 * 5;
-    const fourDaysToMaturity = nextPoolID - 86_400 * 4;
-    const threeDaysToMaturity = nextPoolID - 86_400 * 3;
+    let fiveDaysToMaturity: number;
+    let fourDaysToMaturity: number;
+    let threeDaysToMaturity: number;
 
     beforeEach(async () => {
+      fiveDaysToMaturity = nextPoolID - 86_400 * 5;
+      fourDaysToMaturity = nextPoolID - 86_400 * 4;
+      threeDaysToMaturity = nextPoolID - 86_400 * 3;
       fixedPoolState = {
         borrowFees: parseUnits("0"),
         unassignedEarnings: parseUnits("0"),

@@ -320,7 +320,9 @@ extendConfig((extendedConfig, { finance }) => {
     const live = !["hardhat", "localhost"].includes(networkName);
     if (live) {
       if (env.MNEMONIC) networkConfig.accounts = { ...defaultHdAccountsConfigParams, mnemonic: env.MNEMONIC };
-    } else Object.assign(networkConfig, { priceDecimals: 8, allowUnlimitedContractSize: true });
+    } else {
+      Object.assign(networkConfig, { priceDecimals: 8, allowUnlimitedContractSize: true, initialDate: "2024-01-01" });
+    }
     networkConfig.finance = {
       ...finance,
       ...networkConfig.finance,

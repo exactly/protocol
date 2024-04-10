@@ -22,6 +22,7 @@ describe("Liquidity computations", function () {
   let bob: SignerWithAddress;
   let laura: SignerWithAddress;
   let multisig: SignerWithAddress;
+  let pools: number[];
 
   before(async () => {
     multisig = await getNamedSigner("multisig");
@@ -40,6 +41,7 @@ describe("Liquidity computations", function () {
     marketUSDC = await getContract<Market>("MarketUSDC.e", laura);
     marketWBTC = await getContract<Market>("MarketWBTC", laura);
     marketWETH = await getContract<Market>("MarketWETH", laura);
+    pools = await futurePools(1);
 
     for (const signer of [bob, laura]) {
       for (const [underlying, market, decimals = 18] of [
@@ -100,18 +102,12 @@ describe("Liquidity computations", function () {
           await timelockExecute(multisig, marketWBTC, "setInterestRateModel", [irm]);
           await timelockExecute(multisig, marketWETH, "setInterestRateModel", [irm]);
           // add liquidity to the maturity
-          await marketDAI.depositAtMaturity(futurePools(1)[0], parseUnits("800"), parseUnits("800"), laura.address);
+          await marketDAI.depositAtMaturity(pools[0], parseUnits("800"), parseUnits("800"), laura.address);
         });
 
         it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
           await expect(
-            marketDAI.borrowAtMaturity(
-              futurePools(1)[0],
-              parseUnits("800"),
-              parseUnits("1000"),
-              laura.address,
-              laura.address,
-            ),
+            marketDAI.borrowAtMaturity(pools[0], parseUnits("800"), parseUnits("1000"), laura.address, laura.address),
           ).to.be.revertedWithCustomError(auditor, "InsufficientAccountLiquidity");
         });
       });
@@ -119,9 +115,9 @@ describe("Liquidity computations", function () {
       describe("AND WHEN laura asks for a 640 DAI loan (640 / 0.8 = 800)", () => {
         beforeEach(async () => {
           // add liquidity to the maturity
-          await marketDAI.depositAtMaturity(futurePools(1)[0], parseUnits("640"), parseUnits("640"), laura.address);
+          await marketDAI.depositAtMaturity(pools[0], parseUnits("640"), parseUnits("640"), laura.address);
           await marketDAI.borrowAtMaturity(
-            futurePools(1)[0],
+            pools[0],
             parseUnits("640"),
             parseUnits("800"),
             laura.address,
@@ -146,13 +142,13 @@ describe("Liquidity computations", function () {
         });
 
         it("AND WHEN laura repays her debt THEN it does not revert when she tries to exit her collateral DAI market", async () => {
-          await marketDAI.repayAtMaturity(futurePools(1)[0], parseUnits("640"), parseUnits("640"), laura.address);
+          await marketDAI.repayAtMaturity(pools[0], parseUnits("640"), parseUnits("640"), laura.address);
           await expect(auditor.exitMarket(marketDAI.target)).to.not.be.reverted;
         });
 
         describe("AND GIVEN laura deposits more collateral for another asset", () => {
           beforeEach(async () => {
-            await marketWETH.depositAtMaturity(futurePools(1)[0], parseUnits("1"), parseUnits("1"), laura.address);
+            await marketWETH.depositAtMaturity(pools[0], parseUnits("1"), parseUnits("1"), laura.address);
             await auditor.enterMarket(marketWETH.target);
           });
 
@@ -171,7 +167,7 @@ describe("Liquidity computations", function () {
   describe("unpaid debts after maturity", () => {
     describe("GIVEN a well funded maturity pool (10k dai, laura), AND collateral for the borrower, (10k usdc, bob)", () => {
       beforeEach(async () => {
-        await marketDAI.depositAtMaturity(futurePools(1)[0], parseUnits("10000"), parseUnits("10000"), laura.address);
+        await marketDAI.depositAtMaturity(pools[0], parseUnits("10000"), parseUnits("10000"), laura.address);
         await marketUSDC.connect(bob).deposit(parseUnits("10000", 6), bob.address);
       });
 
@@ -179,7 +175,7 @@ describe("Liquidity computations", function () {
         beforeEach(async () => {
           await marketDAI
             .connect(bob)
-            .borrowAtMaturity(futurePools(1)[0], parseUnits("5600"), parseUnits("5600"), bob.address, bob.address);
+            .borrowAtMaturity(pools[0], parseUnits("5600"), parseUnits("5600"), bob.address, bob.address);
         });
 
         it("THEN bob has 1k usd liquidity and no shortfall", async () => {
@@ -190,7 +186,7 @@ describe("Liquidity computations", function () {
         describe("AND WHEN moving to five days after the maturity date", () => {
           beforeEach(async () => {
             // Move in time to maturity
-            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + 86_400 * 5]);
+            await provider.send("evm_setNextBlockTimestamp", [pools[0] + 86_400 * 5]);
           });
 
           it("THEN 5 days of *daily* base rate interest is charged, adding 0.02*5 =10% interest to the debt", async () => {
@@ -208,7 +204,7 @@ describe("Liquidity computations", function () {
           describe("AND WHEN moving to fifteen days after the maturity date", () => {
             beforeEach(async () => {
               // Move in time to maturity
-              await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0] + 86_400 * 15]);
+              await provider.send("evm_setNextBlockTimestamp", [pools[0] + 86_400 * 15]);
             });
 
             it("THEN 15 days of *daily* base rate interest is charged, adding 0.02*15 =35% interest to the debt, causing a shortfall", async () => {
@@ -238,7 +234,7 @@ describe("Liquidity computations", function () {
   describe("support for assets with different decimals", () => {
     describe("GIVEN liquidity on the USDC pool ", () => {
       beforeEach(async () => {
-        await marketUSDC.depositAtMaturity(futurePools(1)[0], parseUnits("3", 6), parseUnits("3", 6), laura.address);
+        await marketUSDC.depositAtMaturity(pools[0], parseUnits("3", 6), parseUnits("3", 6), laura.address);
       });
 
       describe("WHEN bob does a 1 sat deposit", () => {
@@ -254,13 +250,13 @@ describe("Liquidity computations", function () {
         it("AND WHEN he tries to take a 4*10^14 usd USDC loan, THEN it reverts", async () => {
           // expect liquidity to equal zero
           await expect(
-            marketUSDC.connect(bob).borrowAtMaturity(futurePools(1)[0], "400", "400", bob.address, bob.address),
+            marketUSDC.connect(bob).borrowAtMaturity(pools[0], "400", "400", bob.address, bob.address),
           ).to.be.revertedWithCustomError(auditor, "InsufficientAccountLiquidity");
         });
 
         describe("AND WHEN he takes a 3*10^14 USDC loan", () => {
           beforeEach(async () => {
-            await marketUSDC.connect(bob).borrowAtMaturity(futurePools(1)[0], "300", "300", bob.address, bob.address);
+            await marketUSDC.connect(bob).borrowAtMaturity(pools[0], "300", "300", bob.address, bob.address);
           });
 
           it("THEN he has 3*10^12 usd left of liquidity", async () => {
@@ -274,7 +270,7 @@ describe("Liquidity computations", function () {
     describe("GIVEN theres liquidity on the btc market", () => {
       beforeEach(async () => {
         // laura supplies wbtc to the protocol to have lendable money in the pool
-        await marketWBTC.depositAtMaturity(futurePools(1)[0], parseUnits("3", 8), parseUnits("3", 8), laura.address);
+        await marketWBTC.depositAtMaturity(pools[0], parseUnits("3", 8), parseUnits("3", 8), laura.address);
       });
 
       describe("AND GIVEN Bob provides 60k dai (18 decimals) as collateral", () => {
@@ -287,7 +283,7 @@ describe("Liquidity computations", function () {
           await expect(
             marketWBTC
               .connect(bob)
-              .borrowAtMaturity(futurePools(1)[0], parseUnits("1", 8), parseUnits("1", 8), bob.address, bob.address),
+              .borrowAtMaturity(pools[0], parseUnits("1", 8), parseUnits("1", 8), bob.address, bob.address),
           ).to.be.revertedWithCustomError(auditor, "InsufficientAccountLiquidity");
         });
       });
@@ -302,13 +298,7 @@ describe("Liquidity computations", function () {
           beforeEach(async () => {
             await marketWBTC
               .connect(bob)
-              .borrowAtMaturity(
-                futurePools(1)[0],
-                parseUnits("0.45", 8),
-                parseUnits("0.45", 8),
-                bob.address,
-                bob.address,
-              );
+              .borrowAtMaturity(pools[0], parseUnits("0.45", 8), parseUnits("0.45", 8), bob.address, bob.address);
           });
           // this is similar to the previous test case, but instead of
           // computing the simulated liquidity with a supplyAmount of zero and

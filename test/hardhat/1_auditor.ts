@@ -17,6 +17,7 @@ describe("Auditor from Account Space", function () {
 
   let owner: SignerWithAddress;
   let account: SignerWithAddress;
+  let pools: number[];
 
   before(async () => {
     owner = await getNamedSigner("multisig");
@@ -37,6 +38,7 @@ describe("Auditor from Account Space", function () {
     await dai.connect(owner).mint(account.address, parseUnits("100000"));
     await weth.deposit({ value: parseUnits("10") });
     await weth.approve(marketWETH.target, parseUnits("10"));
+    pools = await futurePools(1);
   });
 
   it("enters market twice without failing", async () => {
@@ -68,7 +70,7 @@ describe("Auditor from Account Space", function () {
     await auditor.enterMarket(marketDAI.target);
     await priceFeedDAI.setPrice(0);
     await expect(
-      marketDAI.borrowAtMaturity(futurePools(1)[0], 1, 1, account.address, account.address),
+      marketDAI.borrowAtMaturity(pools[0], 1, 1, account.address, account.address),
     ).to.be.revertedWithCustomError(auditor, "InvalidPrice");
   });
 
@@ -132,7 +134,7 @@ describe("Auditor from Account Space", function () {
   it("Auditor reverts if Oracle acts weird", async () => {
     // supply Dai to the protocol
     await dai.approve(marketDAI.target, 100);
-    await marketDAI.depositAtMaturity(futurePools(1)[0], 100, 100, account.address);
+    await marketDAI.depositAtMaturity(pools[0], 100, 100, account.address);
     // make it count as collateral (DAI)
     await auditor.enterMarket(marketDAI.target);
     await priceFeedDAI.setPrice(0);

@@ -7,7 +7,6 @@ import { DefaultEnv } from "./defaultEnv";
 import futurePools from "./utils/futurePools";
 
 const { MaxUint256, parseUnits, provider } = ethers;
-const nextPoolID = futurePools(3)[2];
 
 describe("Liquidations", function () {
   let auditor: Auditor;
@@ -27,6 +26,8 @@ describe("Liquidations", function () {
   let amountToBorrowDAI: string;
 
   let snapshot: string;
+  let pools: number[];
+  let nextPoolID: number;
 
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
@@ -47,6 +48,8 @@ describe("Liquidations", function () {
     // From alice to bob
     await dai.mint(bob.address, parseUnits("200000"));
     await dai.mint(john.address, parseUnits("10000"));
+    pools = await futurePools(3);
+    nextPoolID = pools[2];
   });
 
   describe("GIVEN alice deposits USD63k worth of WBTC, USD3k worth of WETH (66k total), 63k*0.6+3k*0.7=39k liquidity AND bob deposits 65kDAI", () => {
@@ -325,8 +328,8 @@ describe("Liquidations", function () {
       exactlyEnv.switchWallet(john);
       await eth.transfer(john.address, parseUnits("20"));
       // add WETH liquidity to the maturity
-      await exactlyEnv.depositMP("WETH", futurePools(1)[0], "1.25");
-      await exactlyEnv.depositMP("WETH", futurePools(2)[1], "1.25");
+      await exactlyEnv.depositMP("WETH", pools[0], "1.25");
+      await exactlyEnv.depositMP("WETH", pools[1], "1.25");
 
       await exactlyEnv.depositSP("WETH", "10");
       await exactlyEnv.enterMarket("WETH");
@@ -340,8 +343,8 @@ describe("Liquidations", function () {
         await exactlyEnv.enterMarket("DAI");
         await provider.send("evm_increaseTime", [9_011]);
 
-        await exactlyEnv.borrowMP("WETH", futurePools(1)[0], "0.93");
-        await exactlyEnv.borrowMP("WETH", futurePools(2)[1], "0.93");
+        await exactlyEnv.borrowMP("WETH", pools[0], "0.93");
+        await exactlyEnv.borrowMP("WETH", pools[1], "0.93");
       });
 
       describe("WHEN WETH price doubles AND john borrows 10k DAI from a maturity pool (all liquidity in smart pool)", () => {
@@ -349,7 +352,7 @@ describe("Liquidations", function () {
           await provider.send("evm_increaseTime", [3_600 * 2]);
           await exactlyEnv.setPrice(marketETH.target, parseUnits("8000", 8));
           exactlyEnv.switchWallet(john);
-          await exactlyEnv.borrowMP("DAI", futurePools(1)[0], "10000");
+          await exactlyEnv.borrowMP("DAI", pools[0], "10000");
         });
 
         it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY when trying to liquidate alice's positions", async () => {
@@ -389,8 +392,8 @@ describe("Liquidations", function () {
       exactlyEnv.switchWallet(john);
       await dai.mint(john.address, parseUnits("20000"));
       // add DAI liquidity to the maturities
-      await exactlyEnv.depositMP("DAI", futurePools(1)[0], "1000");
-      await exactlyEnv.depositMP("DAI", futurePools(2)[1], "6000");
+      await exactlyEnv.depositMP("DAI", pools[0], "1000");
+      await exactlyEnv.depositMP("DAI", pools[1], "6000");
     });
 
     describe("AND GIVEN alice deposits USD10k worth of WETH to the smart pool AND borrows 7k DAI (70% collateralization rate)", () => {
@@ -399,8 +402,8 @@ describe("Liquidations", function () {
         await exactlyEnv.depositSP("WETH", "5");
         await exactlyEnv.enterMarket("WETH");
 
-        await exactlyEnv.borrowMP("DAI", futurePools(1)[0], "1000");
-        await exactlyEnv.borrowMP("DAI", futurePools(2)[1], "6000");
+        await exactlyEnv.borrowMP("DAI", pools[0], "1000");
+        await exactlyEnv.borrowMP("DAI", pools[1], "6000");
         await provider.send("evm_increaseTime", [9_011]);
       });
 
@@ -410,7 +413,7 @@ describe("Liquidations", function () {
 
         beforeEach(async () => {
           await exactlyEnv.setPrice(marketETH.target, parseUnits("1500", 8));
-          await exactlyEnv.moveInTimeAndMine(futurePools(1)[0] + 86_400 * 20);
+          await exactlyEnv.moveInTimeAndMine(pools[0] + 86_400 * 20);
           johnETHBalanceBefore = await eth.balanceOf(john.address);
           johnDAIBalanceBefore = await dai.balanceOf(john.address);
           await dai.connect(john).approve(marketDAI.target, parseUnits("6400"));
@@ -448,10 +451,10 @@ describe("Liquidations", function () {
           await marketDAI.setBackupFeeRate(parseUnits("1"));
           await marketDAI
             .connect(john)
-            .borrowAtMaturity(futurePools(1)[0], parseUnits("10000"), parseUnits("20000"), john.address, john.address);
+            .borrowAtMaturity(pools[0], parseUnits("10000"), parseUnits("20000"), john.address, john.address);
           await marketDAI
             .connect(john)
-            .depositAtMaturity(futurePools(1)[0], parseUnits("10000"), parseUnits("10000"), john.address);
+            .depositAtMaturity(pools[0], parseUnits("10000"), parseUnits("10000"), john.address);
 
           await exactlyEnv.setPrice(marketETH.target, parseUnits("100", 8));
           await marketDAI.connect(john).liquidate(alice.address, MaxUint256, marketETH.target);
