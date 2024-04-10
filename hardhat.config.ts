@@ -19,8 +19,8 @@ setup({ automaticVerifications: false });
 
 const hardhatConfig: Config = {
   solidity: {
-    version: "0.8.23",
-    settings: { evmVersion: "shanghai", optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
+    version: "0.8.25",
+    settings: { evmVersion: "cancun", optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
   },
   networks: {
     ethereum: {
