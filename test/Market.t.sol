@@ -2912,7 +2912,7 @@ contract MarketTest is Test {
     uint256 seizedAssets
   );
   event SpreadBadDebt(address indexed borrower, uint256 assets);
-  event Frozen(address account, bool isFrozen);
+  event Frozen(address indexed account, bool isFrozen);
 }
 
 contract MarketHarness is Market {

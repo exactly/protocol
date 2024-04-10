@@ -1342,7 +1342,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   event FloatingDebtUpdate(uint256 timestamp, uint256 utilization);
 
   /// @notice Emitted when `account` sets the `isFrozen` flag.
-  event Frozen(address account, bool isFrozen);
+  event Frozen(address indexed account, bool isFrozen);
 
   /// @notice Stores fixed deposits and fixed borrows map and floating borrow shares of an account.
   /// @param fixedDeposits encoded map maturity dates where the account supplied to.
