@@ -16,9 +16,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: yarn
+      - uses: oven-sh/setup-bun@v1
       - uses: foundry-rs/foundry-toolchain@v1
-      - run: yarn
+      - run: bun install
       - uses: crazy-max/ghaction-import-gpg@v5
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -27,7 +27,7 @@ jobs:
       - uses: changesets/action@v1
         with:
           title: 🔖 new release
-          publish: npx changeset publish
+          publish: bunx changeset publish
           setupGitUser: false
         env:
           GITHUB_TOKEN: ${{ secrets.PR_GITHUB_TOKEN }}

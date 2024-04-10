@@ -15,12 +15,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: yarn
+      - uses: oven-sh/setup-bun@v1
       - uses: foundry-rs/foundry-toolchain@v1
-      - run: yarn
-      - run: yarn lint
+      - run: bun install
+      - run: bun run lint
       - run: forge build
-      - run: yarn coverage
+      - run: bun run coverage
       - uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

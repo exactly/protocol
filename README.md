@@ -48,29 +48,29 @@ git clone git@github.com:exactly/protocol.git
 ### Install Locally
 
 ```bash
-yarn
+bun install
 ```
 
 ### Run Tests
 
 ```bash
-yarn test
+bun run test
 ```
 
 ### Run Coverage
 
 ```bash
-yarn coverage
+bun run coverage
 ```
 
 ### Gas Reports
 
 ```bash
-REPORT_GAS=1 yarn test
+REPORT_GAS=1 bun run test
 ```
 
 ### Deploy
 
 ```bash
-yarn deploy:op-sepolia
+bun run deploy:op-sepolia
 ```
