@@ -1134,6 +1134,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Sets `isFrozen` state, triggered by an authorized account.
   function setFrozen(bool isFrozen_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (isFrozen == isFrozen_) return;
     isFrozen = isFrozen_;
     emit Frozen(msg.sender, isFrozen_);
   }
