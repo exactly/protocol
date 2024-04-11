@@ -3,7 +3,7 @@
   "plugins": ["prettier"],
   "rules": {
     "max-line-length": ["error", 120],
-    "compiler-version": ["error", "^0.8.17"],
+    "compiler-version": ["error", "^0.8.0"],
     "func-visibility": ["error", { "ignoreConstructors": true }],
     "immutable-vars-naming": ["error", { "immutablesAsConstants": false }],
     "func-param-name-mixedcase": "error",
