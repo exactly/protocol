@@ -114,7 +114,7 @@ contract InterestRateModel {
     FixedVars memory v;
     v.sqFNatPools = (maxPools * 1e18).divWadDown(fixedAllocation);
     v.fNatPools = (v.sqFNatPools * 1e18).sqrt();
-    v.fixedFactor = (maxPools * uFixed).mulDivDown(1e36, uGlobal * fixedAllocation);
+    v.fixedFactor = (maxPools * uFixed).mulDivUp(1e36, uGlobal * fixedAllocation);
     v.natPools =
       ((2e18 - v.sqFNatPools.toInt256()) * 1e36) /
       (v.fNatPools.toInt256() * (1e18 - v.fNatPools.toInt256()));
