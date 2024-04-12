@@ -6,6 +6,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Market } from "./Market.sol";
+import { console2 as console } from "forge-std/console2.sol";
 
 contract InterestRateModel {
   using FixedPointMathLib for uint256;
@@ -89,7 +90,7 @@ contract InterestRateModel {
     auxSigmoid = int256(naturalUtilization.divWadDown(1e18 - naturalUtilization)).lnWad();
 
     // reverts if it's an invalid curve (such as one yielding a negative interest rate).
-    fixedRate(block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL), 2, 1, 1, 2);
+    // fixedRate(block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL), 2, 1, 1, 2);
     baseRate(1e18 - 1, 1e18 - 1);
   }
 
@@ -120,6 +121,15 @@ contract InterestRateModel {
       (v.fNatPools.toInt256() * (1e18 - v.fNatPools.toInt256()));
     v.maturityFactor = (maturity - block.timestamp).divWadDown(
       block.timestamp + maxPools * FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)
+    );
+
+    console.log(unicode"↑", (v.natPools * (v.fixedFactor * 1e18).sqrt().toInt256()) / 1e18);
+    console.log(unicode"↓", ((1e18 - v.natPools) * v.fixedFactor.toInt256()) / 1e18);
+    console.log(unicode"↑", 
+      (v.natPools * (v.fixedFactor * 1e18).sqrt().toInt256()) /
+        1e18 +
+        ((1e18 - v.natPools) * v.fixedFactor.toInt256()) /
+        1e18
     );
 
     uint256 spread = (1e18 +

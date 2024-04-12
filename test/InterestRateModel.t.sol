@@ -286,6 +286,34 @@ contract InterestRateModelTest is Test {
     assertGe(rate2, rate, "rate2 < rate");
   }
 
+  function testDebugFixed() external {
+    irm = new InterestRateModelHarness(
+      Parameters({
+        minRate: 3.5e16,
+        naturalRate: 8e16,
+        maxUtilization: 1.3e18,
+        naturalUtilization: 0.75e18,
+        growthSpeed: 1.1e18,
+        sigmoidSpeed: 2.5e18,
+        spreadFactor: 0.2e18,
+        maturitySpeed: 0.5e18,
+        timePreference: 0.01e18,
+        fixedAllocation: 0.6e18,
+        maxRate: 15_000e16
+      }),
+      Market(address(0))
+    );
+    uint256 maturity = 4838400;
+    uint256 uFloating = 95252227785615380;
+    uint256 uGlobal = 998799494664155611;
+    uint256 maxPools = 6;
+    uint256 uFixed1 = 856000624786898724;
+    uint256 rate1 = irm.fixedRate(maturity, maxPools, uFixed1, uFloating, uGlobal);
+    emit log("--------------------------------");
+    uint256 uFixed2 = 856000624786898726;
+    uint256 rate2 = irm.fixedRate(maturity, maxPools, uFixed2, uFloating, uGlobal);
+  }
+
   function testFixedRateRevertAlreadyMatured() external {
     irm = deployDefault();
     vm.warp(FixedLib.INTERVAL);
