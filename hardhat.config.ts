@@ -139,6 +139,22 @@ const hardhatConfig: Config = {
       USDC: {
         adjustFactor: 0.91,
         interestRateModel: { minRate: 3.5e-2, naturalRate: 8e-2, naturalUtilization: 0.75, growthSpeed: 1.1 },
+        overrides: {
+          optimism: {
+            rewards: {
+              OP: {
+                total: 4_800,
+                debt: 1_000_000,
+                start: "2024-04-24",
+                period: 7 * 86_400,
+                undistributedFactor: 0.3,
+                transitionFactor: 0.1,
+                compensationFactor: 0,
+                depositAllocationWeightAddend: 0.06,
+              },
+            },
+          },
+        },
       },
       "USDC.e": {
         networks: ["optimism", "op-sepolia"],
