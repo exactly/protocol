@@ -6,7 +6,7 @@ if (!file) throw new Error("missing file argument");
 
 const { chain, transactions } = JSON.parse(readFileSync(file).toString()) as {
   chain: number;
-  transactions: { transaction: { from: string; to: string; data: string; value: string } }[];
+  transactions: { transaction: { from: string; to: string; input: string; value: string } }[];
 };
 console.log(
   JSON.stringify(
@@ -18,7 +18,7 @@ console.log(
           return from;
         }, ""),
       },
-      transactions: transactions.map(({ transaction: { to, data, value } }) => ({ to, data, value })),
+      transactions: transactions.map(({ transaction: { to, input, value } }) => ({ to, data: input, value })),
     },
     null,
     2,
