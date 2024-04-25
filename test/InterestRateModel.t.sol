@@ -26,6 +26,29 @@ contract InterestRateModelTest is Test {
     assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18), 63726888426261496);
   }
 
+  function testFixedRateTimeSensitivity(uint256 maxPools, uint256 maturity, uint256 intervals) external {
+    maxPools = _bound(maturity, 1, 24);
+    maturity = _bound(maturity, 1, maxPools);
+    intervals = _bound(intervals, 1, 1_000);
+    irm = deployDefault();
+    uint256 rate = irm.fixedRate(
+      block.timestamp + maturity * FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL),
+      6,
+      0.5e18,
+      0.3e18,
+      0.8e18
+    );
+    skip(intervals * FixedLib.INTERVAL);
+    uint256 rate2 = irm.fixedRate(
+      block.timestamp + maturity * FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL),
+      6,
+      0.5e18,
+      0.3e18,
+      0.8e18
+    );
+    assertEq(rate, rate2);
+  }
+
   function testFloatingBorrowRate() external {
     assertEq(deployDefault().floatingRate(0.75e18, 0.75e18), 80000000000000000);
   }
