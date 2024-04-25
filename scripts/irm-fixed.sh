@@ -34,7 +34,7 @@ rate=$(BC_LINE_LENGTH=666 bc -l <<< "
     scale     = 0
     modulo    = timestamp % interval
     scale     = 2 * 18
-    ttmaxm    = timestamp + maxpools * interval - modulo
+    ttmaxm    = maxpools * interval - modulo
     
     rate      = base * (1 + e(ttmspeed * l(ttm/ttmaxm)) * (tpref + spreadf * z))
   }

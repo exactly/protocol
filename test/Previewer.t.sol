@@ -535,7 +535,7 @@ contract PreviewerTest is Test {
 
     // supply 100 more to the smart pool
     market.deposit(100 ether, address(this));
-    uint256 distributedEarnings = 6415907858003678;
+    uint256 distributedEarnings = 6415907865026890;
     // set the smart pool reserve in 10%
     // since smart pool supply is 200 then 10% is 20
     market.setReserveFactor(0.1e18);
@@ -601,24 +601,24 @@ contract PreviewerTest is Test {
     marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 300 ether, address(this), address(this));
 
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
-    uint256 depositRate = 33432052065142420;
+    uint256 depositRate = 33432348211445772;
     // MarketDAI
     assertEq(data[0].fixedPools[0].optimalDeposit, 10 ether);
-    assertEq(data[0].fixedPools[0].minBorrowRate, 37146724516824931);
+    assertEq(data[0].fixedPools[0].minBorrowRate, 37147053568273101);
     assertEq(data[0].fixedPools[0].depositRate, depositRate);
     assertEq(data[0].fixedPools[0].utilization, 0.1 ether);
     assertEq(data[0].fixedPools[1].optimalDeposit, 0);
-    assertEq(data[0].fixedPools[1].minBorrowRate, 32312833259717580);
+    assertEq(data[0].fixedPools[1].minBorrowRate, 32312411836263729);
     assertEq(data[0].fixedPools[1].depositRate, 0);
     assertEq(data[0].fixedPools[1].utilization, 0);
     // MarketWETH
     assertEq(data[1].fixedPools[0].optimalDeposit, 0);
-    assertEq(data[1].fixedPools[0].minBorrowRate, 33083889313081921);
+    assertEq(data[1].fixedPools[0].minBorrowRate, 33083591831630411);
     assertEq(data[1].fixedPools[0].depositRate, 0);
     assertEq(data[1].fixedPools[0].utilization, 0);
     assertEq(data[1].fixedPools[1].optimalDeposit, 200 ether);
-    assertEq(data[1].fixedPools[1].minBorrowRate, 37997829162598044);
-    assertEq(data[1].fixedPools[1].depositRate, 34198046246338230);
+    assertEq(data[1].fixedPools[1].minBorrowRate, 37998294583812514);
+    assertEq(data[1].fixedPools[1].depositRate, 34198465125431257);
     assertEq(data[1].fixedPools[1].utilization, 0.004 ether);
 
     vm.warp(block.timestamp + 1 days);
@@ -670,7 +670,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].rewardRates[0].assetName, rewardAsset.name());
     assertEq(data[0].rewardRates[0].assetSymbol, rewardAsset.symbol());
 
-    uint256 newDepositRewards = 17985931229760000;
+    uint256 newDepositRewards = 17985931211320000;
     uint256 newDepositRewardsValue = newDepositRewards.mulDivDown(
       uint256(opPriceFeed.latestAnswer()),
       10 ** opPriceFeed.decimals()
@@ -1287,7 +1287,7 @@ contract PreviewerTest is Test {
 
     // supply 100 more to the smart pool
     market.deposit(100 ether, address(this));
-    uint256 distributedEarnings = 792852744101;
+    uint256 distributedEarnings = 792859767314;
     // set the smart pool reserve to 10%
     // since smart pool supply is 200 then 10% is 20
     market.setReserveFactor(0.1e18);
