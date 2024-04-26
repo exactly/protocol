@@ -23,7 +23,7 @@ contract InterestRateModelTest is Test {
   InterestRateModelHarness internal irm;
 
   function testFixedBorrowRate() external {
-    assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18), 63726888426261496);
+    assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18), 63726888252924763);
   }
 
   function testFixedRateTimeSensitivity(uint256 maxPools, uint256 maturity, uint256 intervals) external {

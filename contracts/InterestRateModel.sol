@@ -118,9 +118,7 @@ contract InterestRateModel {
     v.natPools =
       ((2e18 - v.sqFNatPools.toInt256()) * 1e36) /
       (v.fNatPools.toInt256() * (1e18 - v.fNatPools.toInt256()));
-    v.maturityFactor = (maturity - block.timestamp).divWadDown(
-      maxPools * FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)
-    );
+    v.maturityFactor = (maturity - block.timestamp).divWadDown(maxPools * FixedLib.INTERVAL);
 
     uint256 spread = (1e18 +
       (((maturitySpeed * (v.maturityFactor).toInt256().lnWad()) / 1e18).expWad() *
