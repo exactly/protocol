@@ -144,10 +144,10 @@ const hardhatConfig: Config = {
             rewards: {
               OP: {
                 total: 4_800,
-                debt: 1_000_000,
+                debt: 50_000,
                 start: "2024-04-24",
-                period: 7 * 86_400,
-                undistributedFactor: 0.3,
+                period: 2 * 7 * 86_400,
+                undistributedFactor: 1,
                 transitionFactor: 0.1,
                 compensationFactor: 0,
                 depositAllocationWeightAddend: 0.06,
