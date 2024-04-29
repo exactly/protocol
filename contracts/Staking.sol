@@ -67,14 +67,14 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
   }
 
   function stake(uint256 _amount) external updateReward(msg.sender) {
-    require(_amount != 0, "amount = 0");
+    if (_amount == 0) revert ZeroAmount();
     exa.transferFrom(msg.sender, address(this), _amount);
     balanceOf[msg.sender] += _amount;
     totalSupply += _amount;
   }
 
   function withdraw(uint256 _amount) external updateReward(msg.sender) {
-    require(_amount != 0, "amount = 0");
+    if (_amount == 0) revert ZeroAmount();
     balanceOf[msg.sender] -= _amount;
     totalSupply -= _amount;
     exa.transfer(msg.sender, _amount);
@@ -93,7 +93,7 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
   }
 
   function setRewardsDuration(uint256 _duration) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    require(finishAt < block.timestamp, "reward duration not finished");
+    if (finishAt > block.timestamp) revert NotFinished();
     duration = _duration;
   }
 
@@ -105,10 +105,15 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
       rewardRate = (_amount + remainingRewards) / duration;
     }
 
-    require(rewardRate != 0, "reward rate = 0");
-    require(rewardRate * duration <= rewardsToken.balanceOf(address(this)), "reward amount > balance");
+    if (rewardRate == 0) revert ZeroRate();
+    if (rewardRate * duration > rewardsToken.balanceOf(address(this))) revert InsufficientBalance();
 
     finishAt = block.timestamp + duration;
     updatedAt = block.timestamp;
   }
 }
+
+error InsufficientBalance();
+error NotFinished();
+error ZeroAmount();
+error ZeroRate();
