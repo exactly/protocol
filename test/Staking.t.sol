@@ -7,7 +7,7 @@ import { Test } from "forge-std/Test.sol";
 
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 
-import { Staking } from "../contracts/Staking.sol";
+import { Staking, InsufficientBalance, NotFinished, ZeroAmount, ZeroRate } from "../contracts/Staking.sol";
 
 contract StakingTest is Test {
   Staking internal staking;
@@ -18,6 +18,7 @@ contract StakingTest is Test {
   uint256 internal initialDuration;
 
   function setUp() external {
+    vm.warp(1_704_067_200); // 01/01/2024 @ 00:00 (UTC)
     exa = new MockERC20("Exactly token", "EXA", 18);
     rewardsToken = new MockERC20("Rewards token", "REW", 18);
 
@@ -47,11 +48,35 @@ contract StakingTest is Test {
     assertEq(staking.balanceOf(address(this)), 0);
   }
 
+  function testInsufficientBalanceError(uint256 amount) external {
+    amount = _bound(amount, 1e8, initialAmount * 2);
+    vm.expectRevert(InsufficientBalance.selector);
+    staking.notifyRewardAmount(amount);
+  }
+
+  function testZeroRateError() external {
+    skip(initialDuration + 1);
+    vm.expectRevert(ZeroRate.selector);
+    staking.notifyRewardAmount(0);
+  }
+
+  function testSetDuration(uint256 skipTime, uint256 duration) external {
+    skipTime = _bound(skipTime, 1, initialDuration * 2);
+    duration = _bound(duration, 1, 200 weeks);
+
+    skip(skipTime);
+    if (skipTime < initialDuration) vm.expectRevert(NotFinished.selector);
+    staking.setRewardsDuration(duration);
+
+    if (skipTime <= initialDuration) assertEq(staking.duration(), initialDuration);
+    else assertEq(staking.duration(), duration);
+  }
+
   function testTotalSupplyStake(uint256 amount) external {
     amount = _bound(amount, 0, exaBalance);
     uint256 prevSupply = staking.totalSupply();
     exa.mint(address(this), amount);
-    if (amount == 0) vm.expectRevert(bytes("")); // TODO expect custom error
+    if (amount == 0) vm.expectRevert(ZeroAmount.selector);
     staking.stake(amount);
     assertEq(staking.totalSupply(), prevSupply + amount);
   }
@@ -59,7 +84,7 @@ contract StakingTest is Test {
   function testTotalSupplyUnstake(uint256 amount) external {
     amount = _bound(amount, 0, staking.balanceOf(address(this)));
     uint256 prevSupply = staking.totalSupply();
-    if (amount == 0) vm.expectRevert(bytes("")); // TODO expect custom error
+    if (amount == 0) vm.expectRevert(ZeroAmount.selector);
 
     staking.withdraw(amount);
     assertEq(staking.totalSupply(), prevSupply - amount);
@@ -69,7 +94,7 @@ contract StakingTest is Test {
     amount = _bound(amount, 0, exaBalance);
     uint256 prevBalance = staking.balanceOf(address(this));
     exa.mint(address(this), amount);
-    if (amount == 0) vm.expectRevert(bytes("")); // TODO expect custom error
+    if (amount == 0) vm.expectRevert(ZeroAmount.selector);
     staking.stake(amount);
     assertEq(staking.balanceOf(address(this)), prevBalance + amount);
   }
@@ -77,7 +102,7 @@ contract StakingTest is Test {
   function testBalanceOfUnstake(uint256 amount) external {
     amount = _bound(amount, 0, staking.balanceOf(address(this)));
     uint256 prevBalance = staking.balanceOf(address(this));
-    if (amount == 0) vm.expectRevert(bytes("")); // TODO expect custom error
+    if (amount == 0) vm.expectRevert(ZeroAmount.selector);
     staking.withdraw(amount);
     assertEq(staking.balanceOf(address(this)), prevBalance - amount);
   }
