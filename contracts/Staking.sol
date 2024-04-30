@@ -71,6 +71,8 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
     exa.transferFrom(msg.sender, address(this), _amount);
     balanceOf[msg.sender] += _amount;
     totalSupply += _amount;
+
+    emit Stake(msg.sender, _amount);
   }
 
   function withdraw(uint256 _amount) external updateReward(msg.sender) {
@@ -78,6 +80,8 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
     balanceOf[msg.sender] -= _amount;
     totalSupply -= _amount;
     exa.transfer(msg.sender, _amount);
+
+    emit Withdraw(msg.sender, _amount);
   }
 
   function earned(address _account) public view returns (uint256) {
@@ -89,12 +93,16 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
     if (reward != 0) {
       rewards[msg.sender] = 0;
       rewardsToken.transfer(msg.sender, reward);
+
+      emit RewardPaid(msg.sender, reward);
     }
   }
 
   function setRewardsDuration(uint256 _duration) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (finishAt > block.timestamp) revert NotFinished();
     duration = _duration;
+
+    emit RewardsDurationSet(msg.sender, _duration);
   }
 
   function notifyRewardAmount(uint256 _amount) external onlyRole(DEFAULT_ADMIN_ROLE) updateReward(address(0)) {
@@ -110,7 +118,15 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
 
     finishAt = block.timestamp + duration;
     updatedAt = block.timestamp;
+
+    emit RewardAmountNotified(msg.sender, _amount);
   }
+
+  event Stake(address indexed account, uint256 amount);
+  event Withdraw(address indexed account, uint256 amount);
+  event RewardAmountNotified(address indexed account, uint256 amount);
+  event RewardPaid(address indexed account, uint256 amount);
+  event RewardsDurationSet(address indexed account, uint256 duration);
 }
 
 error InsufficientBalance();
