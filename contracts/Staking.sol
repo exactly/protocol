@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC20, SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
@@ -9,6 +10,7 @@ import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/uti
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable {
+  using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
 
   ERC20 public immutable exa;
@@ -61,7 +63,7 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
   function rewardPerToken() public view returns (uint256) {
     if (totalSupply == 0) return rewardPerTokenStored;
 
-    return rewardPerTokenStored + (rewardRate * (lastTimeRewardApplicable() - updatedAt) * 1e18) / totalSupply;
+    return rewardPerTokenStored + (rewardRate * (lastTimeRewardApplicable() - updatedAt)).divWadDown(totalSupply);
   }
 
   function stake(uint256 _amount) external updateReward(msg.sender) {
@@ -79,7 +81,7 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
   }
 
   function earned(address _account) public view returns (uint256) {
-    return ((balanceOf[_account] * (rewardPerToken() - userRewardPerTokenPaid[_account])) / 1e18) + rewards[_account];
+    return balanceOf[_account].mulWadDown(rewardPerToken() - userRewardPerTokenPaid[_account]) + rewards[_account];
   }
 
   function getReward() external updateReward(msg.sender) {
