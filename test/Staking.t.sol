@@ -127,4 +127,62 @@ contract StakingTest is Test {
 
     assertEq(rewardsToken.balanceOf(address(this)), prevRewardsBalance + rewards);
   }
+
+  // events
+  function testStakeEvent(uint256 amount) external {
+    amount = _bound(amount, 1, exaBalance);
+    exa.mint(address(this), amount);
+    vm.expectEmit(true, true, true, true, address(staking));
+    emit Stake(address(this), amount);
+    staking.stake(amount);
+  }
+
+  function testWithdrawEvent(uint256 amount) external {
+    amount = _bound(amount, 1, exaBalance);
+    exa.mint(address(this), amount);
+    staking.stake(amount);
+    vm.expectEmit(true, true, true, true, address(staking));
+    emit Withdraw(address(this), amount);
+    staking.withdraw(amount);
+  }
+
+  function testRewardAmountNotifiedEvent(uint256 amount) external {
+    amount = _bound(amount, 1, initialAmount * 2);
+
+    rewardsToken.mint(address(staking), amount);
+    vm.expectEmit(true, true, true, true, address(staking));
+    emit RewardAmountNotified(address(this), amount);
+    staking.notifyRewardAmount(amount);
+  }
+
+  function testRewardPaidEvent(uint256 amount, uint256 time) external {
+    amount = _bound(amount, 1, initialAmount * 2);
+    time = _bound(time, 1, initialDuration + 1);
+
+    exa.mint(address(this), amount);
+    staking.stake(amount);
+
+    skip(time);
+
+    uint256 earned = staking.earned(address(this));
+
+    vm.expectEmit(true, true, true, true, address(staking));
+    emit RewardPaid(address(this), earned);
+    staking.getReward();
+  }
+
+  function testRewardsDurationSetEvent(uint256 duration) external {
+    skip(initialDuration + 1);
+
+    duration = _bound(duration, 1, 200 weeks);
+    vm.expectEmit(true, true, true, true, address(staking));
+    emit RewardsDurationSet(address(this), duration);
+    staking.setRewardsDuration(duration);
+  }
+
+  event Stake(address indexed account, uint256 amount);
+  event Withdraw(address indexed account, uint256 amount);
+  event RewardAmountNotified(address indexed account, uint256 amount);
+  event RewardPaid(address indexed account, uint256 amount);
+  event RewardsDurationSet(address indexed account, uint256 duration);
 }
