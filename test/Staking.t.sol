@@ -180,6 +180,71 @@ contract StakingTest is Test {
     staking.setRewardsDuration(duration);
   }
 
+  function testNotifyRewardAmount(uint256 amount, uint256 time) external {
+    amount = _bound(amount, 1e8, initialAmount * 2);
+    time = _bound(time, 1, initialDuration * 2);
+
+    vm.warp(block.timestamp + time);
+
+    uint256 expectedRate = 0;
+    if (block.timestamp >= staking.finishAt()) {
+      expectedRate = amount / staking.duration();
+    } else {
+      expectedRate = (amount + (staking.finishAt() - block.timestamp) * staking.rewardRate()) / staking.duration();
+    }
+
+    rewardsToken.mint(address(staking), amount);
+    vm.expectEmit(true, true, true, true, address(staking));
+    emit RewardAmountNotified(address(this), amount);
+    staking.notifyRewardAmount(amount);
+
+    assertEq(staking.rewardRate(), expectedRate, "rate != expected");
+    assertEq(staking.finishAt(), block.timestamp + staking.duration(), "finishAt != expected");
+    assertEq(staking.updatedAt(), block.timestamp, "updatedAt != expected");
+  }
+
+  function testOnlyAdminSetRewardsDuration() external {
+    address nonAdmin = address(0x1);
+    skip(initialDuration + 1);
+
+    vm.prank(nonAdmin);
+    vm.expectRevert(bytes(""));
+    staking.setRewardsDuration(1);
+
+    address admin = address(0x2);
+    staking.grantRole(staking.DEFAULT_ADMIN_ROLE(), admin);
+    assertTrue(staking.hasRole(staking.DEFAULT_ADMIN_ROLE(), admin));
+
+    vm.prank(admin);
+    staking.setRewardsDuration(1);
+
+    assertEq(staking.duration(), 1);
+  }
+
+  function testOnlyAdminNotifyRewardAmount() external {
+    address nonAdmin = address(0x1);
+
+    uint256 amount = 1_000e18;
+
+    rewardsToken.mint(address(staking), amount);
+
+    vm.prank(nonAdmin);
+    vm.expectRevert(bytes(""));
+    staking.notifyRewardAmount(amount);
+
+    address admin = address(0x2);
+    staking.grantRole(staking.DEFAULT_ADMIN_ROLE(), admin);
+    assertTrue(staking.hasRole(staking.DEFAULT_ADMIN_ROLE(), admin));
+
+    vm.prank(admin);
+    vm.expectEmit(true, true, true, true, address(staking));
+    emit RewardAmountNotified(admin, amount);
+    staking.notifyRewardAmount(amount);
+
+    assertEq(staking.finishAt(), block.timestamp + staking.duration());
+    assertEq(staking.updatedAt(), block.timestamp);
+  }
+
   event Stake(address indexed account, uint256 amount);
   event Withdraw(address indexed account, uint256 amount);
   event RewardAmountNotified(address indexed account, uint256 amount);
