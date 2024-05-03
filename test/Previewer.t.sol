@@ -13,6 +13,7 @@ import { RewardsController } from "../contracts/RewardsController.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { Previewer } from "../contracts/periphery/Previewer.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
+import { MockBorrowRate } from "../contracts/mocks/MockBorrowRate.sol";
 
 contract PreviewerTest is Test {
   using FixedPointMathLib for uint256;
@@ -2192,6 +2193,27 @@ contract PreviewerTest is Test {
     market.setReserveFactor(0.05e18);
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[0].reserveFactor, market.reserveFactor());
+  }
+
+  function testPreviewRepayAtMaturityLastAccrualIsMaturity() external {
+    market.setInterestRateModel(InterestRateModel(address(new MockBorrowRate(0.1e18))));
+    uint256 maturity = FixedLib.INTERVAL;
+    market.deposit(10e18, address(this));
+    market.borrowAtMaturity(maturity, 1e18, 1.1e18, address(this), address(this));
+
+    vm.startPrank(BOB);
+    market.deposit(10e18, BOB);
+    market.borrowAtMaturity(maturity, 1e18, 2e18, BOB, BOB);
+
+    vm.warp(block.timestamp + maturity * 2);
+
+    market.repayAtMaturity(maturity, 2e18, 2e18, BOB);
+    vm.stopPrank();
+
+    Previewer.FixedPreview memory preview = previewer.previewRepayAtMaturity(market, maturity, 1.1e18, address(this));
+
+    uint256 debt = market.previewDebt(address(this));
+    assertEq(preview.assets, debt);
   }
 
   function previewFloatingAssetsAverage(uint256 maturity) internal view returns (uint256) {

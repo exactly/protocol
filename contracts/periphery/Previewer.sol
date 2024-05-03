@@ -251,7 +251,9 @@ contract Previewer {
     (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
     uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage(
       market,
-      pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual)
+      maturity > pool.lastAccrual
+        ? pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual)
+        : pool.unassignedEarnings
     );
 
     uint256 fees = assets.mulWadDown(
@@ -315,7 +317,9 @@ contract Previewer {
     uint256 principal = position.scaleProportionally(positionAssets).principal;
     uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage(
       market,
-      pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual)
+      maturity > pool.lastAccrual
+        ? pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual)
+        : pool.unassignedEarnings
     );
 
     return
@@ -358,7 +362,9 @@ contract Previewer {
     uint256 principal = position.scaleProportionally(positionAssets).principal;
     uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage(
       market,
-      pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual)
+      maturity > pool.lastAccrual
+        ? pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual)
+        : pool.unassignedEarnings * (block.timestamp - pool.lastAccrual)
     );
 
     return
@@ -368,7 +374,9 @@ contract Previewer {
           ? positionAssets - fixedDepositYield(market, maturity, principal)
           : positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate()),
         utilization: memFloatingAssetsAverage > 0
-          ? (pool.borrowed - principal).divWadUp(pool.supplied + memFloatingAssetsAverage)
+          ? (pool.borrowed > principal ? pool.borrowed - principal : 0).divWadUp(
+            pool.supplied + memFloatingAssetsAverage
+          )
           : 0
       });
   }
@@ -602,10 +610,12 @@ contract Previewer {
   function fixedDepositYield(Market market, uint256 maturity, uint256 assets) internal view returns (uint256 yield) {
     FixedLib.Pool memory pool;
     (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
-    pool.unassignedEarnings -= pool.unassignedEarnings.mulDivDown(
-      block.timestamp - pool.lastAccrual,
-      maturity - pool.lastAccrual
-    );
+    if (maturity > pool.lastAccrual) {
+      pool.unassignedEarnings -= pool.unassignedEarnings.mulDivDown(
+        block.timestamp - pool.lastAccrual,
+        maturity - pool.lastAccrual
+      );
+    }
     (yield, ) = pool.calculateDeposit(assets, market.backupFeeRate());
   }
 
