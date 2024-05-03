@@ -43,7 +43,7 @@ contract StakingTest is Test {
     assertEq(staking.rewardRate(), initialAmount / initialDuration);
     assertEq(staking.finishAt(), block.timestamp + initialDuration);
     assertEq(staking.updatedAt(), block.timestamp);
-    assertEq(staking.rewardPerTokenStored(), 0);
+    assertEq(staking.index(), 0);
     assertEq(staking.totalSupply(), 0);
     assertEq(staking.balanceOf(address(this)), 0);
   }
