@@ -18098,6 +18098,15 @@
         "types": {},
         "namespaces": {}
       }
+    },
+    "0xc386E891fF3aE8f43dB3A6523e93A7908f531677": {
+      "address": "0xc386E891fF3aE8f43dB3A6523e93A7908f531677",
+      "layout": {
+        "solcVersion": "0.8.25",
+        "storage": [],
+        "types": {},
+        "namespaces": {}
+      }
     }
   }
 }
