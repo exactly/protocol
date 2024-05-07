@@ -15457,6 +15457,15 @@
         },
         "namespaces": {}
       }
+    },
+    "0xd57aE952F472901e4Dc11ac8c8fe3539493abFbe": {
+      "address": "0xd57aE952F472901e4Dc11ac8c8fe3539493abFbe",
+      "layout": {
+        "solcVersion": "0.8.25",
+        "storage": [],
+        "types": {},
+        "namespaces": {}
+      }
     }
   }
 }
