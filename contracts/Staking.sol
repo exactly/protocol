@@ -5,16 +5,30 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC20, SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { IERC6372Upgradeable } from "@openzeppelin/contracts-upgradeable/interfaces/IERC6372Upgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {
+  ERC20PermitUpgradeable,
+  ERC20Upgradeable,
+  IERC20Upgradeable as IERC20
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import { ERC4626Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
-import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable {
+contract Staking is
+  Initializable,
+  AccessControlUpgradeable,
+  PausableUpgradeable,
+  ERC4626Upgradeable,
+  ERC20PermitUpgradeable,
+  IERC6372Upgradeable
+{
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
 
   /// @notice Staking token
-  ERC20 public immutable exa;
+  IERC20 public immutable exa;
   /// @notice Rewards token
   ERC20 public immutable rewardsToken;
 
@@ -33,11 +47,6 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
   mapping(address account => uint256 index) public indexes;
   /// @notice Rewards accrued per account
   mapping(address account => uint256 amount) public rewards;
-  /// @notice Total amount of tokens staked
-  uint256 public totalSupply;
-  /// @notice Staked amount per account
-  mapping(address account => uint256 amount) public balanceOf;
-
   /// @notice Penalty for early unstake
   uint256 public discountFactor;
   /// @notice Reference period to stake and get full rewards
@@ -45,7 +54,7 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
   /// @notice Average starting time with the tokens staked per account
   mapping(address account => uint256 time) public avgStart;
 
-  constructor(ERC20 exa_, ERC20 rewardsToken_) {
+  constructor(IERC20 exa_, ERC20 rewardsToken_) {
     exa = exa_;
     rewardsToken = rewardsToken_;
   }
@@ -53,6 +62,10 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
   /// @notice Initializes the contract.
   /// @dev can only be called once.
   function initialize() external initializer {
+    __ERC20_init("staked EXA", "stEXA");
+    __ERC4626_init(IERC20(exa));
+    __ERC20Permit_init("staked EXA");
+
     __AccessControl_init();
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -75,31 +88,22 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
   }
 
   function globalIndex() public view returns (uint256) {
-    if (totalSupply == 0) return index;
+    if (totalSupply() == 0) return index;
 
-    return index + (rewardRate * (lastTimeRewardApplicable() - updatedAt)).divWadDown(totalSupply);
+    return index + (rewardRate * (lastTimeRewardApplicable() - updatedAt)).divWadDown(totalSupply());
   }
 
-  function stake(uint256 amount) external updateReward(msg.sender) {
+  function _beforeTokenTransfer(address from, address to, uint256 amount) internal override updateReward(msg.sender) {
     if (amount == 0) revert ZeroAmount();
-    exa.transferFrom(msg.sender, address(this), amount);
-    uint256 balance = balanceOf[msg.sender];
-    uint256 weight = balance.divWadDown(balance + amount);
-    avgStart[msg.sender] = avgStart[msg.sender] * weight + (block.timestamp) * (1 - weight);
-
-    balanceOf[msg.sender] += amount;
-    totalSupply += amount;
-
-    emit Stake(msg.sender, amount);
-  }
-
-  function withdraw(uint256 amount) external updateReward(msg.sender) {
-    if (amount == 0) revert ZeroAmount();
-    balanceOf[msg.sender] -= amount;
-    totalSupply -= amount;
-    exa.transfer(msg.sender, amount);
-
-    emit Withdraw(msg.sender, amount);
+    if (to == address(0)) {
+      return; // TODO withdraw logic
+    } else if (from == address(0)) {
+      uint256 balance = balanceOf(msg.sender);
+      uint256 weight = balance.divWadDown(balance + amount);
+      avgStart[msg.sender] = avgStart[msg.sender] * weight + (block.timestamp) * (1 - weight);
+    } else {
+      revert Untransferable();
+    }
   }
 
   /// @notice Calculate the amount of rewards that an account has earned but not yet claimed.
@@ -109,7 +113,7 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
   /// global reward per token and the reward per token already paid to the user.
   /// This result is then added to any rewards that have already been accumulated but not yet paid out.
   function earned(address account) public view returns (uint256) {
-    return balanceOf[account].mulWadDown(globalIndex() - indexes[account]) + rewards[account];
+    return balanceOf(account).mulWadDown(globalIndex() - indexes[account]) + rewards[account];
   }
 
   function getReward() external updateReward(msg.sender) {
@@ -146,8 +150,19 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
     emit RewardAmountNotified(msg.sender, amount);
   }
 
-  event Stake(address indexed account, uint256 amount);
-  event Withdraw(address indexed account, uint256 amount);
+  function decimals() public view override(ERC4626Upgradeable, ERC20Upgradeable) returns (uint8) {
+    return ERC4626Upgradeable.decimals();
+  }
+
+  function clock() public view override returns (uint48) {
+    return uint48(block.timestamp);
+  }
+
+  // solhint-disable-next-line func-name-mixedcase
+  function CLOCK_MODE() public pure override returns (string memory) {
+    return "mode=timestamp";
+  }
+
   event RewardAmountNotified(address indexed account, uint256 amount);
   event RewardPaid(address indexed account, uint256 amount);
   event RewardsDurationSet(address indexed account, uint256 duration);
@@ -155,5 +170,6 @@ contract Staking is Initializable, AccessControlUpgradeable, PausableUpgradeable
 
 error InsufficientBalance();
 error NotFinished();
+error Untransferable();
 error ZeroAmount();
 error ZeroRate();

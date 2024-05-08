@@ -6,11 +6,21 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Test } from "forge-std/Test.sol";
 
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
+import {
+  IERC20Upgradeable as IERC20
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 
-import { Staking, InsufficientBalance, NotFinished, ZeroAmount, ZeroRate } from "../contracts/Staking.sol";
+import {
+  Staking,
+  InsufficientBalance,
+  NotFinished,
+  Untransferable,
+  ZeroAmount,
+  ZeroRate
+} from "../contracts/Staking.sol";
 
 contract StakingTest is Test {
-  Staking internal staking;
+  Staking internal stEXA;
   MockERC20 internal exa;
   MockERC20 internal rewardsToken;
   uint256 internal exaBalance;
@@ -22,42 +32,52 @@ contract StakingTest is Test {
     exa = new MockERC20("Exactly token", "EXA", 18);
     rewardsToken = new MockERC20("Rewards token", "REW", 18);
 
-    staking = Staking(address(new ERC1967Proxy(address(new Staking(exa, rewardsToken)), "")));
-    staking.initialize();
+    stEXA = Staking(address(new ERC1967Proxy(address(new Staking(IERC20(address(exa)), rewardsToken)), "")));
+    stEXA.initialize();
 
     exaBalance = 1_000_000 ether;
 
-    exa.approve(address(staking), type(uint256).max);
+    exa.approve(address(stEXA), type(uint256).max);
 
     initialDuration = 24 weeks;
     initialAmount = 1_000 ether;
 
-    rewardsToken.mint(address(staking), initialAmount);
+    rewardsToken.mint(address(stEXA), initialAmount);
 
-    staking.setRewardsDuration(initialDuration);
-    staking.notifyRewardAmount(initialAmount);
+    stEXA.setRewardsDuration(initialDuration);
+    stEXA.notifyRewardAmount(initialAmount);
   }
 
   function testInitialValues() external view {
-    assertEq(staking.duration(), initialDuration);
-    assertEq(staking.rewardRate(), initialAmount / initialDuration);
-    assertEq(staking.finishAt(), block.timestamp + initialDuration);
-    assertEq(staking.updatedAt(), block.timestamp);
-    assertEq(staking.index(), 0);
-    assertEq(staking.totalSupply(), 0);
-    assertEq(staking.balanceOf(address(this)), 0);
+    assertEq(stEXA.duration(), initialDuration);
+    assertEq(stEXA.rewardRate(), initialAmount / initialDuration);
+    assertEq(stEXA.finishAt(), block.timestamp + initialDuration);
+    assertEq(stEXA.updatedAt(), block.timestamp);
+    assertEq(stEXA.index(), 0);
+    assertEq(stEXA.totalSupply(), 0);
+    assertEq(stEXA.balanceOf(address(this)), 0);
   }
 
   function testInsufficientBalanceError(uint256 amount) external {
     amount = _bound(amount, 1e8, initialAmount * 2);
     vm.expectRevert(InsufficientBalance.selector);
-    staking.notifyRewardAmount(amount);
+    stEXA.notifyRewardAmount(amount);
   }
 
   function testZeroRateError() external {
     skip(initialDuration + 1);
     vm.expectRevert(ZeroRate.selector);
-    staking.notifyRewardAmount(0);
+    stEXA.notifyRewardAmount(0);
+  }
+
+  function testUntransferable(uint256 assets) external {
+    assets = _bound(assets, 1, exaBalance);
+
+    exa.mint(address(this), assets);
+    uint256 shares = stEXA.deposit(assets, address(this));
+
+    vm.expectRevert(Untransferable.selector);
+    stEXA.transfer(address(0x1), shares);
   }
 
   function testSetDuration(uint256 skipTime, uint256 duration) external {
@@ -66,118 +86,120 @@ contract StakingTest is Test {
 
     skip(skipTime);
     if (skipTime < initialDuration) vm.expectRevert(NotFinished.selector);
-    staking.setRewardsDuration(duration);
+    stEXA.setRewardsDuration(duration);
 
-    if (skipTime <= initialDuration) assertEq(staking.duration(), initialDuration);
-    else assertEq(staking.duration(), duration);
+    if (skipTime <= initialDuration) assertEq(stEXA.duration(), initialDuration);
+    else assertEq(stEXA.duration(), duration);
   }
 
-  function testTotalSupplyStake(uint256 amount) external {
-    amount = _bound(amount, 0, exaBalance);
-    uint256 prevSupply = staking.totalSupply();
-    exa.mint(address(this), amount);
-    if (amount == 0) vm.expectRevert(ZeroAmount.selector);
-    staking.stake(amount);
-    assertEq(staking.totalSupply(), prevSupply + amount);
+  function testTotalSupplyDeposit(uint256 assets) external {
+    assets = _bound(assets, 0, exaBalance);
+    uint256 prevSupply = stEXA.totalSupply();
+    exa.mint(address(this), assets);
+    if (assets == 0) vm.expectRevert(ZeroAmount.selector);
+    stEXA.deposit(assets, address(this));
+    assertEq(stEXA.totalSupply(), prevSupply + assets);
   }
 
-  function testTotalSupplyUnstake(uint256 amount) external {
-    amount = _bound(amount, 0, staking.balanceOf(address(this)));
-    uint256 prevSupply = staking.totalSupply();
-    if (amount == 0) vm.expectRevert(ZeroAmount.selector);
+  function testTotalSupplyWithdraw(uint256 assets) external {
+    assets = _bound(assets, 0, stEXA.balanceOf(address(this)));
+    uint256 prevSupply = stEXA.totalSupply();
 
-    staking.withdraw(amount);
-    assertEq(staking.totalSupply(), prevSupply - amount);
+    if (assets == 0) vm.expectRevert(ZeroAmount.selector);
+    stEXA.withdraw(assets, address(this), address(this));
+    assertEq(stEXA.totalSupply(), prevSupply - assets);
   }
 
-  function testBalanceOfStake(uint256 amount) external {
-    amount = _bound(amount, 0, exaBalance);
-    uint256 prevBalance = staking.balanceOf(address(this));
-    exa.mint(address(this), amount);
-    if (amount == 0) vm.expectRevert(ZeroAmount.selector);
-    staking.stake(amount);
-    assertEq(staking.balanceOf(address(this)), prevBalance + amount);
+  function testBalanceOfDeposit(uint256 assets) external {
+    assets = _bound(assets, 0, exaBalance);
+    uint256 prevBalance = stEXA.balanceOf(address(this));
+    exa.mint(address(this), assets);
+    if (assets == 0) vm.expectRevert(ZeroAmount.selector);
+    stEXA.deposit(assets, address(this));
+    assertEq(stEXA.balanceOf(address(this)), prevBalance + assets);
   }
 
-  function testBalanceOfUnstake(uint256 amount) external {
-    amount = _bound(amount, 0, staking.balanceOf(address(this)));
-    uint256 prevBalance = staking.balanceOf(address(this));
-    if (amount == 0) vm.expectRevert(ZeroAmount.selector);
-    staking.withdraw(amount);
-    assertEq(staking.balanceOf(address(this)), prevBalance - amount);
+  function testBalanceOfWithdraw(uint256 assets) external {
+    assets = _bound(assets, 0, stEXA.balanceOf(address(this)));
+    uint256 prevBalance = stEXA.balanceOf(address(this));
+    if (assets == 0) vm.expectRevert(ZeroAmount.selector);
+    stEXA.withdraw(assets, address(this), address(this));
+    assertEq(stEXA.balanceOf(address(this)), prevBalance - assets);
   }
 
   function testEarnedWithTime(uint256 time) external {
-    uint256 prevEarned = staking.earned(address(this));
+    uint256 prevEarned = stEXA.earned(address(this));
 
     time = _bound(time, 1, initialDuration + 1);
     skip(time);
 
-    uint256 earned = staking.earned(address(this));
+    uint256 earned = stEXA.earned(address(this));
 
-    if (staking.balanceOf(address(this)) != 0) assertGt(earned, prevEarned);
+    if (stEXA.balanceOf(address(this)) != 0) assertGt(earned, prevEarned);
     else assertEq(earned, prevEarned);
   }
 
   function testGetReward() external {
     uint256 prevRewardsBalance = rewardsToken.balanceOf(address(this));
-    uint256 rewards = staking.rewards(address(this));
+    uint256 rewards = stEXA.rewards(address(this));
 
-    staking.getReward();
+    stEXA.getReward();
 
     assertEq(rewardsToken.balanceOf(address(this)), prevRewardsBalance + rewards);
   }
 
   // events
-  function testStakeEvent(uint256 amount) external {
-    amount = _bound(amount, 1, exaBalance);
-    exa.mint(address(this), amount);
-    vm.expectEmit(true, true, true, true, address(staking));
-    emit Stake(address(this), amount);
-    staking.stake(amount);
+  function testDepositEvent(uint256 assets) external {
+    assets = _bound(assets, 1, exaBalance);
+    exa.mint(address(this), assets);
+    uint256 shares = stEXA.previewDeposit(assets);
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit Deposit(address(this), address(this), assets, shares);
+    stEXA.deposit(assets, address(this));
   }
 
-  function testWithdrawEvent(uint256 amount) external {
-    amount = _bound(amount, 1, exaBalance);
-    exa.mint(address(this), amount);
-    staking.stake(amount);
-    vm.expectEmit(true, true, true, true, address(staking));
-    emit Withdraw(address(this), amount);
-    staking.withdraw(amount);
+  function testWithdrawEvent(uint256 assets) external {
+    assets = _bound(assets, 1, exaBalance);
+    exa.mint(address(this), assets);
+    uint256 shares = stEXA.deposit(assets, address(this));
+
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit Withdraw(address(this), address(this), address(this), assets, shares);
+    stEXA.withdraw(assets, address(this), address(this));
   }
 
   function testRewardAmountNotifiedEvent(uint256 amount) external {
     amount = _bound(amount, 1, initialAmount * 2);
 
-    rewardsToken.mint(address(staking), amount);
-    vm.expectEmit(true, true, true, true, address(staking));
+    rewardsToken.mint(address(stEXA), amount);
+    vm.expectEmit(true, true, true, true, address(stEXA));
     emit RewardAmountNotified(address(this), amount);
-    staking.notifyRewardAmount(amount);
+    stEXA.notifyRewardAmount(amount);
   }
 
-  function testRewardPaidEvent(uint256 amount, uint256 time) external {
-    amount = _bound(amount, 1, initialAmount * 2);
+  function testRewardPaidEvent(uint256 assets, uint256 time) external {
+    assets = _bound(assets, 1, initialAmount * 2);
     time = _bound(time, 1, initialDuration + 1);
 
-    exa.mint(address(this), amount);
-    staking.stake(amount);
+    exa.mint(address(this), assets);
+    stEXA.deposit(assets, address(this));
 
     skip(time);
 
-    uint256 earned = staking.earned(address(this));
+    uint256 earned = stEXA.earned(address(this));
 
-    vm.expectEmit(true, true, true, true, address(staking));
+    vm.expectEmit(true, true, true, true, address(stEXA));
     emit RewardPaid(address(this), earned);
-    staking.getReward();
+    stEXA.getReward();
   }
 
   function testRewardsDurationSetEvent(uint256 duration) external {
     skip(initialDuration + 1);
 
     duration = _bound(duration, 1, 200 weeks);
-    vm.expectEmit(true, true, true, true, address(staking));
+    vm.expectEmit(true, true, true, true, address(stEXA));
     emit RewardsDurationSet(address(this), duration);
-    staking.setRewardsDuration(duration);
+    stEXA.setRewardsDuration(duration);
   }
 
   function testNotifyRewardAmount(uint256 amount, uint256 time) external {
@@ -187,38 +209,39 @@ contract StakingTest is Test {
     vm.warp(block.timestamp + time);
 
     uint256 expectedRate = 0;
-    if (block.timestamp >= staking.finishAt()) {
-      expectedRate = amount / staking.duration();
+    if (block.timestamp >= stEXA.finishAt()) {
+      expectedRate = amount / stEXA.duration();
     } else {
-      expectedRate = (amount + (staking.finishAt() - block.timestamp) * staking.rewardRate()) / staking.duration();
+      expectedRate = (amount + (stEXA.finishAt() - block.timestamp) * stEXA.rewardRate()) / stEXA.duration();
     }
 
-    rewardsToken.mint(address(staking), amount);
-    vm.expectEmit(true, true, true, true, address(staking));
+    rewardsToken.mint(address(stEXA), amount);
+    vm.expectEmit(true, true, true, true, address(stEXA));
     emit RewardAmountNotified(address(this), amount);
-    staking.notifyRewardAmount(amount);
+    stEXA.notifyRewardAmount(amount);
 
-    assertEq(staking.rewardRate(), expectedRate, "rate != expected");
-    assertEq(staking.finishAt(), block.timestamp + staking.duration(), "finishAt != expected");
-    assertEq(staking.updatedAt(), block.timestamp, "updatedAt != expected");
+    assertEq(stEXA.rewardRate(), expectedRate, "rate != expected");
+    assertEq(stEXA.finishAt(), block.timestamp + stEXA.duration(), "finishAt != expected");
+    assertEq(stEXA.updatedAt(), block.timestamp, "updatedAt != expected");
   }
 
+  // restricted functions
   function testOnlyAdminSetRewardsDuration() external {
     address nonAdmin = address(0x1);
     skip(initialDuration + 1);
 
     vm.prank(nonAdmin);
     vm.expectRevert(bytes(""));
-    staking.setRewardsDuration(1);
+    stEXA.setRewardsDuration(1);
 
     address admin = address(0x2);
-    staking.grantRole(staking.DEFAULT_ADMIN_ROLE(), admin);
-    assertTrue(staking.hasRole(staking.DEFAULT_ADMIN_ROLE(), admin));
+    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
+    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
 
     vm.prank(admin);
-    staking.setRewardsDuration(1);
+    stEXA.setRewardsDuration(1);
 
-    assertEq(staking.duration(), 1);
+    assertEq(stEXA.duration(), 1);
   }
 
   function testOnlyAdminNotifyRewardAmount() external {
@@ -226,27 +249,33 @@ contract StakingTest is Test {
 
     uint256 amount = 1_000e18;
 
-    rewardsToken.mint(address(staking), amount);
+    rewardsToken.mint(address(stEXA), amount);
 
     vm.prank(nonAdmin);
     vm.expectRevert(bytes(""));
-    staking.notifyRewardAmount(amount);
+    stEXA.notifyRewardAmount(amount);
 
     address admin = address(0x2);
-    staking.grantRole(staking.DEFAULT_ADMIN_ROLE(), admin);
-    assertTrue(staking.hasRole(staking.DEFAULT_ADMIN_ROLE(), admin));
+    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
+    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
 
     vm.prank(admin);
-    vm.expectEmit(true, true, true, true, address(staking));
+    vm.expectEmit(true, true, true, true, address(stEXA));
     emit RewardAmountNotified(admin, amount);
-    staking.notifyRewardAmount(amount);
+    stEXA.notifyRewardAmount(amount);
 
-    assertEq(staking.finishAt(), block.timestamp + staking.duration());
-    assertEq(staking.updatedAt(), block.timestamp);
+    assertEq(stEXA.finishAt(), block.timestamp + stEXA.duration());
+    assertEq(stEXA.updatedAt(), block.timestamp);
   }
 
-  event Stake(address indexed account, uint256 amount);
-  event Withdraw(address indexed account, uint256 amount);
+  event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
+  event Withdraw(
+    address indexed sender,
+    address indexed receiver,
+    address indexed owner,
+    uint256 assets,
+    uint256 shares
+  );
   event RewardAmountNotified(address indexed account, uint256 amount);
   event RewardPaid(address indexed account, uint256 amount);
   event RewardsDurationSet(address indexed account, uint256 duration);
