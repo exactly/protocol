@@ -16,7 +16,7 @@ import { ERC4626Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ER
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 
-contract Staking is
+contract StakedEXA is
   Initializable,
   AccessControlUpgradeable,
   PausableUpgradeable,

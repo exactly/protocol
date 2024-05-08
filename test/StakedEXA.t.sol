@@ -11,16 +11,16 @@ import {
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 
 import {
-  Staking,
+  StakedEXA,
   InsufficientBalance,
   NotFinished,
   Untransferable,
   ZeroAmount,
   ZeroRate
-} from "../contracts/Staking.sol";
+} from "../contracts/StakedEXA.sol";
 
-contract StakingTest is Test {
-  Staking internal stEXA;
+contract StakedEXATest is Test {
+  StakedEXA internal stEXA;
   MockERC20 internal exa;
   MockERC20 internal rewardsToken;
   uint256 internal exaBalance;
@@ -32,7 +32,7 @@ contract StakingTest is Test {
     exa = new MockERC20("Exactly token", "EXA", 18);
     rewardsToken = new MockERC20("Rewards token", "REW", 18);
 
-    stEXA = Staking(address(new ERC1967Proxy(address(new Staking(IERC20(address(exa)), rewardsToken)), "")));
+    stEXA = StakedEXA(address(new ERC1967Proxy(address(new StakedEXA(IERC20(address(exa)), rewardsToken)), "")));
     stEXA.initialize();
 
     exaBalance = 1_000_000 ether;
