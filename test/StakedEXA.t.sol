@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
+import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import { Test } from "forge-std/Test.sol";
-
-import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {
   IERC20Upgradeable as IERC20
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+
+import { Test } from "forge-std/Test.sol";
 
 import {
   StakedEXA,
@@ -20,6 +21,8 @@ import {
 } from "../contracts/StakedEXA.sol";
 
 contract StakedEXATest is Test {
+  using FixedPointMathLib for uint256;
+
   address internal constant BOB = address(0x420);
   StakedEXA internal stEXA;
   MockERC20 internal exa;
@@ -146,13 +149,17 @@ contract StakedEXATest is Test {
     else assertEq(earned, prevEarned);
   }
 
-  function testGetReward() external {
-    uint256 prevRewardsBalance = rewardsToken.balanceOf(address(this));
-    uint256 rewards = stEXA.rewards(address(this));
+  function testWithdrawWithRewards(uint256 assets) external {
+    assets = _bound(assets, 1, exaBalance);
 
-    stEXA.getReward();
+    stEXA.deposit(assets, address(this));
+    uint256 rate = initialAmount / initialDuration;
+    skip(initialDuration / 2);
+    uint256 earned = rate * (initialDuration / 2);
+    assertApproxEqAbs(stEXA.earned(address(this)), earned, 1e6);
 
-    assertEq(rewardsToken.balanceOf(address(this)), prevRewardsBalance + rewards);
+    stEXA.withdraw(assets, address(this), address(this));
+    assertApproxEqAbs(rewardsToken.balanceOf(address(this)), earned, 1e6, "rewards != earned");
   }
 
   // events
@@ -196,7 +203,7 @@ contract StakedEXATest is Test {
 
     vm.expectEmit(true, true, true, true, address(stEXA));
     emit RewardPaid(address(this), earned);
-    stEXA.getReward();
+    stEXA.withdraw(assets, address(this), address(this));
   }
 
   function testRewardsDurationSetEvent(uint256 duration) external {
@@ -274,8 +281,8 @@ contract StakedEXATest is Test {
     assertEq(stEXA.updatedAt(), block.timestamp);
   }
 
-  function testRewardsAmounts() external {
-    uint256 assets = 1_000e18;
+  function testRewardsAmounts(uint256 assets) external {
+    assets = _bound(assets, 1, exaBalance);
 
     uint256 time = 10 days;
     uint256 rate = stEXA.rewardRate();
@@ -294,14 +301,18 @@ contract StakedEXATest is Test {
     uint256 bobRewards = (rate * time) / 2;
     thisRewards += bobRewards;
 
-    assertEq(stEXA.earned(address(this)), thisRewards);
-    assertEq(stEXA.earned(BOB), bobRewards);
+    assertApproxEqAbs(stEXA.earned(address(this)), thisRewards, 1e7, "this rewards != earned expected");
+    assertApproxEqAbs(stEXA.earned(BOB), bobRewards, 1e7, "bob rewards != earned expected");
 
-    stEXA.getReward();
-    assertEq(rewardsToken.balanceOf(address(this)), thisRewards, "this rewards != expected");
+    stEXA.withdraw(assets, address(this), address(this));
+    assertApproxEqAbs(rewardsToken.balanceOf(address(this)), thisRewards, 1e7, "this rewards != expected");
+
+    uint256 bobBefore = rewardsToken.balanceOf(BOB);
+
     vm.prank(BOB);
-    stEXA.getReward();
-    assertEq(rewardsToken.balanceOf(BOB), bobRewards, "bob rewards != expected");
+    stEXA.withdraw(assets, BOB, BOB);
+
+    assertApproxEqAbs(rewardsToken.balanceOf(BOB) - bobBefore, bobRewards, 1e7, "bob rewards != expected");
   }
 
   function testNoRewardsAfterPeriod(uint256 timeAfterPeriod) external {
@@ -331,16 +342,126 @@ contract StakedEXATest is Test {
 
     skip(timeAfterPeriod);
 
-    stEXA.getReward();
+    stEXA.withdraw(assets, address(this), address(this));
     assertApproxEqAbs(rewardsToken.balanceOf(address(this)), thisRewards, 600, "this rewards != expected");
+
     vm.prank(BOB);
-    stEXA.getReward();
+    stEXA.withdraw(assets, BOB, BOB);
     assertApproxEqAbs(rewardsToken.balanceOf(BOB), bobRewards, 200, "bob rewards != expected");
+
+    assertEq(stEXA.earned(address(this)), 0);
+    assertEq(stEXA.earned(BOB), 0);
 
     skip(timeAfterPeriod);
 
     assertEq(stEXA.earned(address(this)), 0);
     assertEq(stEXA.earned(BOB), 0);
+  }
+
+  function testAvgTime(uint256[3] memory assets, uint256[2] memory times) external {
+    assets[0] = _bound(assets[0], 1, exaBalance / 3);
+    assets[1] = _bound(assets[1], 1, exaBalance / 3);
+    assets[2] = _bound(assets[2], 1, exaBalance / 3);
+    times[0] = _bound(times[0], 1, initialDuration / 2);
+    times[1] = _bound(times[1], 1, initialDuration / 2);
+
+    uint256 avgTime = block.timestamp * 1e18;
+    stEXA.deposit(assets[0], address(this));
+    assertEq(stEXA.avgStart(address(this)), avgTime);
+
+    skip(times[0]);
+
+    uint256 opWeight = assets[0].divWadDown(assets[0] + assets[1]);
+    avgTime = avgTime.mulWadDown(opWeight) + (block.timestamp) * (1e18 - opWeight);
+    stEXA.deposit(assets[1], address(this));
+    assertEq(stEXA.avgStart(address(this)), avgTime);
+
+    skip(times[1]);
+
+    uint256 balance = assets[0] + assets[1];
+    opWeight = balance.divWadDown(balance + assets[2]);
+    avgTime = avgTime.mulWadDown(opWeight) + (block.timestamp) * (1e18 - opWeight);
+
+    stEXA.deposit(assets[2], address(this));
+    assertEq(stEXA.avgStart(address(this)), avgTime);
+  }
+
+  function testAvgIndex(uint256[3] memory assets, uint256[2] memory times) external {
+    assets[0] = _bound(assets[0], 1, exaBalance / 3);
+    assets[1] = _bound(assets[1], 1, exaBalance / 3);
+    assets[2] = _bound(assets[2], 1, exaBalance / 3);
+    times[0] = _bound(times[0], 1, initialDuration / 2);
+    times[1] = _bound(times[1], 1, initialDuration / 2);
+
+    stEXA.deposit(assets[0], address(this));
+    uint256 avgIndex = stEXA.globalIndex();
+    assertEq(stEXA.avgIndexes(address(this)), avgIndex, "avgIndex.0 != globalIndex");
+
+    skip(times[0]);
+
+    uint256 opWeight = assets[0].divWadDown(assets[0] + assets[1]);
+    stEXA.deposit(assets[1], address(this));
+    avgIndex = avgIndex.mulWadDown(opWeight) + stEXA.globalIndex().mulWadDown(1e18 - opWeight);
+    assertEq(stEXA.avgIndexes(address(this)), avgIndex, "avgIndex.1 != globalIndex");
+
+    skip(times[1]);
+
+    uint256 balance = assets[0] + assets[1];
+    opWeight = balance.divWadDown(balance + assets[2]);
+    avgIndex = avgIndex.mulWadDown(opWeight) + stEXA.globalIndex().mulWadDown(1e18 - opWeight);
+    stEXA.deposit(assets[2], address(this));
+    assertEq(stEXA.avgIndexes(address(this)), avgIndex, "avgIndex.2 != globalIndex");
+  }
+
+  function testDepositWithdrawAvgTimeAndIndex(
+    uint256[3] memory assets,
+    uint256 partialWithdraw,
+    uint256[5] memory times
+  ) external {
+    assets[0] = _bound(assets[0], 2, exaBalance / 3);
+    assets[1] = _bound(assets[1], 1, exaBalance / 3);
+    assets[2] = _bound(assets[2], 1, exaBalance / 3);
+    partialWithdraw = _bound(partialWithdraw, 1, assets[0] - 1);
+    times[0] = _bound(times[0], 1, initialDuration / 5);
+    times[1] = _bound(times[1], 1, initialDuration / 5);
+    times[2] = _bound(times[2], 1, initialDuration / 5);
+    times[3] = _bound(times[3], 1, initialDuration / 5);
+    times[4] = _bound(times[4], 1, initialDuration / 5);
+
+    skip(times[0]);
+    stEXA.deposit(assets[0], address(this));
+
+    uint256 avgTime = block.timestamp * 1e18;
+    uint256 avgIndex = stEXA.globalIndex();
+
+    // skip + partial withdraw -> avg time and index shouldn't change
+    skip(times[1]);
+    stEXA.withdraw(partialWithdraw, address(this), address(this));
+    assertEq(stEXA.avgStart(address(this)), avgTime, "avgTime != expected");
+    assertEq(stEXA.avgIndexes(address(this)), avgIndex, "avgIndex != expected");
+
+    // skip + new deposit -> avg time and index should change
+    skip(times[2]);
+    stEXA.deposit(assets[1], address(this));
+    uint256 balance = assets[0] - partialWithdraw;
+    uint256 opWeight = balance.divWadDown(balance + assets[1]);
+    avgTime = avgTime.mulWadDown(opWeight) + (block.timestamp) * (1e18 - opWeight);
+    avgIndex = avgIndex.mulWadDown(opWeight) + stEXA.globalIndex().mulWadDown(1e18 - opWeight);
+
+    // skip + full withdraw -> avg time and index shouldn't change
+    skip(times[3]);
+    uint256 fullWithdraw = assets[0] + assets[1] - partialWithdraw;
+    stEXA.withdraw(fullWithdraw, address(this), address(this));
+    assertEq(stEXA.avgStart(address(this)), avgTime, "avgTime != expected");
+    assertEq(stEXA.avgIndexes(address(this)), avgIndex, "avgIndex != expected");
+
+    // skip + new deposit -> avg time and index should be restarted
+    skip(times[4]);
+    stEXA.deposit(assets[2], address(this));
+    avgTime = block.timestamp * 1e18;
+    avgIndex = stEXA.globalIndex();
+    assertEq(stEXA.avgStart(address(this)), avgTime, "avgTime != expected");
+    assertEq(stEXA.avgIndexes(address(this)), avgIndex, "avgIndex != expected");
   }
 
   event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
