@@ -43,10 +43,8 @@ contract StakedEXA is
   /// @notice Global index. Sum of (reward rate * dt * 1e18 / total supply)
   uint256 public index;
 
-  /// @notice Accounts indexes
-  mapping(address account => uint256 index) public indexes;
-  /// @notice Rewards accrued per account
-  mapping(address account => uint256 amount) public rewards;
+  /// @notice Accounts average indexes
+  mapping(address account => uint256 index) public avgIndexes;
   /// @notice Penalty for early unstake
   uint256 public discountFactor;
   /// @notice Reference period to stake and get full rewards
@@ -63,24 +61,12 @@ contract StakedEXA is
   /// @dev can only be called once.
   function initialize() external initializer {
     __ERC20_init("staked EXA", "stEXA");
-    __ERC4626_init(IERC20(exa));
+    __ERC4626_init(exa);
     __ERC20Permit_init("staked EXA");
 
     __AccessControl_init();
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-  }
-
-  modifier updateReward(address account) {
-    index = globalIndex();
-    updatedAt = lastTimeRewardApplicable();
-
-    if (account != address(0)) {
-      rewards[account] = earned(account);
-      indexes[account] = index;
-    }
-
-    _;
   }
 
   function lastTimeRewardApplicable() public view returns (uint256) {
@@ -93,17 +79,27 @@ contract StakedEXA is
     return index + (rewardRate * (lastTimeRewardApplicable() - updatedAt)).divWadDown(totalSupply());
   }
 
-  function _beforeTokenTransfer(address from, address to, uint256 amount) internal override updateReward(msg.sender) {
+  function updateIndex() internal {
+    index = globalIndex();
+    updatedAt = lastTimeRewardApplicable();
+  }
+
+  function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
     if (amount == 0) revert ZeroAmount();
-    if (to == address(0)) {
-      return; // TODO withdraw logic
-    } else if (from == address(0)) {
-      uint256 balance = balanceOf(msg.sender);
+    if (from == address(0)) {
+      updateIndex();
+      uint256 balance = balanceOf(to);
       uint256 weight = balance.divWadDown(balance + amount);
-      avgStart[msg.sender] = avgStart[msg.sender] * weight + (block.timestamp) * (1 - weight);
-    } else {
-      revert Untransferable();
-    }
+      avgStart[to] = avgStart[to].mulWadDown(weight) + (block.timestamp) * (1e18 - weight);
+      avgIndexes[to] = avgIndexes[to].mulWadDown(weight) + index.mulWadDown(1e18 - weight);
+    } else if (to == address(0)) {
+      updateIndex();
+      uint256 reward = earned(from);
+      if (reward != 0) {
+        rewardsToken.transfer(from, reward);
+        emit RewardPaid(from, reward);
+      }
+    } else revert Untransferable();
   }
 
   /// @notice Calculate the amount of rewards that an account has earned but not yet claimed.
@@ -113,17 +109,7 @@ contract StakedEXA is
   /// global reward per token and the reward per token already paid to the user.
   /// This result is then added to any rewards that have already been accumulated but not yet paid out.
   function earned(address account) public view returns (uint256) {
-    return balanceOf(account).mulWadDown(globalIndex() - indexes[account]) + rewards[account];
-  }
-
-  function getReward() external updateReward(msg.sender) {
-    uint256 reward = rewards[msg.sender];
-    if (reward != 0) {
-      rewards[msg.sender] = 0;
-      rewardsToken.transfer(msg.sender, reward);
-
-      emit RewardPaid(msg.sender, reward);
-    }
+    return balanceOf(account).mulWadDown(globalIndex() - avgIndexes[account]);
   }
 
   function setRewardsDuration(uint256 duration_) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -133,7 +119,8 @@ contract StakedEXA is
     emit RewardsDurationSet(msg.sender, duration_);
   }
 
-  function notifyRewardAmount(uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) updateReward(address(0)) {
+  function notifyRewardAmount(uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    updateIndex();
     if (block.timestamp >= finishAt) {
       rewardRate = amount / duration;
     } else {
