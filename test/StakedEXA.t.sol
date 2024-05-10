@@ -29,7 +29,11 @@ contract StakedEXATest is Test {
   MockERC20 internal rewardsToken;
   uint256 internal exaBalance;
   uint256 internal initialAmount;
-  uint256 internal initialDuration;
+  uint256 internal duration;
+  uint256 internal minTime;
+  uint256 internal refTime;
+  uint256 internal penaltyGrowth;
+  uint256 internal penaltyThreshold;
 
   function setUp() external {
     vm.warp(1_704_067_200); // 01/01/2024 @ 00:00 (UTC)
@@ -38,8 +42,15 @@ contract StakedEXATest is Test {
     rewardsToken = new MockERC20("Rewards token", "REW", 18);
     vm.label(address(rewardsToken), "Rewards token");
 
+    duration = 24 weeks;
+    initialAmount = 1_000 ether;
+    minTime = 1 weeks;
+    refTime = duration;
+    penaltyGrowth = 2e18;
+    penaltyThreshold = 0.5e18;
+
     stEXA = StakedEXA(address(new ERC1967Proxy(address(new StakedEXA(IERC20(address(exa)), rewardsToken)), "")));
-    stEXA.initialize();
+    stEXA.initialize(minTime, refTime, penaltyGrowth, penaltyThreshold);
     vm.label(address(stEXA), "StakedEXA");
 
     exaBalance = 1_000_000 ether;
@@ -47,12 +58,9 @@ contract StakedEXATest is Test {
 
     exa.approve(address(stEXA), type(uint256).max);
 
-    initialDuration = 24 weeks;
-    initialAmount = 1_000 ether;
-
     rewardsToken.mint(address(stEXA), initialAmount);
 
-    stEXA.setRewardsDuration(initialDuration);
+    stEXA.setRewardsDuration(duration);
     stEXA.notifyRewardAmount(initialAmount);
 
     vm.label(BOB, "bob");
@@ -60,13 +68,18 @@ contract StakedEXATest is Test {
   }
 
   function testInitialValues() external view {
-    assertEq(stEXA.duration(), initialDuration);
-    assertEq(stEXA.rewardRate(), initialAmount / initialDuration);
-    assertEq(stEXA.finishAt(), block.timestamp + initialDuration);
+    assertEq(stEXA.duration(), duration);
+    assertEq(stEXA.rewardRate(), initialAmount / duration);
+    assertEq(stEXA.finishAt(), block.timestamp + duration);
     assertEq(stEXA.updatedAt(), block.timestamp);
     assertEq(stEXA.index(), 0);
     assertEq(stEXA.totalSupply(), 0);
     assertEq(stEXA.balanceOf(address(this)), 0);
+
+    assertEq(stEXA.minTime(), minTime);
+    assertEq(stEXA.refTime(), refTime);
+    assertEq(stEXA.penaltyGrowth(), penaltyGrowth);
+    assertEq(stEXA.penaltyThreshold(), penaltyThreshold);
   }
 
   function testInsufficientBalanceError(uint256 amount) external {
@@ -76,7 +89,7 @@ contract StakedEXATest is Test {
   }
 
   function testZeroRateError() external {
-    skip(initialDuration + 1);
+    skip(duration + 1);
     vm.expectRevert(ZeroRate.selector);
     stEXA.notifyRewardAmount(0);
   }
@@ -90,16 +103,16 @@ contract StakedEXATest is Test {
     stEXA.transfer(address(0x1), shares);
   }
 
-  function testSetDuration(uint256 skipTime, uint256 duration) external {
-    skipTime = _bound(skipTime, 1, initialDuration * 2);
-    duration = _bound(duration, 1, 200 weeks);
+  function testSetDuration(uint256 skipTime, uint256 duration_) external {
+    skipTime = _bound(skipTime, 1, duration * 2);
+    duration_ = _bound(duration_, 1, 200 weeks);
 
     skip(skipTime);
-    if (skipTime < initialDuration) vm.expectRevert(NotFinished.selector);
-    stEXA.setRewardsDuration(duration);
+    if (skipTime < duration) vm.expectRevert(NotFinished.selector);
+    stEXA.setRewardsDuration(duration_);
 
-    if (skipTime <= initialDuration) assertEq(stEXA.duration(), initialDuration);
-    else assertEq(stEXA.duration(), duration);
+    if (skipTime <= duration) assertEq(stEXA.duration(), duration);
+    else assertEq(stEXA.duration(), duration_);
   }
 
   function testTotalSupplyDeposit(uint256 assets) external {
@@ -140,7 +153,7 @@ contract StakedEXATest is Test {
   function testEarnedWithTime(uint256 time) external {
     uint256 prevEarned = stEXA.earned(address(this));
 
-    time = _bound(time, 1, initialDuration + 1);
+    time = _bound(time, 1, duration + 1);
     skip(time);
 
     uint256 earned = stEXA.earned(address(this));
@@ -153,13 +166,14 @@ contract StakedEXATest is Test {
     assets = _bound(assets, 1, exaBalance);
 
     stEXA.deposit(assets, address(this));
-    uint256 rate = initialAmount / initialDuration;
-    skip(initialDuration / 2);
-    uint256 earned = rate * (initialDuration / 2);
+    uint256 rate = initialAmount / duration;
+    skip(duration / 2);
+    uint256 earned = rate * (duration / 2);
     assertApproxEqAbs(stEXA.earned(address(this)), earned, 1e6);
 
+    uint256 thisClaimable = stEXA.claimable(address(this));
     stEXA.withdraw(assets, address(this), address(this));
-    assertApproxEqAbs(rewardsToken.balanceOf(address(this)), earned, 1e6, "rewards != earned");
+    assertApproxEqAbs(rewardsToken.balanceOf(address(this)), thisClaimable, 1e6, "rewards != earned");
   }
 
   // events
@@ -193,31 +207,33 @@ contract StakedEXATest is Test {
 
   function testRewardPaidEvent(uint256 assets, uint256 time) external {
     assets = _bound(assets, 1, initialAmount * 2);
-    time = _bound(time, 1, initialDuration + 1);
+    time = _bound(time, 1, duration + 1);
 
     stEXA.deposit(assets, address(this));
 
     skip(time);
 
-    uint256 earned = stEXA.earned(address(this));
+    uint256 claimable = stEXA.claimable(address(this));
 
-    vm.expectEmit(true, true, true, true, address(stEXA));
-    emit RewardPaid(address(this), earned);
+    if (claimable != 0) {
+      vm.expectEmit(true, true, true, true, address(stEXA));
+      emit RewardPaid(address(this), claimable);
+    }
     stEXA.withdraw(assets, address(this), address(this));
   }
 
-  function testRewardsDurationSetEvent(uint256 duration) external {
-    skip(initialDuration + 1);
+  function testRewardsDurationSetEvent(uint256 duration_) external {
+    skip(duration + 1);
 
-    duration = _bound(duration, 1, 200 weeks);
+    duration_ = _bound(duration_, 1, 200 weeks);
     vm.expectEmit(true, true, true, true, address(stEXA));
-    emit RewardsDurationSet(address(this), duration);
-    stEXA.setRewardsDuration(duration);
+    emit RewardsDurationSet(address(this), duration_);
+    stEXA.setRewardsDuration(duration_);
   }
 
   function testNotifyRewardAmount(uint256 amount, uint256 time) external {
     amount = _bound(amount, 1e8, initialAmount * 2);
-    time = _bound(time, 1, initialDuration * 2);
+    time = _bound(time, 1, duration * 2);
 
     vm.warp(block.timestamp + time);
 
@@ -241,7 +257,7 @@ contract StakedEXATest is Test {
   // restricted functions
   function testOnlyAdminSetRewardsDuration() external {
     address nonAdmin = address(0x1);
-    skip(initialDuration + 1);
+    skip(duration + 1);
 
     vm.prank(nonAdmin);
     vm.expectRevert(bytes(""));
@@ -304,22 +320,24 @@ contract StakedEXATest is Test {
     assertApproxEqAbs(stEXA.earned(address(this)), thisRewards, 1e7, "this rewards != earned expected");
     assertApproxEqAbs(stEXA.earned(BOB), bobRewards, 1e7, "bob rewards != earned expected");
 
+    uint256 thisClaimable = stEXA.claimable(address(this));
     stEXA.withdraw(assets, address(this), address(this));
-    assertApproxEqAbs(rewardsToken.balanceOf(address(this)), thisRewards, 1e7, "this rewards != expected");
+    assertApproxEqAbs(rewardsToken.balanceOf(address(this)), thisClaimable, 1e7, "this rewards != expected");
 
     uint256 bobBefore = rewardsToken.balanceOf(BOB);
 
+    uint256 bobClaimable = stEXA.claimable(BOB);
     vm.prank(BOB);
     stEXA.withdraw(assets, BOB, BOB);
 
-    assertApproxEqAbs(rewardsToken.balanceOf(BOB) - bobBefore, bobRewards, 1e7, "bob rewards != expected");
+    assertApproxEqAbs(rewardsToken.balanceOf(BOB) - bobBefore, bobClaimable, 1e7, "bob rewards != expected");
   }
 
   function testNoRewardsAfterPeriod(uint256 timeAfterPeriod) external {
-    timeAfterPeriod = _bound(timeAfterPeriod, 1, initialDuration * 2);
+    timeAfterPeriod = _bound(timeAfterPeriod, 1, duration * 2);
     uint256 assets = 1_000e18;
 
-    uint256 time = initialDuration / 2;
+    uint256 time = duration / 2;
     uint256 rate = stEXA.rewardRate();
     stEXA.deposit(assets, address(this));
 
@@ -342,12 +360,14 @@ contract StakedEXATest is Test {
 
     skip(timeAfterPeriod);
 
+    uint256 thisClaimable = stEXA.claimable(address(this));
     stEXA.withdraw(assets, address(this), address(this));
-    assertApproxEqAbs(rewardsToken.balanceOf(address(this)), thisRewards, 600, "this rewards != expected");
+    assertApproxEqAbs(rewardsToken.balanceOf(address(this)), thisClaimable, 600, "this rewards != expected");
 
+    uint256 bobClaimable = stEXA.claimable(BOB);
     vm.prank(BOB);
     stEXA.withdraw(assets, BOB, BOB);
-    assertApproxEqAbs(rewardsToken.balanceOf(BOB), bobRewards, 200, "bob rewards != expected");
+    assertApproxEqAbs(rewardsToken.balanceOf(BOB), bobClaimable, 200, "bob rewards != expected");
 
     assertEq(stEXA.earned(address(this)), 0);
     assertEq(stEXA.earned(BOB), 0);
@@ -362,8 +382,8 @@ contract StakedEXATest is Test {
     assets[0] = _bound(assets[0], 1, exaBalance / 3);
     assets[1] = _bound(assets[1], 1, exaBalance / 3);
     assets[2] = _bound(assets[2], 1, exaBalance / 3);
-    times[0] = _bound(times[0], 1, initialDuration / 2);
-    times[1] = _bound(times[1], 1, initialDuration / 2);
+    times[0] = _bound(times[0], 1, duration / 2);
+    times[1] = _bound(times[1], 1, duration / 2);
 
     uint256 avgTime = block.timestamp * 1e18;
     stEXA.deposit(assets[0], address(this));
@@ -390,8 +410,8 @@ contract StakedEXATest is Test {
     assets[0] = _bound(assets[0], 1, exaBalance / 3);
     assets[1] = _bound(assets[1], 1, exaBalance / 3);
     assets[2] = _bound(assets[2], 1, exaBalance / 3);
-    times[0] = _bound(times[0], 1, initialDuration / 2);
-    times[1] = _bound(times[1], 1, initialDuration / 2);
+    times[0] = _bound(times[0], 1, duration / 2);
+    times[1] = _bound(times[1], 1, duration / 2);
 
     stEXA.deposit(assets[0], address(this));
     uint256 avgIndex = stEXA.globalIndex();
@@ -422,11 +442,11 @@ contract StakedEXATest is Test {
     assets[1] = _bound(assets[1], 1, exaBalance / 3);
     assets[2] = _bound(assets[2], 1, exaBalance / 3);
     partialWithdraw = _bound(partialWithdraw, 1, assets[0] - 1);
-    times[0] = _bound(times[0], 1, initialDuration / 5);
-    times[1] = _bound(times[1], 1, initialDuration / 5);
-    times[2] = _bound(times[2], 1, initialDuration / 5);
-    times[3] = _bound(times[3], 1, initialDuration / 5);
-    times[4] = _bound(times[4], 1, initialDuration / 5);
+    times[0] = _bound(times[0], 1, duration / 5);
+    times[1] = _bound(times[1], 1, duration / 5);
+    times[2] = _bound(times[2], 1, duration / 5);
+    times[3] = _bound(times[3], 1, duration / 5);
+    times[4] = _bound(times[4], 1, duration / 5);
 
     skip(times[0]);
     stEXA.deposit(assets[0], address(this));
