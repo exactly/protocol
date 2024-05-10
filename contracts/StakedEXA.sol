@@ -15,6 +15,7 @@ import {
 import { ERC4626Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 contract StakedEXA is
   Initializable,
@@ -25,7 +26,9 @@ contract StakedEXA is
   IERC6372Upgradeable
 {
   using FixedPointMathLib for uint256;
+  using FixedPointMathLib for int256;
   using SafeTransferLib for ERC20;
+  using SafeCast for int256;
 
   /// @notice Staking token
   IERC20 public immutable exa;
@@ -43,23 +46,35 @@ contract StakedEXA is
   /// @notice Global index. Sum of (reward rate * dt * 1e18 / total supply)
   uint256 public index;
 
-  /// @notice Accounts average indexes
-  mapping(address account => uint256 index) public avgIndexes;
-  /// @notice Penalty for early unstake
-  uint256 public discountFactor;
+  /// @notice Minimum time to stake and get rewards
+  uint256 public minTime;
   /// @notice Reference period to stake and get full rewards
   uint256 public refTime;
+  /// @notice Penalty growth factor
+  uint256 public penaltyGrowth;
+  /// @notice Threshold penalty factor for withdrawing before the reference time
+  uint256 public penaltyThreshold;
+
   /// @notice Average starting time with the tokens staked per account
   mapping(address account => uint256 time) public avgStart;
+  /// @notice Accounts average indexes
+  mapping(address account => uint256 index) public avgIndexes;
 
   constructor(IERC20 exa_, ERC20 rewardsToken_) {
     exa = exa_;
     rewardsToken = rewardsToken_;
+
+    _disableInitializers();
   }
 
   /// @notice Initializes the contract.
   /// @dev can only be called once.
-  function initialize() external initializer {
+  function initialize(
+    uint256 minTime_,
+    uint256 refTime_,
+    uint256 penaltyGrowth_,
+    uint256 penaltyThreshold_
+  ) external initializer {
     __ERC20_init("staked EXA", "stEXA");
     __ERC4626_init(exa);
     __ERC20Permit_init("staked EXA");
@@ -67,6 +82,11 @@ contract StakedEXA is
     __AccessControl_init();
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+    minTime = minTime_;
+    refTime = refTime_;
+    penaltyGrowth = penaltyGrowth_;
+    penaltyThreshold = penaltyThreshold_;
   }
 
   function lastTimeRewardApplicable() public view returns (uint256) {
@@ -94,12 +114,24 @@ contract StakedEXA is
       avgIndexes[to] = avgIndexes[to].mulWadDown(weight) + index.mulWadDown(1e18 - weight);
     } else if (to == address(0)) {
       updateIndex();
-      uint256 reward = earned(from);
+      uint256 reward = claimable(from);
       if (reward != 0) {
         rewardsToken.transfer(from, reward);
         emit RewardPaid(from, reward);
       }
     } else revert Untransferable();
+  }
+
+  function discountFactor(uint256 time) internal view returns (uint256) {
+    uint256 memMinTime = minTime;
+    if (time <= memMinTime) return 0;
+    if (time >= refTime) return 1e18; // TODO apply formula for excess exposure
+
+    uint256 penalties = uint256(
+      ((int256(penaltyGrowth) * int256(((time - memMinTime) * 1e18) / (refTime - memMinTime)).lnWad()) / 1e18).expWad()
+    ); // ((time - memMinTime) / (refTime - memMinTime)) ** penaltyGrowth
+
+    return Math.min((1e18 - penaltyThreshold).mulWadDown(penalties) + penaltyThreshold, 1e18);
   }
 
   /// @notice Calculate the amount of rewards that an account has earned but not yet claimed.
@@ -110,6 +142,10 @@ contract StakedEXA is
   /// This result is then added to any rewards that have already been accumulated but not yet paid out.
   function earned(address account) public view returns (uint256) {
     return balanceOf(account).mulWadDown(globalIndex() - avgIndexes[account]);
+  }
+
+  function claimable(address account) public view returns (uint256) {
+    return earned(account).mulWadDown(discountFactor(block.timestamp - avgStart[account] / 1e18));
   }
 
   function setRewardsDuration(uint256 duration_) external onlyRole(DEFAULT_ADMIN_ROLE) {
