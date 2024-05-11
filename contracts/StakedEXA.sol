@@ -50,6 +50,8 @@ contract StakedEXA is
   uint256 public minTime;
   /// @notice Reference period to stake and get full rewards
   uint256 public refTime;
+  /// @notice Discount factor for excess exposure
+  uint256 public excessFactor;
   /// @notice Penalty growth factor
   uint256 public penaltyGrowth;
   /// @notice Threshold penalty factor for withdrawing before the reference time
@@ -72,6 +74,7 @@ contract StakedEXA is
   function initialize(
     uint256 minTime_,
     uint256 refTime_,
+    uint256 excessFactor_,
     uint256 penaltyGrowth_,
     uint256 penaltyThreshold_
   ) external initializer {
@@ -85,6 +88,7 @@ contract StakedEXA is
 
     minTime = minTime_;
     refTime = refTime_;
+    excessFactor = excessFactor_;
     penaltyGrowth = penaltyGrowth_;
     penaltyThreshold = penaltyThreshold_;
   }
@@ -125,11 +129,11 @@ contract StakedEXA is
   function discountFactor(uint256 time) internal view returns (uint256) {
     uint256 memMinTime = minTime;
     if (time <= memMinTime) return 0;
-    if (time >= refTime) return 1e18; // TODO apply formula for excess exposure
+    if (time >= refTime) return (1e18 - excessFactor).mulWadDown((refTime * 1e18) / time) + excessFactor;
 
     uint256 penalties = uint256(
       ((int256(penaltyGrowth) * int256(((time - memMinTime) * 1e18) / (refTime - memMinTime)).lnWad()) / 1e18).expWad()
-    ); // ((time - memMinTime) / (refTime - memMinTime)) ** penaltyGrowth
+    );
 
     return Math.min((1e18 - penaltyThreshold).mulWadDown(penalties) + penaltyThreshold, 1e18);
   }
