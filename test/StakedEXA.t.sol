@@ -32,6 +32,7 @@ contract StakedEXATest is Test {
   uint256 internal duration;
   uint256 internal minTime;
   uint256 internal refTime;
+  uint256 internal excessFactor;
   uint256 internal penaltyGrowth;
   uint256 internal penaltyThreshold;
 
@@ -46,11 +47,12 @@ contract StakedEXATest is Test {
     initialAmount = 1_000 ether;
     minTime = 1 weeks;
     refTime = duration;
+    excessFactor = 0.5e18;
     penaltyGrowth = 2e18;
     penaltyThreshold = 0.5e18;
 
     stEXA = StakedEXA(address(new ERC1967Proxy(address(new StakedEXA(IERC20(address(exa)), rewardsToken)), "")));
-    stEXA.initialize(minTime, refTime, penaltyGrowth, penaltyThreshold);
+    stEXA.initialize(minTime, refTime, excessFactor, penaltyGrowth, penaltyThreshold);
     vm.label(address(stEXA), "StakedEXA");
 
     exaBalance = 1_000_000 ether;
