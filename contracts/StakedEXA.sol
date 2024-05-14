@@ -118,7 +118,7 @@ contract StakedEXA is
       avgIndexes[to] = avgIndexes[to].mulWadDown(weight) + index.mulWadDown(1e18 - weight);
     } else if (to == address(0)) {
       updateIndex();
-      uint256 reward = claimable(from);
+      uint256 reward = claimable(from, amount);
       if (reward != 0) {
         rewardsToken.transfer(from, reward);
         emit RewardPaid(from, reward);
@@ -144,12 +144,20 @@ contract StakedEXA is
   /// @dev Computes earned rewards by taking the product of the account's balance and the difference between the
   /// global reward per token and the reward per token already paid to the user.
   /// This result is then added to any rewards that have already been accumulated but not yet paid out.
-  function earned(address account) public view returns (uint256) {
-    return balanceOf(account).mulWadDown(globalIndex() - avgIndexes[account]);
+  function earned(address account) external view returns (uint256) {
+    return earned(account, balanceOf(account));
   }
 
-  function claimable(address account) public view returns (uint256) {
-    return earned(account).mulWadDown(discountFactor(block.timestamp - avgStart[account] / 1e18));
+  function claimable(address account) external view returns (uint256) {
+    return claimable(account, balanceOf(account));
+  }
+
+  function earned(address account, uint256 assets) public view returns (uint256) {
+    return assets.mulWadDown(globalIndex() - avgIndexes[account]);
+  }
+
+  function claimable(address account, uint256 assets) public view returns (uint256) {
+    return earned(account, assets).mulWadDown(discountFactor(block.timestamp - avgStart[account] / 1e18));
   }
 
   function setRewardsDuration(uint256 duration_) external onlyRole(DEFAULT_ADMIN_ROLE) {
