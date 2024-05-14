@@ -486,6 +486,26 @@ contract StakedEXATest is Test {
     assertEq(stEXA.avgIndexes(address(this)), avgIndex, "avgIndex != expected");
   }
 
+  function testWithdrawSameAmountRewardsShouldEqual(uint256 amount, uint256 time) external {
+    amount = _bound(amount, 2, exaBalance);
+    time = _bound(time, 1, duration - 1);
+
+    stEXA.deposit(amount, address(this));
+    uint256 rewBalance = rewardsToken.balanceOf(address(this));
+
+    skip(time);
+    // withdraw 1/2 of the assets
+    stEXA.withdraw(amount / 2, address(this), address(this));
+    uint256 claimedRewards = rewardsToken.balanceOf(address(this)) - rewBalance;
+
+    // withdraw same amount
+    rewBalance = rewardsToken.balanceOf(address(this));
+    stEXA.withdraw(amount / 2, address(this), address(this));
+    uint256 claimedRewards2 = rewardsToken.balanceOf(address(this)) - rewBalance;
+
+    assertEq(claimedRewards, claimedRewards2, "claimed rewards != expected");
+  }
+
   event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
   event Withdraw(
     address indexed sender,
