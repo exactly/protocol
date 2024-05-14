@@ -60,6 +60,9 @@ const hardhatConfig: Config = {
       default: 0,
       "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
+    hypernative: {
+      optimism: "0xEa2127b14D05229CB3d4b75b42052e556AB7391F",
+    },
   },
   finance: {
     treasuryFeeRate: 0.2,

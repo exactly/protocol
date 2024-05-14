@@ -14,14 +14,15 @@ const func: DeployFunction = async ({
     live,
   },
   ethers: { ZeroAddress, parseUnits, getContractOrNull, getContract, getSigner },
-  deployments: { deploy, get },
+  deployments: { deploy, get, getOrNull },
   getNamedAccounts,
 }) => {
-  const [rewards, debtManager, auditor, { address: timelock }, { deployer, multisig, treasury = ZeroAddress }] =
+  const [rewards, debtManager, auditor, pauser, { address: timelock }, { deployer, multisig, treasury = ZeroAddress }] =
     await Promise.all([
       getContractOrNull<RewardsController>("RewardsController"),
       getContractOrNull<DebtManager>("DebtManager"),
       getContract<Auditor>("Auditor"),
+      getOrNull("Pauser"),
       get("TimelockController"),
       getNamedAccounts(),
     ]);
@@ -183,6 +184,8 @@ const func: DeployFunction = async ({
       await (await debtManager.approve(market.target)).wait();
     }
 
+    if (pauser) await grantRole(market, await market.EMERGENCY_ADMIN_ROLE(), pauser.address);
+
     await grantRole(market, await market.PAUSER_ROLE(), multisig);
 
     await transferOwnership(market, deployer, timelock);
@@ -253,6 +256,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Markets"];
-func.dependencies = ["Auditor", "Governance", "Assets", "PriceFeeds", "Rewards"];
+func.dependencies = ["Auditor", "Governance", "Assets", "PriceFeeds", "Rewards", "Pauser"];
 
 export default func;
