@@ -1,0 +1,182 @@
+{
+  "address": "0x91A2d012cd88f0D17078D221b0F36AF7a2e45602",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "decimals_",
+          "type": "uint8"
+        },
+        {
+          "internalType": "int256",
+          "name": "price_",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "int256",
+          "name": "current",
+          "type": "int256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "roundId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "AnswerUpdated",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "decimals",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "latestAnswer",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "price",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "int256",
+          "name": "price_",
+          "type": "int256"
+        }
+      ],
+      "name": "setPrice",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0x51960ae5c2fe5195ce91929af3e565718aae7aced201226b07f900b063694409",
+  "receipt": {
+    "to": null,
+    "from": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
+    "contractAddress": "0x91A2d012cd88f0D17078D221b0F36AF7a2e45602",
+    "transactionIndex": 43,
+    "gasUsed": "149889",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008000080200000020000000000000000000000000008000000040000000800000000040000000000100000000000000000000020000000000000000000800000000000800100080000000000800000000000100000000000000000000000000000480000000000000000000000020200000000000000000000000000000000000800000000000000800000000004000000000000000000001000000000000000000000000000000100000000020000000000000000000000000000000000000000000000000000000000000100000",
+    "blockHash": "0x1dfacae74839579c56a579ae5d0ed50d8025141d04659d098e632278d6a506f0",
+    "transactionHash": "0x51960ae5c2fe5195ce91929af3e565718aae7aced201226b07f900b063694409",
+    "logs": [
+      {
+        "transactionIndex": 43,
+        "blockNumber": 56976886,
+        "transactionHash": "0x51960ae5c2fe5195ce91929af3e565718aae7aced201226b07f900b063694409",
+        "address": "0x91A2d012cd88f0D17078D221b0F36AF7a2e45602",
+        "topics": [
+          "0x0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f",
+          "0x0000000000000000000000000000000000000000000000000000000005f5e100",
+          "0x0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000000000006643fc3d",
+        "logIndex": 263,
+        "blockHash": "0x1dfacae74839579c56a579ae5d0ed50d8025141d04659d098e632278d6a506f0"
+      },
+      {
+        "transactionIndex": 43,
+        "blockNumber": 56976886,
+        "transactionHash": "0x51960ae5c2fe5195ce91929af3e565718aae7aced201226b07f900b063694409",
+        "address": "0x0000000000000000000000000000000000001010",
+        "topics": [
+          "0x4dfe1bbbcf077ddc3e01291eea2d5c70c2b422b415d95645b9adcfd678cb1d63",
+          "0x0000000000000000000000000000000000000000000000000000000000001010",
+          "0x000000000000000000000000db90cdb64cff03f254e4015c4f705c3f3c834400",
+          "0x00000000000000000000000083d69448f88bf9c701c1b93f43e1f753d39b2632"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000000ff9b2920ed20400000000000000000000000000000000000000000000000087af15b295faaf9c0000000000000000000000000000000000000000000002290cceb31a613fb63b000000000000000000000000000000000000000000000000879f1c0003ebdd980000000000000000000000000000000000000000000002290cdeacccf34e883f",
+        "logIndex": 264,
+        "blockHash": "0x1dfacae74839579c56a579ae5d0ed50d8025141d04659d098e632278d6a506f0"
+      }
+    ],
+    "blockNumber": 56976886,
+    "cumulativeGasUsed": "4918755",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [
+    8,
+    "100000000"
+  ],
+  "numDeployments": 1,
+  "solcInputHash": "318437fe99a512aba777029b3ed7b886",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.25+commit.b61c2a91\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"decimals_\",\"type\":\"uint8\"},{\"internalType\":\"int256\",\"name\":\"price_\",\"type\":\"int256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"int256\",\"name\":\"current\",\"type\":\"int256\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"roundId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"AnswerUpdated\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestAnswer\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"price\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"int256\",\"name\":\"price_\",\"type\":\"int256\"}],\"name\":\"setPrice\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/mocks/MockPriceFeed.sol\":\"MockPriceFeed\"},\"debug\":{\"revertStrings\":\"strip\"},\"evmVersion\":\"cancun\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[]},\"sources\":{\"contracts/mocks/MockPriceFeed.sol\":{\"content\":\"// SPDX-License-Identifier: BUSL-1.1\\npragma solidity ^0.8.17;\\n\\nimport { MockERC20 } from \\\"solmate/src/test/utils/mocks/MockERC20.sol\\\"; // solhint-disable-line no-unused-import\\nimport { IPriceFeed } from \\\"../utils/IPriceFeed.sol\\\";\\n\\ncontract MockPriceFeed is IPriceFeed {\\n  uint8 public immutable decimals;\\n  int256 public price;\\n\\n  constructor(uint8 decimals_, int256 price_) {\\n    decimals = decimals_;\\n    setPrice(price_);\\n  }\\n\\n  function latestAnswer() external view returns (int256) {\\n    return price;\\n  }\\n\\n  function setPrice(int256 price_) public {\\n    price = price_;\\n    emit AnswerUpdated(price_, 0, block.timestamp);\\n  }\\n\\n  event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 timestamp);\\n}\\n\",\"keccak256\":\"0x50f88a0ecf7efa8b54a05a10d41a4405fde83d52fee7d371a1116459d93b6994\",\"license\":\"BUSL-1.1\"},\"contracts/utils/IPriceFeed.sol\":{\"content\":\"// SPDX-License-Identifier: BUSL-1.1\\npragma solidity ^0.8.17;\\n\\ninterface IPriceFeed {\\n  function decimals() external view returns (uint8);\\n\\n  function latestAnswer() external view returns (int256);\\n}\\n\",\"keccak256\":\"0xbad2238613d27d2ed8ae0e1ac59a1845f0434fcf3c26fc83bc006b48a33808df\",\"license\":\"BUSL-1.1\"},\"solmate/src/test/utils/mocks/MockERC20.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\npragma solidity >=0.8.0;\\n\\nimport {ERC20} from \\\"../../../tokens/ERC20.sol\\\";\\n\\ncontract MockERC20 is ERC20 {\\n    constructor(\\n        string memory _name,\\n        string memory _symbol,\\n        uint8 _decimals\\n    ) ERC20(_name, _symbol, _decimals) {}\\n\\n    function mint(address to, uint256 value) public virtual {\\n        _mint(to, value);\\n    }\\n\\n    function burn(address from, uint256 value) public virtual {\\n        _burn(from, value);\\n    }\\n}\\n\",\"keccak256\":\"0x8c182806df355c780d3e0b5e7975b32e312e961f0d51f30ba46732bd7b7ba23d\",\"license\":\"MIT\"},\"solmate/src/tokens/ERC20.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\npragma solidity >=0.8.0;\\n\\n/// @notice Modern and gas efficient ERC20 + EIP-2612 implementation.\\n/// @author Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC20.sol)\\n/// @author Modified from Uniswap (https://github.com/Uniswap/uniswap-v2-core/blob/master/contracts/UniswapV2ERC20.sol)\\n/// @dev Do not manually set balances without updating totalSupply, as the sum of all user balances must not exceed it.\\nabstract contract ERC20 {\\n    /*//////////////////////////////////////////////////////////////\\n                                 EVENTS\\n    //////////////////////////////////////////////////////////////*/\\n\\n    event Transfer(address indexed from, address indexed to, uint256 amount);\\n\\n    event Approval(address indexed owner, address indexed spender, uint256 amount);\\n\\n    /*//////////////////////////////////////////////////////////////\\n                            METADATA STORAGE\\n    //////////////////////////////////////////////////////////////*/\\n\\n    string public name;\\n\\n    string public symbol;\\n\\n    uint8 public immutable decimals;\\n\\n    /*//////////////////////////////////////////////////////////////\\n                              ERC20 STORAGE\\n    //////////////////////////////////////////////////////////////*/\\n\\n    uint256 public totalSupply;\\n\\n    mapping(address => uint256) public balanceOf;\\n\\n    mapping(address => mapping(address => uint256)) public allowance;\\n\\n    /*//////////////////////////////////////////////////////////////\\n                            EIP-2612 STORAGE\\n    //////////////////////////////////////////////////////////////*/\\n\\n    uint256 internal immutable INITIAL_CHAIN_ID;\\n\\n    bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;\\n\\n    mapping(address => uint256) public nonces;\\n\\n    /*//////////////////////////////////////////////////////////////\\n                               CONSTRUCTOR\\n    //////////////////////////////////////////////////////////////*/\\n\\n    constructor(\\n        string memory _name,\\n        string memory _symbol,\\n        uint8 _decimals\\n    ) {\\n        name = _name;\\n        symbol = _symbol;\\n        decimals = _decimals;\\n\\n        INITIAL_CHAIN_ID = block.chainid;\\n        INITIAL_DOMAIN_SEPARATOR = computeDomainSeparator();\\n    }\\n\\n    /*//////////////////////////////////////////////////////////////\\n                               ERC20 LOGIC\\n    //////////////////////////////////////////////////////////////*/\\n\\n    function approve(address spender, uint256 amount) public virtual returns (bool) {\\n        allowance[msg.sender][spender] = amount;\\n\\n        emit Approval(msg.sender, spender, amount);\\n\\n        return true;\\n    }\\n\\n    function transfer(address to, uint256 amount) public virtual returns (bool) {\\n        balanceOf[msg.sender] -= amount;\\n\\n        // Cannot overflow because the sum of all user\\n        // balances can't exceed the max uint256 value.\\n        unchecked {\\n            balanceOf[to] += amount;\\n        }\\n\\n        emit Transfer(msg.sender, to, amount);\\n\\n        return true;\\n    }\\n\\n    function transferFrom(\\n        address from,\\n        address to,\\n        uint256 amount\\n    ) public virtual returns (bool) {\\n        uint256 allowed = allowance[from][msg.sender]; // Saves gas for limited approvals.\\n\\n        if (allowed != type(uint256).max) allowance[from][msg.sender] = allowed - amount;\\n\\n        balanceOf[from] -= amount;\\n\\n        // Cannot overflow because the sum of all user\\n        // balances can't exceed the max uint256 value.\\n        unchecked {\\n            balanceOf[to] += amount;\\n        }\\n\\n        emit Transfer(from, to, amount);\\n\\n        return true;\\n    }\\n\\n    /*//////////////////////////////////////////////////////////////\\n                             EIP-2612 LOGIC\\n    //////////////////////////////////////////////////////////////*/\\n\\n    function permit(\\n        address owner,\\n        address spender,\\n        uint256 value,\\n        uint256 deadline,\\n        uint8 v,\\n        bytes32 r,\\n        bytes32 s\\n    ) public virtual {\\n        require(deadline >= block.timestamp, \\\"PERMIT_DEADLINE_EXPIRED\\\");\\n\\n        // Unchecked because the only math done is incrementing\\n        // the owner's nonce which cannot realistically overflow.\\n        unchecked {\\n            address recoveredAddress = ecrecover(\\n                keccak256(\\n                    abi.encodePacked(\\n                        \\\"\\\\x19\\\\x01\\\",\\n                        DOMAIN_SEPARATOR(),\\n                        keccak256(\\n                            abi.encode(\\n                                keccak256(\\n                                    \\\"Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)\\\"\\n                                ),\\n                                owner,\\n                                spender,\\n                                value,\\n                                nonces[owner]++,\\n                                deadline\\n                            )\\n                        )\\n                    )\\n                ),\\n                v,\\n                r,\\n                s\\n            );\\n\\n            require(recoveredAddress != address(0) && recoveredAddress == owner, \\\"INVALID_SIGNER\\\");\\n\\n            allowance[recoveredAddress][spender] = value;\\n        }\\n\\n        emit Approval(owner, spender, value);\\n    }\\n\\n    function DOMAIN_SEPARATOR() public view virtual returns (bytes32) {\\n        return block.chainid == INITIAL_CHAIN_ID ? INITIAL_DOMAIN_SEPARATOR : computeDomainSeparator();\\n    }\\n\\n    function computeDomainSeparator() internal view virtual returns (bytes32) {\\n        return\\n            keccak256(\\n                abi.encode(\\n                    keccak256(\\\"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)\\\"),\\n                    keccak256(bytes(name)),\\n                    keccak256(\\\"1\\\"),\\n                    block.chainid,\\n                    address(this)\\n                )\\n            );\\n    }\\n\\n    /*//////////////////////////////////////////////////////////////\\n                        INTERNAL MINT/BURN LOGIC\\n    //////////////////////////////////////////////////////////////*/\\n\\n    function _mint(address to, uint256 amount) internal virtual {\\n        totalSupply += amount;\\n\\n        // Cannot overflow because the sum of all user\\n        // balances can't exceed the max uint256 value.\\n        unchecked {\\n            balanceOf[to] += amount;\\n        }\\n\\n        emit Transfer(address(0), to, amount);\\n    }\\n\\n    function _burn(address from, uint256 amount) internal virtual {\\n        balanceOf[from] -= amount;\\n\\n        // Cannot underflow because a user's balance\\n        // will never be larger than the total supply.\\n        unchecked {\\n            totalSupply -= amount;\\n        }\\n\\n        emit Transfer(from, address(0), amount);\\n    }\\n}\\n\",\"keccak256\":\"0x43aa1509bb753f053143530705d9c4eee415691d26a4779769bf028a74e6ac69\",\"license\":\"MIT\"}},\"version\":1}",
+  "bytecode": "0x60a0604052348015600e575f80fd5b50604051610204380380610204833981016040819052602b91607b565b60ff8216608052603981603f565b505060aa565b5f81815560405142815282907f0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f9060200160405180910390a350565b5f8060408385031215608b575f80fd5b825160ff81168114609a575f80fd5b6020939093015192949293505050565b6080516101436100c15f395f605301526101435ff3fe608060405234801561000f575f80fd5b506004361061004a575f3560e01c8063313ce5671461004e57806350d25bcd1461008c578063a035b1fe1461009d578063f7a30806146100a5575b5f80fd5b6100757f000000000000000000000000000000000000000000000000000000000000000081565b60405160ff90911681526020015b60405180910390f35b5f545b604051908152602001610083565b61008f5f5481565b6100b86100b33660046100f6565b6100ba565b005b5f81815560405142815282907f0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f9060200160405180910390a350565b5f60208284031215610106575f80fd5b503591905056fea264697066735822122022beaf5106fe4a4fadd331760cf7c98d76d7e2b131c449a7acd800f2aa51762d64736f6c63430008190033",
+  "deployedBytecode": "0x608060405234801561000f575f80fd5b506004361061004a575f3560e01c8063313ce5671461004e57806350d25bcd1461008c578063a035b1fe1461009d578063f7a30806146100a5575b5f80fd5b6100757f000000000000000000000000000000000000000000000000000000000000000081565b60405160ff90911681526020015b60405180910390f35b5f545b604051908152602001610083565b61008f5f5481565b6100b86100b33660046100f6565b6100ba565b005b5f81815560405142815282907f0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f9060200160405180910390a350565b5f60208284031215610106575f80fd5b503591905056fea264697066735822122022beaf5106fe4a4fadd331760cf7c98d76d7e2b131c449a7acd800f2aa51762d64736f6c63430008190033",
+  "devdoc": {
+    "kind": "dev",
+    "methods": {},
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 24001,
+        "contract": "contracts/mocks/MockPriceFeed.sol:MockPriceFeed",
+        "label": "price",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_int256"
+      }
+    ],
+    "types": {
+      "t_int256": {
+        "encoding": "inplace",
+        "label": "int256",
+        "numberOfBytes": "32"
+      }
+    }
+  }
+}

@@ -51,6 +51,10 @@ const hardhatConfig: Config = {
       },
       url: env.OP_SEPOLIA_NODE ?? "",
     },
+    polygon: {
+      priceDecimals: 8,
+      url: env.POLYGON_NODE ?? "",
+    },
   },
   namedAccounts: {
     deployer: {
@@ -58,6 +62,7 @@ const hardhatConfig: Config = {
       ethereum: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
       optimism: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
       "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
+      polygon: "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
     multisig: {
       default: 0,
@@ -68,6 +73,7 @@ const hardhatConfig: Config = {
       default: 0,
       optimism: "0x23fD464e0b0eE21cEdEb929B19CABF9bD5215019",
       "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
+      polygon: "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
     savings: {
       default: 0,
@@ -76,6 +82,7 @@ const hardhatConfig: Config = {
     },
     hypernative: {
       optimism: "0xEa2127b14D05229CB3d4b75b42052e556AB7391F",
+      polygon: "0xEa2127b14D05229CB3d4b75b42052e556AB7391F",
     },
   },
   finance: {
