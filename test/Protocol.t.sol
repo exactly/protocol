@@ -628,7 +628,7 @@ contract ProtocolTest is Test {
     }
   }
 
-  function checkInvariants() internal {
+  function checkInvariants() internal view {
     uint256 claimedRewards;
     for (uint256 i = 0; i < accounts.length; ++i) {
       address account = accounts[i];

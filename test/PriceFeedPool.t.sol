@@ -20,7 +20,7 @@ contract PriceFeedPoolTest is Test {
     priceFeedPool = new PriceFeedPool(mockPool, ethPriceFeed, false);
   }
 
-  function testPriceFeedPoolReturningPrice() external {
+  function testPriceFeedPoolReturningPrice() external view {
     (uint256 reserve0, uint256 reserve1, ) = mockPool.getReserves();
     uint256 usdPrice = uint256(ethPriceFeed.latestAnswer()).mulDivDown(reserve0, reserve1);
     assertEq(usdPrice, 400e18);

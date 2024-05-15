@@ -2714,7 +2714,7 @@ contract MarketTest is Test {
     assertTrue(market.hasRole(market.PAUSER_ROLE(), address(this)));
   }
 
-  function testInitiallyUnfrozen() external {
+  function testInitiallyUnfrozen() external view {
     assertFalse(market.isFrozen());
   }
 

@@ -67,7 +67,7 @@ contract PoolLibTest is Test {
     assertEq(treasury, 1 ether);
   }
 
-  function testMaturityRangeLimit() external {
+  function testMaturityRangeLimit() external pure {
     uint256 maturities;
     maturities = maturities.setMaturity(FixedLib.INTERVAL);
     maturities = maturities.setMaturity(FixedLib.INTERVAL * 224);
