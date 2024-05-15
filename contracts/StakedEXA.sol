@@ -35,19 +35,11 @@ contract StakedEXA is
 
   /// @notice Staking token
   IERC20 public immutable exa;
-  /// @notice Rewards token
-  ERC20 public immutable rewardsToken;
+  /// @notice Rewards tokens
+  ERC20[] public rewardsTokens;
 
-  /// @notice Duration of rewards to be paid out (in seconds)
-  uint256 public duration;
-  /// @notice Timestamp of when the rewards finish
-  uint256 public finishAt;
-  /// @notice Minimum of last updated time and reward finish time
-  uint256 public updatedAt;
-  /// @notice Reward to be paid out per second
-  uint256 public rewardRate;
-  /// @notice Global index. Sum of (reward rate * dt * 1e18 / total supply)
-  uint256 public index;
+  /// @notice Rewards data per token
+  mapping(ERC20 reward => RewardData data) public rewards;
 
   /// @notice Minimum time to stake and get rewards
   uint256 public minTime;
@@ -62,12 +54,11 @@ contract StakedEXA is
 
   /// @notice Average starting time with the tokens staked per account
   mapping(address account => uint256 time) public avgStart;
-  /// @notice Accounts average indexes
-  mapping(address account => uint256 index) public avgIndexes;
+  /// @notice Accounts average indexes per reward token
+  mapping(address account => mapping(ERC20 reward => uint256 index)) public avgIndexes;
 
-  constructor(IERC20 exa_, ERC20 rewardsToken_) {
+  constructor(IERC20 exa_) {
     exa = exa_;
-    rewardsToken = rewardsToken_;
 
     _disableInitializers();
   }
@@ -96,35 +87,34 @@ contract StakedEXA is
     penaltyThreshold = penaltyThreshold_;
   }
 
-  function lastTimeRewardApplicable() public view returns (uint256) {
-    return Math.min(finishAt, block.timestamp);
-  }
-
-  function globalIndex() public view returns (uint256) {
-    if (totalSupply() == 0) return index;
-
-    return index + (rewardRate * (lastTimeRewardApplicable() - updatedAt)).divWadDown(totalSupply());
-  }
-
-  function updateIndex() internal {
-    index = globalIndex();
-    updatedAt = lastTimeRewardApplicable();
+  function updateIndex(ERC20 reward) internal {
+    RewardData storage rewardData = rewards[reward];
+    rewardData.index = globalIndex(reward);
+    rewardData.updatedAt = lastTimeRewardApplicable(rewardData.finishAt);
   }
 
   function _beforeTokenTransfer(address from, address to, uint256 amount) internal override whenNotPaused {
     if (amount == 0) revert ZeroAmount();
     if (from == address(0)) {
-      updateIndex();
       uint256 balance = balanceOf(to);
       uint256 weight = balance.divWadDown(balance + amount);
+      for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+        ERC20 reward = rewardsTokens[i];
+        updateIndex(reward);
+        avgIndexes[to][reward] =
+          avgIndexes[to][reward].mulWadDown(weight) +
+          rewards[reward].index.mulWadDown(1e18 - weight);
+      }
       avgStart[to] = avgStart[to].mulWadDown(weight) + (block.timestamp) * (1e18 - weight);
-      avgIndexes[to] = avgIndexes[to].mulWadDown(weight) + index.mulWadDown(1e18 - weight);
     } else if (to == address(0)) {
-      updateIndex();
-      uint256 reward = claimable(from, amount);
-      if (reward != 0) {
-        rewardsToken.transfer(from, reward);
-        emit RewardPaid(from, reward);
+      for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+        ERC20 reward = rewardsTokens[i];
+        updateIndex(reward);
+        uint256 claimableAmount = claimable(reward, from, amount);
+        if (claimableAmount != 0) {
+          reward.transfer(from, claimableAmount);
+          emit RewardPaid(reward, from, claimableAmount);
+        }
       }
     } else revert Untransferable();
   }
@@ -141,53 +131,6 @@ contract StakedEXA is
     return Math.min((1e18 - penaltyThreshold).mulWadDown(penalties) + penaltyThreshold, 1e18);
   }
 
-  /// @notice Calculate the amount of rewards that an account has earned but not yet claimed.
-  /// @param account The address of the user for whom to calculate the rewards.
-  /// @return The total amount of earned rewards for the specified user.
-  /// @dev Computes earned rewards by taking the product of the account's balance and the difference between the
-  /// global reward per token and the reward per token already paid to the user.
-  /// This result is then added to any rewards that have already been accumulated but not yet paid out.
-  function earned(address account) external view returns (uint256) {
-    return earned(account, balanceOf(account));
-  }
-
-  function claimable(address account) external view returns (uint256) {
-    return claimable(account, balanceOf(account));
-  }
-
-  function earned(address account, uint256 assets) public view returns (uint256) {
-    return assets.mulWadDown(globalIndex() - avgIndexes[account]);
-  }
-
-  function claimable(address account, uint256 assets) public view returns (uint256) {
-    return earned(account, assets).mulWadDown(discountFactor(block.timestamp - avgStart[account] / 1e18));
-  }
-
-  function setRewardsDuration(uint256 duration_) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (finishAt > block.timestamp) revert NotFinished();
-    duration = duration_;
-
-    emit RewardsDurationSet(msg.sender, duration_);
-  }
-
-  function notifyRewardAmount(uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    updateIndex();
-    if (block.timestamp >= finishAt) {
-      rewardRate = amount / duration;
-    } else {
-      uint256 remainingRewards = (finishAt - block.timestamp) * rewardRate;
-      rewardRate = (amount + remainingRewards) / duration;
-    }
-
-    if (rewardRate == 0) revert ZeroRate();
-    if (rewardRate * duration > rewardsToken.balanceOf(address(this))) revert InsufficientBalance();
-
-    finishAt = block.timestamp + duration;
-    updatedAt = block.timestamp;
-
-    emit RewardAmountNotified(msg.sender, amount);
-  }
-
   /// @dev Throws if the caller is not an `EMERGENCY_ADMIN_ROLE` or `PAUSER_ROLE`.
   function requirePausingRoles() internal view {
     if (!hasRole(EMERGENCY_ADMIN_ROLE, msg.sender) && !hasRole(PAUSER_ROLE, msg.sender)) {
@@ -199,6 +142,89 @@ contract StakedEXA is
   modifier onlyPausingRoles() {
     requirePausingRoles();
     _;
+  }
+
+  modifier onlyReward(ERC20 reward) {
+    if (!rewards[reward].isEnabled) revert RewardNotListed();
+    _;
+  }
+
+  function lastTimeRewardApplicable(uint256 finishAt) public view returns (uint256) {
+    return Math.min(finishAt, block.timestamp);
+  }
+
+  function globalIndex(ERC20 reward) public view returns (uint256) {
+    RewardData memory rewardData = rewards[reward];
+    if (totalSupply() == 0) return rewardData.index;
+
+    return
+      rewardData.index +
+      (rewardData.rate * (lastTimeRewardApplicable(rewardData.finishAt) - rewardData.updatedAt)).divWadDown(
+        totalSupply()
+      );
+  }
+
+  function avgIndex(ERC20 reward, address account) public view returns (uint256) {
+    return avgIndexes[account][reward];
+  }
+
+  function earned(ERC20 reward, address account, uint256 assets) public view returns (uint256) {
+    return assets.mulWadDown(globalIndex(reward) - avgIndexes[account][reward]);
+  }
+
+  function claimable(ERC20 reward, address account, uint256 assets) public view returns (uint256) {
+    return earned(reward, account, assets).mulWadDown(discountFactor(block.timestamp - avgStart[account] / 1e18));
+  }
+
+  /// @notice Calculate the amount of rewards that an account has earned but not yet claimed.
+  /// @param account The address of the user for whom to calculate the rewards.
+  /// @return The total amount of earned rewards for the specified user.
+  /// @dev Computes earned rewards by taking the product of the account's balance and the difference between the
+  /// global reward per token and the reward per token already paid to the user.
+  /// This result is then added to any rewards that have already been accumulated but not yet paid out.
+  function earned(ERC20 reward, address account) external view returns (uint256) {
+    return earned(reward, account, balanceOf(account));
+  }
+
+  function claimable(ERC20 reward, address account) external view returns (uint256) {
+    return claimable(reward, account, balanceOf(account));
+  }
+
+  function enableReward(ERC20 reward) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (rewards[reward].isEnabled) revert AlreadyListed();
+
+    rewards[reward].isEnabled = true;
+    rewardsTokens.push(reward);
+
+    emit RewardListed(reward, msg.sender);
+  }
+
+  function setRewardsDuration(ERC20 reward, uint256 duration) external onlyRole(DEFAULT_ADMIN_ROLE) onlyReward(reward) {
+    RewardData storage rewardData = rewards[reward];
+    if (rewardData.finishAt > block.timestamp) revert NotFinished();
+
+    rewardData.duration = duration;
+
+    emit RewardsDurationSet(reward, msg.sender, duration);
+  }
+
+  function notifyRewardAmount(ERC20 reward, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) onlyReward(reward) {
+    updateIndex(reward);
+    RewardData storage rewardData = rewards[reward];
+    if (block.timestamp >= rewardData.finishAt) {
+      rewardData.rate = amount / rewardData.duration;
+    } else {
+      uint256 remainingRewards = (rewardData.finishAt - block.timestamp) * rewardData.rate;
+      rewardData.rate = (amount + remainingRewards) / rewardData.duration;
+    }
+
+    if (rewardData.rate == 0) revert ZeroRate();
+    if (rewardData.rate * rewardData.duration > reward.balanceOf(address(this))) revert InsufficientBalance();
+
+    rewardData.finishAt = block.timestamp + rewardData.duration;
+    rewardData.updatedAt = block.timestamp;
+
+    emit RewardAmountNotified(reward, msg.sender, amount);
   }
 
   /// @notice Sets the pause state to true in case of emergency, triggered by an authorized account.
@@ -224,14 +250,27 @@ contract StakedEXA is
     return "mode=timestamp";
   }
 
-  event RewardAmountNotified(address indexed account, uint256 amount);
-  event RewardPaid(address indexed account, uint256 amount);
-  event RewardsDurationSet(address indexed account, uint256 duration);
+  event RewardAmountNotified(ERC20 indexed reward, address indexed account, uint256 amount);
+  event RewardPaid(ERC20 indexed reward, address indexed account, uint256 amount);
+  event RewardListed(ERC20 indexed reward, address indexed account);
+  event RewardsDurationSet(ERC20 indexed reward, address indexed account, uint256 duration);
 }
 
+error AlreadyListed();
 error InsufficientBalance();
 error NotFinished();
 error NotPausingRole();
+error RewardNotListed();
 error Untransferable();
 error ZeroAmount();
 error ZeroRate();
+
+// TODO optimize size
+struct RewardData {
+  uint256 duration;
+  uint256 finishAt;
+  uint256 index;
+  bool isEnabled;
+  uint256 rate;
+  uint256 updatedAt;
+}
