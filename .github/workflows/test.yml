@@ -8,6 +8,7 @@ jobs:
     env:
       OPTIMISM_NODE: ${{ secrets.OPTIMISM_NODE }}
       OP_SEPOLIA_NODE: ${{ secrets.OP_SEPOLIA_NODE }}
+      NODE_OPTIONS: '--max_old_space_size=4096'
     steps:
       - uses: actions/checkout@v4
         with:
