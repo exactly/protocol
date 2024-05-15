@@ -26,7 +26,7 @@ contract InterestRateModelTest is Test {
     assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18), 63726888252924763);
   }
 
-  function testFixedRateTimeSensitivity(uint256 maxPools, uint256 maturity, uint256 intervals) external {
+  function testFuzzFixedRateTimeSensitivity(uint256 maxPools, uint256 maturity, uint256 intervals) external {
     maxPools = _bound(maturity, 1, 24);
     maturity = _bound(maturity, 1, maxPools);
     intervals = _bound(intervals, 1, 1_000);

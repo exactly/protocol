@@ -11,7 +11,7 @@
     "lint:es": "eslint --ext .ts,.js,.cjs,.mjs .",
     "fix:sol": "prettier -w '{contracts,scripts,test}/**/*.sol'",
     "compile": "hardhat compile",
-    "snapshot": "forge snapshot --no-match-test testFuzz",
+    "snapshot": "forge snapshot --force --no-match-test testFuzz",
     "test": "concurrently 'npm:test:*' --kill-others-on-fail --group -c auto",
     "test:foundry": "forge test",
     "test:hardhat": "hardhat test --deploy-fixture",
