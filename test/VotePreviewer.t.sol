@@ -34,7 +34,7 @@ contract VotePreviewerTest is ForkTest {
     vm.label(address(previewer), "VotePreviewer");
   }
 
-  function testExternalVotes() external {
+  function testExternalVotes() external view {
     assertEq(previewer.externalVotes(0x23fD464e0b0eE21cEdEb929B19CABF9bD5215019), 27401932247383718289362);
     assertEq(previewer.externalVotes(0x1283D47A121f903D9BD73f0f8E83728c488969f5), 1559177426053281144);
     assertEq(previewer.externalVotes(0x4cd45E3Fef61079Ee67cbB9e9e230641A4Ae2f87), 368157682632212466);

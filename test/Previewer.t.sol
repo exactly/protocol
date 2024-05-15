@@ -190,17 +190,17 @@ contract PreviewerTest is Test {
     assertEq(preview.assets, principalAfterDeposit + earningsAfterDeposit);
   }
 
-  function testPreviewDepositAtMaturityWithEmptyMaturity() external {
+  function testPreviewDepositAtMaturityWithEmptyMaturity() external view {
     Previewer.FixedPreview memory preview = previewer.previewDepositAtMaturity(market, FixedLib.INTERVAL, 1 ether);
     assertEq(preview.assets, 1 ether);
   }
 
-  function testPreviewDepositAtMaturityWithEmptyMaturityAndZeroAmount() external {
+  function testPreviewDepositAtMaturityWithEmptyMaturityAndZeroAmount() external view {
     Previewer.FixedPreview memory preview = previewer.previewDepositAtMaturity(market, FixedLib.INTERVAL, 0);
     assertEq(preview.assets, 0);
   }
 
-  function testPreviewDepositAtMaturityWithInvalidMaturity() external {
+  function testPreviewDepositAtMaturityWithInvalidMaturity() external view {
     Previewer.FixedPreview memory preview = previewer.previewDepositAtMaturity(market, 376 seconds, 1 ether);
     assertEq(preview.assets, 1 ether);
   }
@@ -1499,7 +1499,7 @@ contract PreviewerTest is Test {
     }
   }
 
-  function testExactlyReturningInterestRateModelData() external {
+  function testExactlyReturningInterestRateModelData() external view {
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
 
     assertEq(data[0].interestRateModel.id, address(irm));
@@ -2168,7 +2168,7 @@ contract PreviewerTest is Test {
     );
   }
 
-  function testAccountsWithEmptyAccount() external {
+  function testAccountsWithEmptyAccount() external view {
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
 
     assertEq(data[0].symbol, market.symbol());

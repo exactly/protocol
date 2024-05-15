@@ -26,7 +26,7 @@ contract PriceFeedWrapperTest is Test {
     );
   }
 
-  function testPriceFeedWrapperReturningPrice() external {
+  function testPriceFeedWrapperReturningPrice() external view {
     assertEq(priceFeedWrapper.latestAnswer(), 1079818692742898422);
   }
 
