@@ -234,7 +234,9 @@ contract InterestRateModelTest is Test {
     asset.approve(address(market), type(uint128).max);
     if (floatingAssets != 0) market.deposit(floatingAssets, address(this));
     vm.warp(timestamp);
-    market.borrow(floatingDebt, address(this), address(this));
+    if (floatingDebt != 0) {
+      market.borrow(floatingDebt, address(this), address(this));
+    }
 
     Vars memory v;
     v.backupBorrowed = 0;
