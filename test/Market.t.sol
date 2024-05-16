@@ -227,6 +227,11 @@ contract MarketTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL, 0, 0, address(this), address(this));
   }
 
+  function testBorrowWithZeroAssets() external {
+    vm.expectRevert(ZeroBorrow.selector);
+    market.borrow(0, address(this), BOB);
+  }
+
   function testDepositAtMaturityWithZeroAssets() external {
     vm.expectRevert(ZeroDeposit.selector);
     market.depositAtMaturity(FixedLib.INTERVAL, 0, 0, address(this));

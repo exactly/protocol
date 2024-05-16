@@ -410,7 +410,9 @@ contract ProtocolTest is Test {
     uint256 expectedShares = market.previewBorrow(assets);
     (uint256 collateral, uint256 debt) = previewAccountLiquidity(account, market, assets, expectedShares);
 
-    if (
+    if (assets == 0) {
+      vm.expectRevert(ZeroBorrow.selector);
+    } else if (
       market.floatingBackupBorrowed() + market.totalFloatingBorrowAssets() + assets >
       (market.floatingAssets() + previewNewFloatingDebt(market)).mulWadDown(1e18 - RESERVE_FACTOR)
     ) {

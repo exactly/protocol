@@ -1051,7 +1051,7 @@ contract PreviewerTest is Test {
     market.deposit(10_000 ether, address(this));
     market.borrow(2_000 ether, address(this), address(this));
     vm.warp(block.timestamp + 1 weeks);
-    market.borrow(0, address(this), address(this));
+    market.borrow(1, address(this), address(this));
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[0].rewardRates.length, 1);
     assertEq(data[0].rewardRates[0].maturities.length, 12);
