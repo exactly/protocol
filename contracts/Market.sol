@@ -142,6 +142,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     address receiver,
     address borrower
   ) external whenNotPaused whenNotFrozen returns (uint256 borrowShares) {
+    if (assets == 0) revert ZeroBorrow();
     spendAllowance(borrower, assets);
 
     RewardsController memRewardsController = rewardsController;
