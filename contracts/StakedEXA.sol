@@ -30,6 +30,9 @@ contract StakedEXA is
   using SafeTransferLib for ERC20;
   using SafeCast for int256;
 
+  bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+  bytes32 public constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN_ROLE");
+
   /// @notice Staking token
   IERC20 public immutable exa;
   /// @notice Rewards token
@@ -108,7 +111,7 @@ contract StakedEXA is
     updatedAt = lastTimeRewardApplicable();
   }
 
-  function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
+  function _beforeTokenTransfer(address from, address to, uint256 amount) internal override whenNotPaused {
     if (amount == 0) revert ZeroAmount();
     if (from == address(0)) {
       updateIndex();
@@ -185,6 +188,29 @@ contract StakedEXA is
     emit RewardAmountNotified(msg.sender, amount);
   }
 
+  /// @dev Throws if the caller is not an `EMERGENCY_ADMIN_ROLE` or `PAUSER_ROLE`.
+  function requirePausingRoles() internal view {
+    if (!hasRole(EMERGENCY_ADMIN_ROLE, msg.sender) && !hasRole(PAUSER_ROLE, msg.sender)) {
+      revert NotPausingRole();
+    }
+  }
+
+  /// @dev Modifier to make a function callable only by pausing roles.
+  modifier onlyPausingRoles() {
+    requirePausingRoles();
+    _;
+  }
+
+  /// @notice Sets the pause state to true in case of emergency, triggered by an authorized account.
+  function pause() external onlyPausingRoles {
+    _pause();
+  }
+
+  /// @notice Sets the pause state to false when threat is gone, triggered by an authorized account.
+  function unpause() external onlyRole(PAUSER_ROLE) {
+    _unpause();
+  }
+
   function decimals() public view override(ERC4626Upgradeable, ERC20Upgradeable) returns (uint8) {
     return ERC4626Upgradeable.decimals();
   }
@@ -205,6 +231,7 @@ contract StakedEXA is
 
 error InsufficientBalance();
 error NotFinished();
+error NotPausingRole();
 error Untransferable();
 error ZeroAmount();
 error ZeroRate();
