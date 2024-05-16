@@ -82,6 +82,8 @@ contract StakedEXATest is Test {
     assertEq(stEXA.refTime(), refTime);
     assertEq(stEXA.penaltyGrowth(), penaltyGrowth);
     assertEq(stEXA.penaltyThreshold(), penaltyThreshold);
+
+    assertFalse(stEXA.paused());
   }
 
   function testInsufficientBalanceError(uint256 amount) external {
@@ -504,6 +506,81 @@ contract StakedEXATest is Test {
     uint256 claimedRewards2 = rewardsToken.balanceOf(address(this)) - rewBalance;
 
     assertEq(claimedRewards, claimedRewards2, "claimed rewards != expected");
+  }
+
+  function testGrantRevokePauser() external {
+    address pauser = address(0x1);
+    stEXA.grantRole(stEXA.PAUSER_ROLE(), pauser);
+    assertTrue(stEXA.hasRole(stEXA.PAUSER_ROLE(), pauser));
+
+    stEXA.revokeRole(stEXA.PAUSER_ROLE(), pauser);
+    assertFalse(stEXA.hasRole(stEXA.PAUSER_ROLE(), pauser));
+  }
+
+  function testPauserCanPauseUnpause() external {
+    address pauser = address(0x1);
+    stEXA.grantRole(stEXA.PAUSER_ROLE(), pauser);
+    assertTrue(stEXA.hasRole(stEXA.PAUSER_ROLE(), pauser));
+
+    vm.startPrank(pauser);
+    stEXA.pause();
+    assertTrue(stEXA.paused());
+
+    stEXA.unpause();
+    assertFalse(stEXA.paused());
+    vm.stopPrank();
+  }
+
+  function testGrantRevokeEmergencyAdmin() external {
+    address emergencyAdmin = address(0x1);
+    stEXA.grantRole(stEXA.EMERGENCY_ADMIN_ROLE(), emergencyAdmin);
+    assertTrue(stEXA.hasRole(stEXA.EMERGENCY_ADMIN_ROLE(), emergencyAdmin));
+
+    stEXA.revokeRole(stEXA.EMERGENCY_ADMIN_ROLE(), emergencyAdmin);
+    assertFalse(stEXA.hasRole(stEXA.EMERGENCY_ADMIN_ROLE(), emergencyAdmin));
+  }
+
+  function testEmergencyAdminCanPauseNotUnpause() external {
+    address emergencyAdmin = address(0x1);
+    stEXA.grantRole(stEXA.EMERGENCY_ADMIN_ROLE(), emergencyAdmin);
+    assertTrue(stEXA.hasRole(stEXA.EMERGENCY_ADMIN_ROLE(), emergencyAdmin));
+
+    vm.startPrank(emergencyAdmin);
+    stEXA.pause();
+    assertTrue(stEXA.paused());
+
+    vm.expectRevert(bytes(""));
+    stEXA.unpause();
+    vm.stopPrank();
+  }
+
+  function testPausable() external {
+    stEXA.deposit(1, address(this));
+
+    address pauser = address(0x1);
+    stEXA.grantRole(stEXA.PAUSER_ROLE(), pauser);
+
+    vm.prank(pauser);
+    stEXA.pause();
+    assertTrue(stEXA.paused());
+
+    vm.expectRevert(bytes(""));
+    stEXA.deposit(1, address(this));
+
+    vm.expectRevert(bytes(""));
+    stEXA.redeem(1, address(this), address(this));
+
+    vm.expectRevert(bytes(""));
+    stEXA.withdraw(1, address(this), address(this));
+
+    vm.prank(pauser);
+    stEXA.unpause();
+    assertFalse(stEXA.paused());
+
+    stEXA.deposit(1, address(this));
+
+    stEXA.redeem(1, address(this), address(this));
+    stEXA.withdraw(1, address(this), address(this));
   }
 
   event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
