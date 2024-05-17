@@ -833,6 +833,54 @@ contract MarketTest is Test {
     assertEq(remainingDebt, 0);
   }
 
+  function testEarlyRepayLiquidationUnassignedEarnings() public {
+    uint256 maturity = FixedLib.INTERVAL;
+    uint256 assets = 10_000 ether;
+    ERC20 asset = market.asset();
+    deal(address(asset), ALICE, assets);
+
+    vm.startPrank(ALICE);
+
+    // ALICE deposits
+    market.deposit(assets, ALICE);
+
+    // ALICE borrows at maturity, using backup from the deposit
+    market.borrowAtMaturity(maturity, assets / 10, type(uint256).max, ALICE, ALICE);
+
+    // ALICE borrows the maximum possible using floating rate
+    (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(ALICE), Market(address(0)), 0);
+    uint256 borrow = ((collateral - debt) * 8) / 10; // max borrow capacity
+    market.borrow(borrow, ALICE, ALICE);
+
+    vm.stopPrank();
+
+    skip(1 days);
+
+    // LIQUIDATOR liquidates ALICE, wiping ALICE'S maturity borrow
+    // and ignores its unassigned rewards
+    address liquidator = makeAddr("liquidator");
+    vm.startPrank(liquidator);
+    deal(address(asset), liquidator, assets);
+    asset.approve(address(market), assets);
+    market.liquidate(ALICE, type(uint256).max, market);
+    vm.stopPrank();
+
+    // ATTACKER deposits to borrow at maturity
+    address attacker = makeAddr("attacker");
+    deal(address(asset), attacker, 20);
+    vm.startPrank(attacker);
+    asset.approve(address(market), 20);
+    market.deposit(10, attacker);
+
+    // ATTACKER borrows at maturity, making floatingBackupBorrowed = 1 > supply = 0
+    market.borrowAtMaturity(maturity, 1, type(uint256).max, attacker, attacker);
+
+    // ATTACKER deposits just 1 at maturity, claiming all the unassigned earnings
+    // by only providing 1 principal
+    uint256 positionAssets = market.depositAtMaturity(maturity, 1, 0, attacker);
+    assertEq(positionAssets, 1);
+  }
+
   function testBorrowFromFreeLunchShouldNotRevertWithFloatingFullUtilization() external {
     marketWETH.deposit(1.15 ether, address(this));
     daiPriceFeed.setPrice(0.0002e18);
@@ -1491,6 +1539,7 @@ contract MarketTest is Test {
     uint256 earningsAccumulatorBefore = market.earningsAccumulator();
     uint256 lendersIncentive = 1181818181818181800;
     uint256 badDebt = 981818181818181818100 + 1100000000000000000000 + 1100000000000000000000 + 1100000000000000000000;
+    uint256 earlyRepayEarnings = 3069658128703695345;
     uint256 accumulatedEarnings = (earningsAccumulatorBefore + lendersIncentive).mulDivDown(
       block.timestamp - market.lastAccumulatorAccrual(),
       block.timestamp -
@@ -1506,7 +1555,11 @@ contract MarketTest is Test {
     assertGt(market.earningsAccumulator(), 0);
     assertApproxEqRel(
       badDebt,
-      earningsAccumulatorBefore - market.earningsAccumulator() - accumulatedEarnings + lendersIncentive,
+      earningsAccumulatorBefore -
+        market.earningsAccumulator() -
+        accumulatedEarnings +
+        earlyRepayEarnings +
+        lendersIncentive,
       1e2
     );
     (, uint256 fixedBorrows, ) = market.accounts(address(this));

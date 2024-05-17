@@ -493,19 +493,22 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     // early repayment allows a discount from the unassigned earnings
     if (block.timestamp < maturity) {
+      // calculate the deposit fee considering the amount of debt the account'll pay
+      (uint256 discountFee, uint256 backupFee) = pool.calculateDeposit(principalCovered, backupFeeRate);
+
+      // remove the fee from unassigned earnings
+      pool.unassignedEarnings -= discountFee + backupFee;
       if (canDiscount) {
-        // calculate the deposit fee considering the amount of debt the account'll pay
-        (uint256 discountFee, uint256 backupFee) = pool.calculateDeposit(principalCovered, backupFeeRate);
-
-        // remove the fee from unassigned earnings
-        pool.unassignedEarnings -= discountFee + backupFee;
-
         // the fee charged to the fixed pool supplier goes to the earnings accumulator
         earningsAccumulator += backupFee;
 
         // the fee gets discounted from the account through `actualRepayAssets`
         actualRepayAssets = debtCovered - discountFee;
       } else {
+        // all fees go to the earnings accumulator
+        earningsAccumulator += discountFee + backupFee;
+
+        // there is no discount due to liquidation
         actualRepayAssets = debtCovered;
       }
     } else {
