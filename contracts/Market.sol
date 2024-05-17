@@ -243,6 +243,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     FixedLib.Pool storage pool = fixedPools[maturity];
 
     uint256 backupEarnings = pool.accrueEarnings(maturity);
+    depositToTreasury(updateFloatingDebt());
     floatingAssets += backupEarnings;
 
     (uint256 fee, uint256 backupFee) = pool.calculateDeposit(assets, backupFeeRate);
@@ -291,6 +292,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
 
     FixedLib.Pool storage pool = fixedPools[maturity];
+    depositToTreasury(updateFloatingDebt());
     floatingAssets += pool.accrueEarnings(maturity);
 
     RewardsController memRewardsController = rewardsController;
@@ -300,7 +302,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       uint256 backupDebtAddition = pool.borrow(assets);
       if (backupDebtAddition != 0) {
         uint256 newFloatingBackupBorrowed = floatingBackupBorrowed + backupDebtAddition;
-        depositToTreasury(updateFloatingDebt());
         if (newFloatingBackupBorrowed + floatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
           revert InsufficientProtocolLiquidity();
         }
@@ -373,6 +374,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
 
     FixedLib.Pool storage pool = fixedPools[maturity];
+    depositToTreasury(updateFloatingDebt());
     floatingAssets += pool.accrueEarnings(maturity);
 
     FixedLib.Position memory position = fixedDepositPositions[maturity][owner];
@@ -477,6 +479,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     FixedLib.Pool storage pool = fixedPools[maturity];
 
     uint256 backupEarnings = pool.accrueEarnings(maturity);
+    depositToTreasury(updateFloatingDebt());
     floatingAssets += backupEarnings;
 
     FixedLib.Position memory position = fixedBorrowPositions[maturity][borrower];

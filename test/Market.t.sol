@@ -911,6 +911,45 @@ contract MarketTest is Test {
     market.withdrawAtMaturity(FixedLib.INTERVAL, 1 ether, 0, address(this), address(this));
   }
 
+  function testFixedOperationsUpdateFloatingDebt() external {
+    market.deposit(100 ether, address(this));
+
+    vm.warp(1 days);
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
+    assertEq(market.lastFloatingDebtUpdate(), 1 days);
+
+    vm.warp(2 days);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
+    assertEq(market.lastFloatingDebtUpdate(), 2 days);
+
+    vm.warp(3 days);
+    market.repayAtMaturity(FixedLib.INTERVAL, 1.5 ether, 1.5 ether, address(this));
+    assertEq(market.lastFloatingDebtUpdate(), 3 days);
+
+    vm.warp(4 days);
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
+    assertEq(market.lastFloatingDebtUpdate(), 4 days);
+  }
+
+  function testLiquidateUpdateFloatingDebt() external {
+    irm.setRate(0);
+    marketWETH.deposit(1.15 ether, address(this));
+    daiPriceFeed.setPrice(0.0002e18);
+    market.deposit(50_000 ether, ALICE);
+
+    for (uint256 i = 1; i <= 2; i++) {
+      market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
+    }
+
+    market.borrow(2_000 ether, address(this), address(this));
+    daiPriceFeed.setPrice(0.00025e18);
+
+    vm.warp(1 days);
+    vm.prank(BOB);
+    market.liquidate(address(this), 1000 ether, marketWETH);
+    assertEq(market.lastFloatingDebtUpdate(), 1 days);
+  }
+
   function testBorrowAtMaturityUpdatesFloatingDebtAndFloatingAssets() external {
     marketWETH.deposit(1.15 ether, address(this));
     daiPriceFeed.setPrice(0.0002e18);
