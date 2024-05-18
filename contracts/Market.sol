@@ -605,6 +605,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     (uint256 lendersAssets, uint256 seizeAssets) = auditor.calculateSeize(this, seizeMarket, borrower, repaidAssets);
     earningsAccumulator += lendersAssets;
 
+    asset.safeTransferFrom(msg.sender, address(this), repaidAssets + lendersAssets);
+
     if (address(seizeMarket) == address(this)) {
       internalSeize(this, msg.sender, borrower, seizeAssets);
     } else {
@@ -616,8 +618,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emit Liquidate(msg.sender, borrower, repaidAssets, lendersAssets, seizeMarket, seizeAssets);
 
     auditor.handleBadDebt(borrower);
-
-    asset.safeTransferFrom(msg.sender, address(this), repaidAssets + lendersAssets);
   }
 
   /// @notice Clears floating and fixed debt for an account spreading the losses to the `earningsAccumulator`.

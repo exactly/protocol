@@ -1543,6 +1543,31 @@ contract MarketTest is Test {
     }
   }
 
+  function testLiquidateTransferRepayAssetsBeforeSeize() external {
+    auditor.setAdjustFactor(market, 0.9e18);
+
+    vm.startPrank(ALICE);
+
+    // ALICE deposits and borrows DAI
+    uint256 assets = 10_000 ether;
+    ERC20 asset = market.asset();
+    deal(address(asset), ALICE, assets);
+    market.deposit(assets, ALICE);
+    market.borrow((assets * 9 * 9) / 10 / 10, ALICE, ALICE);
+
+    vm.stopPrank();
+
+    skip(10 days);
+
+    // LIQUIDATION doesn't fail as transfer from is before withdrawing collateral
+    address liquidator = makeAddr("liquidator");
+    deal(address(asset), liquidator, 100_000 ether);
+    vm.startPrank(liquidator);
+    asset.approve(address(market), type(uint256).max);
+    market.liquidate(ALICE, type(uint256).max, market);
+    vm.stopPrank();
+  }
+
   function testLiquidateAndSubtractLossesFromAccumulator() external {
     vm.warp(1);
     marketWETH.deposit(1.3 ether, address(this));
