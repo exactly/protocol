@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
+import { ERC4626 } from "solmate/src/mixins/ERC4626.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -8,21 +9,27 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import {
   IERC20Upgradeable as IERC20
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 
 import { Test } from "forge-std/Test.sol";
 
 import {
-  StakedEXA,
   ERC20,
+  Market,
+  // 
+  RewardData,
+  StakedEXA,
+  // errors
   InsufficientBalance,
   NotFinished,
-  RewardData,
   AlreadyListed,
   RewardNotListed,
   Untransferable,
   ZeroAmount,
   ZeroRate
 } from "../contracts/StakedEXA.sol";
+
+import { Auditor } from "../contracts/Auditor.sol";
 
 contract StakedEXATest is Test {
   using FixedPointMathLib for uint256;
@@ -39,6 +46,12 @@ contract StakedEXATest is Test {
   uint256 internal excessFactor;
   uint256 internal penaltyGrowth;
   uint256 internal penaltyThreshold;
+
+  Market internal market;
+  MockERC20 internal providerAsset;
+  address internal constant PROVIDER = address(0x1);
+  address internal constant SAVINGS = address(0x2);
+  uint256 internal providerRatio;
 
   function setUp() external {
     vm.warp(1_704_067_200); // 01/01/2024 @ 00:00 (UTC)
@@ -58,9 +71,25 @@ contract StakedEXATest is Test {
     penaltyGrowth = 2e18;
     penaltyThreshold = 0.5e18;
 
+    providerAsset = new MockERC20("Wrapped ETH", "WETH", 18);
+    vm.label(address(providerAsset), "WETH");
+    market = Market(address(new MockMarket(providerAsset)));
+    vm.label(address(market), "Market");
+    vm.label(PROVIDER, "provider");
+    vm.label(SAVINGS, "savings");
+
+    providerRatio = 0.1e18;
     stEXA = StakedEXA(address(new ERC1967Proxy(address(new StakedEXA(IERC20(address(exa)))), "")));
-    stEXA.initialize(minTime, refTime, excessFactor, penaltyGrowth, penaltyThreshold);
+    stEXA.initialize(minTime, refTime, excessFactor, penaltyGrowth, penaltyThreshold,  market, PROVIDER, SAVINGS, 1 weeks, providerRatio);
     vm.label(address(stEXA), "StakedEXA");
+
+    providerAsset.mint(PROVIDER, 1_000e18);
+
+    vm.startPrank(PROVIDER);
+    providerAsset.approve(address(market), type(uint256).max);
+    market.deposit(1_000e18, PROVIDER);
+    market.approve(address(stEXA), type(uint256).max);
+    vm.stopPrank();
 
     exaBalance = 1_000_000 ether;
     exa.mint(address(this), exaBalance);
@@ -112,6 +141,15 @@ contract StakedEXATest is Test {
     assertEq(stEXA.penaltyThreshold(), penaltyThreshold);
 
     assertFalse(stEXA.paused());
+
+    (uint256 providerDuration, uint256 finishAt, uint256 index, bool isEnabled , uint256 rate, uint256 updatedAt) = stEXA.rewards(providerAsset);
+   assertEq(providerDuration, 1 weeks);
+    assertTrue(isEnabled);
+    assertEq(finishAt, 0);
+    assertEq(index, 0);
+    assertEq(rate, 0);
+    assertEq(updatedAt, 0); 
+
   }
 
   function testInsufficientBalanceError(uint256 amount) external {
@@ -663,6 +701,110 @@ contract StakedEXATest is Test {
     stEXA.setRewardsDuration(notListed, 1);
   }
 
+  function testHarvest() external  {
+    uint256 assets = market.maxWithdraw(PROVIDER); // 1_000e18
+    
+    stEXA.harvest();
+    
+    assertEq(market.maxWithdraw(PROVIDER), 0);
+    assertEq(minMaxWithdrawAllowance(), 0);
+    assertEq(providerAsset.balanceOf(address(stEXA)), assets.mulWadDown(providerRatio));
+    assertEq(market.maxWithdraw(SAVINGS), assets.mulWadDown(1e18 - providerRatio));
+  }
+
+  function testHarvestEffectOnRewardData() external {
+    uint256 assets = market.maxWithdraw(PROVIDER);
+    stEXA.harvest();
+    (uint256 providerDuration, uint256 finishAt, uint256 index , bool isEnabled , uint256 rate, uint256 updatedAt) = stEXA.rewards(providerAsset);
+    assertEq(providerDuration, 1 weeks);
+    assertEq(finishAt, block.timestamp + 1 weeks);
+    assertEq(index, 0);
+    assertTrue(isEnabled);
+    assertEq(rate, assets.mulWadDown(providerRatio) / 1 weeks);
+    assertEq(updatedAt, block.timestamp);    
+  }
+
+  function testHarvestZero() external {
+    stEXA.harvest();
+    uint256 remaining = market.maxWithdraw(PROVIDER);
+    uint256 savingsBal = market.maxWithdraw(SAVINGS);
+    uint256 harvested = providerAsset.balanceOf(address(stEXA));
+    assertEq(remaining, 0);
+    stEXA.harvest();
+    assertEq(savingsBal, market.maxWithdraw(SAVINGS), "savings didn't stay the same");
+    assertEq(providerAsset.balanceOf(address(stEXA)), harvested, "providerAsset balance changed");
+  }
+
+  function testHarvestAmountWithReducedAllowance() external {
+    uint256 allowance = 500e18;
+
+    vm.prank(PROVIDER);
+    market.approve(address(stEXA), allowance);
+
+    stEXA.harvest();
+    uint256 harvested = providerAsset.balanceOf(address(stEXA));
+    assertEq(allowance.mulWadDown(providerRatio), harvested);
+  }
+
+  function testHarvestSetters() external {}
+
+  function testMultipleHarvests() external {
+    uint256 assets = market.maxWithdraw(PROVIDER);
+    stEXA.harvest();
+
+    uint256 amount = 1_000e18;
+    providerAsset.mint(address(this), amount);
+    providerAsset.approve(address(market), type(uint256).max);
+    market.deposit(amount, PROVIDER);
+    stEXA.harvest();
+
+    assertEq(providerAsset.balanceOf(address(stEXA)), (assets + amount).mulWadDown(providerRatio));
+  }
+
+  function testHarvestEmitsRewardAmountNotified() external {
+    uint256 assets = market.maxWithdraw(PROVIDER);
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit RewardAmountNotified(providerAsset, address(stEXA), assets.mulWadDown(providerRatio));
+    stEXA.harvest();
+  }
+
+  function testClaimBeforeFirstHarvest() external {
+    uint256 assets = market.maxWithdraw(PROVIDER);
+    stEXA.deposit(assets, address(this));
+    uint256 claimable = stEXA.claimable(providerAsset, address(this));
+    providerAsset.balanceOf(address(stEXA));
+    stEXA.withdraw(assets, address(this), address(this));
+    assertEq(providerAsset.balanceOf(address(this)), claimable);
+  }
+
+  function testClaimAfterHarvest() external {
+    uint256 assets = 1_000e18;
+    uint256 harvested = market.maxWithdraw(PROVIDER).mulWadDown(providerRatio);
+    stEXA.harvest();
+    stEXA.deposit(assets, address(this));
+    skip(minTime);
+    uint256 claimable = stEXA.claimable(providerAsset, address(this));
+    assertEq(claimable, 0);
+    skip(1);
+    claimable = stEXA.claimable(providerAsset, address(this));
+    assertGt(claimable, 0);
+
+    skip(refTime - 1 weeks - 1);
+
+    claimable = stEXA.claimable(providerAsset, address(this));
+
+    stEXA.withdraw(assets, address(this), address(this));
+    assertEq(providerAsset.balanceOf(address(this)), claimable);
+    assertApproxEqAbs(providerAsset.balanceOf(address(this)), harvested, 1e6); // no one else was in the program
+  }
+
+  function minMaxWithdrawAllowance() internal view returns (uint256){
+    return Math.min(
+      market.convertToAssets(market.allowance(PROVIDER, address(stEXA))),
+      market.maxWithdraw(PROVIDER)
+    );
+  }
+
   event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
   event Withdraw(
     address indexed sender,
@@ -675,4 +817,19 @@ contract StakedEXATest is Test {
   event RewardPaid(ERC20 indexed reward, address indexed account, uint256 amount);
   event RewardListed(ERC20 indexed reward, address indexed account);
   event RewardsDurationSet(ERC20 indexed reward, address indexed account, uint256 duration);
+}
+
+contract MockMarket is ERC4626 {
+  constructor(ERC20 asset_) ERC4626(asset_, "WETH Market", "exaWETH") {
+    asset = asset_;
+  }
+
+  // solhint-disable-next-line no-empty-blocks
+  function totalAssets() public view override returns (uint256) {
+    return totalSupply;
+  }
+
+  function convertToAssets(uint256 shares) public pure override returns (uint256) {
+    return shares;
+  }
 }
