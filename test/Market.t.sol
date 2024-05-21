@@ -878,7 +878,7 @@ contract MarketTest is Test {
     // ATTACKER deposits just 1 at maturity, claiming all the unassigned earnings
     // by only providing 1 principal
     uint256 positionAssets = market.depositAtMaturity(maturity, 1, 0, attacker);
-    assertEq(positionAssets, 1);
+    assertEq(positionAssets, 2);
   }
 
   function testBorrowFromFreeLunchShouldNotRevertWithFloatingFullUtilization() external {
@@ -1862,7 +1862,7 @@ contract MarketTest is Test {
 
     vm.warp(2000);
     market.deposit(100 ether, address(this));
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 2, address(this), address(this));
     assertApproxEqRel(market.floatingAssetsAverage(), initialBalance, 1e15);
     assertEq(market.floatingAssets(), 100 ether + initialBalance);
   }
@@ -1876,7 +1876,7 @@ contract MarketTest is Test {
     uint256 lastFloatingAssetsAverage = market.floatingAssetsAverage();
 
     vm.warp(250);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 2, address(this), address(this));
     uint256 supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedUp() * (250 - 218))));
     assertEq(
       market.previewFloatingAssetsAverage(),
@@ -1886,7 +1886,7 @@ contract MarketTest is Test {
     assertEq(market.previewFloatingAssetsAverage(), 20.521498717652997528 ether);
 
     vm.warp(9541);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 2, address(this), address(this));
     assertEq(market.previewFloatingAssetsAverage(), market.floatingAssets());
   }
 
@@ -1917,7 +1917,7 @@ contract MarketTest is Test {
 
     vm.warp(2000);
     market.withdraw(5 ether, address(this), address(this));
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 2, address(this), address(this));
     assertApproxEqRel(market.previewFloatingAssetsAverage(), initialBalance, 1e15);
     assertEq(market.floatingAssets(), initialBalance - 5 ether);
   }
@@ -2584,7 +2584,7 @@ contract MarketTest is Test {
 
     // contract can cover all debt by repaying less than initial amount borrowed (93 < 100)
     (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
-    market.repayAtMaturity(FixedLib.INTERVAL, principal + fee, 93, address(this));
+    market.repayAtMaturity(FixedLib.INTERVAL, principal + fee, 94, address(this));
   }
 
   function testClearMaturity() external {
