@@ -637,6 +637,59 @@ contract RewardsControllerTest is Test {
     assertEq(config.start, 0);
   }
 
+  function testUpdateConfigIncreaseRewardDistribution() external {
+    vm.warp(20 weeks);
+
+    opRewardAsset.mint(address(rewardsController), 4_000 ether);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: marketUSDC,
+      reward: opRewardAsset,
+      priceFeed: MockPriceFeed(address(0)),
+      targetDebt: 40_000e6,
+      totalDistribution: 4_000 ether,
+      start: uint32(40 weeks),
+      distributionPeriod: 10 weeks,
+      undistributedFactor: 0.5e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+
+    uint256 oldReleaseRate = rewardsController.releaseRate(marketUSDC, opRewardAsset);
+
+    vm.warp(42 weeks);
+    opRewardAsset.mint(address(rewardsController), 5_000 ether);
+    configs[0] = RewardsController.Config({
+      market: marketUSDC,
+      reward: opRewardAsset,
+      priceFeed: MockPriceFeed(address(0)),
+      targetDebt: 40_000e6,
+      totalDistribution: 9_000 ether,
+      start: uint32(40 weeks),
+      distributionPeriod: 10 weeks,
+      undistributedFactor: 0.5e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+
+    uint256 newReleaseRate = rewardsController.releaseRate(marketUSDC, opRewardAsset);
+
+    assertApproxEqAbs(oldReleaseRate * 10 weeks, 4_000 ether, 1e9);
+    assertApproxEqAbs(oldReleaseRate * 2 weeks, 800 ether, 1e9);
+    assertApproxEqAbs(newReleaseRate * 8 weeks, 8_200 ether, 1e9);
+    assertApproxEqAbs(oldReleaseRate * 2 weeks + newReleaseRate * 8 weeks, 9_000 ether, 1e9);
+  }
+
   function testConfigWithDistributionNotYetStartedShouldNotFail() external {
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
     configs[0] = RewardsController.Config({
