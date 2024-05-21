@@ -1140,10 +1140,12 @@ contract MarketTest is Test {
 
     // only first fixed borrow is covered
     (uint256 principal, uint256 fee) = marketWETH.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    (, , uint256 unassignedEarningsAfter, ) = market.fixedPools(FixedLib.INTERVAL);
+    assertEq(unassignedEarningsAfter, 0);
     assertEq(principal + fee, 0);
     (principal, fee) = marketWETH.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
     assertEq(principal + fee, 400 ether);
-    assertEq(marketWETH.earningsAccumulator(), 10 ether);
+    assertEq(marketWETH.earningsAccumulator(), 15 ether);
   }
 
   function testClearBadDebtExactlyRepaysFixedBorrowWithAccumulatorAmount() external {
@@ -1204,9 +1206,11 @@ contract MarketTest is Test {
     assertEq(principal + fee, 0);
     (principal, fee) = marketWETH.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
     (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
+    (, , uint256 unassignedEarningsAfter, ) = market.fixedPools(FixedLib.INTERVAL);
+    assertEq(unassignedEarningsAfter, 0);
     assertEq(principal + fee, 400 ether);
     assertEq(marketWETH.previewRefund(floatingBorrowShares), 40 ether);
-    assertEq(marketWETH.earningsAccumulator(), 0);
+    assertEq(marketWETH.earningsAccumulator(), 5 ether);
   }
 
   function testClearBadDebtAvoidingFixedBorrowsIfAccumulatorLower() external {
@@ -1568,6 +1572,37 @@ contract MarketTest is Test {
     vm.stopPrank();
   }
 
+  function testClearBadDebtBeforeMaturity() external {
+    market.deposit(5 ether, address(this));
+    market.deposit(5_000 ether, ALICE);
+    marketWETH.deposit(100_000 ether, ALICE);
+
+    uint256 maxVal = type(uint256).max;
+    vm.prank(ALICE);
+    market.borrowAtMaturity(4 weeks, 1_00 ether, maxVal, ALICE, ALICE);
+
+    vm.warp(12 weeks);
+    market.repayAtMaturity(4 weeks, maxVal, maxVal, ALICE);
+
+    uint256 maturity_16 = 16 weeks;
+    market.borrowAtMaturity(maturity_16, 1 ether, maxVal, address(this), address(this));
+
+    daiPriceFeed.setPrice(5_000e18);
+    uint256 borrowAmount = 5000 ether;
+    marketWETH.borrowAtMaturity(maturity_16, borrowAmount, borrowAmount * 2, address(this), address(this));
+
+    daiPriceFeed.setPrice(1_000e18);
+    weth.mint(ALICE, 1_000_000 ether);
+    vm.prank(ALICE);
+    weth.approve(address(marketWETH), maxVal);
+
+    vm.prank(ALICE);
+    marketWETH.liquidate(address(this), maxVal, market);
+
+    (, , uint256 unassignedEarningsAfter, ) = market.fixedPools(maturity_16);
+    assertEq(unassignedEarningsAfter, 0);
+  }
+
   function testLiquidateAndSubtractLossesFromAccumulator() external {
     vm.warp(1);
     marketWETH.deposit(1.3 ether, address(this));
@@ -1603,6 +1638,7 @@ contract MarketTest is Test {
     uint256 earningsAccumulatorBefore = market.earningsAccumulator();
     uint256 lendersIncentive = 1181818181818181800;
     uint256 badDebt = 981818181818181818100 + 1100000000000000000000 + 1100000000000000000000 + 1100000000000000000000;
+    uint256 untrackedUnassignedEarnings = 300000000000000000000;
     uint256 earlyRepayEarnings = 3069658128703695345;
     uint256 accumulatedEarnings = (earningsAccumulatorBefore + lendersIncentive).mulDivDown(
       block.timestamp - market.lastAccumulatorAccrual(),
@@ -1623,7 +1659,8 @@ contract MarketTest is Test {
         market.earningsAccumulator() -
         accumulatedEarnings +
         earlyRepayEarnings +
-        lendersIncentive,
+        lendersIncentive +
+        untrackedUnassignedEarnings,
       1e2
     );
     (, uint256 fixedBorrows, ) = market.accounts(address(this));
