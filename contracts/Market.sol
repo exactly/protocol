@@ -647,6 +647,11 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
           account.fixedBorrows = account.fixedBorrows.clearMaturity(maturity);
 
           emit RepayAtMaturity(maturity, msg.sender, borrower, badDebt, badDebt);
+
+          if (fixedPools[maturity].borrowed == position.principal) {
+            earningsAccumulator += fixedPools[maturity].unassignedEarnings;
+            fixedPools[maturity].unassignedEarnings = 0;
+          }
         }
       }
       packedMaturities >>= 1;
