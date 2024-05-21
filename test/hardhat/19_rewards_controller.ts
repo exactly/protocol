@@ -54,6 +54,12 @@ describe("RewardsController", function () {
       expect(claimedBalance).to.be.greaterThan(0);
     });
 
+    it("THEN allRewards return op address", async () => {
+      const rewards = await rewardsController.allRewards();
+
+      expect(rewards[0]).to.be.eq(op.target);
+    });
+
     it("AND trying to claim with invalid market THEN the claimable amount is 0", async () => {
       const marketOps = [{ market: alice.address, operations: [false, true] }];
       const claimableBalance = await rewardsController.claimable(marketOps, alice.address, op.target);

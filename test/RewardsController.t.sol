@@ -1401,6 +1401,13 @@ contract RewardsControllerTest is Test {
     assertEq(opRewardAsset.balanceOf(address(rewardsController)), 0);
   }
 
+  function testAllRewards() external {
+    marketWETH.deposit(1 ether, address(this));
+    ERC20[] memory rewards = rewardsController.allRewards();
+
+    assertEq(address(rewards[0]), address(opRewardAsset));
+  }
+
   function testEmitClaimRewards() external {
     marketWETH.deposit(100 ether, address(this));
     marketWETH.borrow(20 ether, address(this), address(this));

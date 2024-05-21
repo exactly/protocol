@@ -678,7 +678,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
             released =
               rewardData.lastConfigReleased +
               rewardData.releaseRate *
-              (block.timestamp - rewardData.lastConfig);
+              (block.timestamp - Math.max(rewardData.lastConfig, start));
             elapsed = block.timestamp - start;
             if (configs[i].totalDistribution <= released || configs[i].distributionPeriod <= elapsed) {
               revert InvalidConfig();
