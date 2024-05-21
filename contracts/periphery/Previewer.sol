@@ -256,7 +256,7 @@ contract Previewer {
         : pool.unassignedEarnings
     );
 
-    uint256 fees = assets.mulWadDown(
+    uint256 fees = assets.mulWadUp(
       market.interestRateModel().fixedBorrowRate(
         maturity,
         assets,
