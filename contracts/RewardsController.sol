@@ -227,6 +227,14 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return (rewardData.start, rewardData.end, rewardData.lastUpdate);
   }
 
+  /// @notice Gets the release reward rate of a given market and reward.
+  /// @param market The market to get the release rate.
+  /// @param reward The reward asset.
+  /// @return The release reward rate.
+  function releaseRate(Market market, ERC20 reward) external view returns (uint256) {
+    return distribution[market].rewards[reward].releaseRate;
+  }
+
   /// @notice Retrieves all rewards addresses.
   function allRewards() external view returns (ERC20[] memory) {
     return rewardList;
@@ -501,7 +509,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
     uint256 rewards;
     {
-      uint256 releaseRate = rewardData.releaseRate;
+      uint256 rate = rewardData.releaseRate;
       uint256 lastUndistributed = rewardData.lastUndistributed;
       t.period = t.end - t.start;
       uint256 distributionFactor = t.period > 0
@@ -512,11 +520,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =
             lastUndistributed.mulWadDown(exponential) +
-            releaseRate.mulDivDown(1e18 - target, distributionFactor).mulWadUp(1e18 - exponential);
+            rate.mulDivDown(1e18 - target, distributionFactor).mulWadUp(1e18 - exponential);
         } else {
-          newUndistributed = lastUndistributed + releaseRate.mulWadDown(1e18 - target) * deltaTime;
+          newUndistributed = lastUndistributed + rate.mulWadDown(1e18 - target) * deltaTime;
         }
-        rewards = uint256(int256(releaseRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)));
+        rewards = uint256(int256(rate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)));
       } else if (rewardData.lastUpdate > t.end) {
         newUndistributed =
           lastUndistributed -
@@ -529,13 +537,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =
             lastUndistributed.mulWadDown(exponential) +
-            releaseRate.mulDivDown(1e18 - target, distributionFactor).mulWadUp(1e18 - exponential);
+            rate.mulDivDown(1e18 - target, distributionFactor).mulWadUp(1e18 - exponential);
         } else {
-          newUndistributed = lastUndistributed + releaseRate.mulWadDown(1e18 - target) * deltaTime;
+          newUndistributed = lastUndistributed + rate.mulWadDown(1e18 - target) * deltaTime;
         }
         exponential = uint256((-int256(distributionFactor * (block.timestamp - t.end))).expWad());
         newUndistributed = newUndistributed - newUndistributed.mulWadUp(1e18 - exponential);
-        rewards = uint256(int256(releaseRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)));
+        rewards = uint256(int256(rate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)));
       }
       if (rewards == 0) return (rewardData.borrowIndex, rewardData.depositIndex, newUndistributed);
     }
@@ -678,7 +686,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
             released =
               rewardData.lastConfigReleased +
               rewardData.releaseRate *
-              (block.timestamp - rewardData.lastConfig);
+              (block.timestamp - Math.max(rewardData.lastConfig, start));
             elapsed = block.timestamp - start;
             if (configs[i].totalDistribution <= released || configs[i].distributionPeriod <= elapsed) {
               revert InvalidConfig();
