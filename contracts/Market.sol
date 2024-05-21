@@ -319,7 +319,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
         globalUtilization(memFloatingAssetsAverage, memFloatingDebt, floatingBackupBorrowed)
       );
-      fee = assets.mulWadDown(fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
+      fee = assets.mulWadUp(fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     }
     assetsOwed = assets + fee;
 

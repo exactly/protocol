@@ -70,7 +70,7 @@ describe("Auditor from Account Space", function () {
     await auditor.enterMarket(marketDAI.target);
     await priceFeedDAI.setPrice(0);
     await expect(
-      marketDAI.borrowAtMaturity(pools[0], 1, 1, account.address, account.address),
+      marketDAI.borrowAtMaturity(pools[0], 1, 2, account.address, account.address),
     ).to.be.revertedWithCustomError(auditor, "InvalidPrice");
   });
 

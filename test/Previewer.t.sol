@@ -294,7 +294,7 @@ contract PreviewerTest is Test {
     vm.warp(100 seconds);
     market.deposit(5 ether, address(this));
     Previewer.FixedPreview memory preview = previewer.previewBorrowAtMaturity(market, FixedLib.INTERVAL, 1);
-    assertEq(preview.assets, 1);
+    assertEq(preview.assets, 2);
   }
 
   function testPreviewBorrowAtMaturityWithFiveUnits() external {
@@ -302,7 +302,7 @@ contract PreviewerTest is Test {
     vm.warp(100 seconds);
     market.deposit(5 ether, address(this));
     Previewer.FixedPreview memory preview = previewer.previewBorrowAtMaturity(market, FixedLib.INTERVAL, 5);
-    assertEq(preview.assets, 5);
+    assertEq(preview.assets, 6);
   }
 
   function testPreviewBorrowAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
