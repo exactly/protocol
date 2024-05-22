@@ -21,7 +21,8 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@v1
       - run: bun install
       - run: bun run lint
-      - run: forge build --force
+      - run: rm -rf cache/fuzz cache/invariant
+      - run: forge build
       - run: bun run coverage
       - uses: codecov/codecov-action@v4
         with:
