@@ -931,6 +931,44 @@ contract MarketTest is Test {
     assertEq(market.lastFloatingDebtUpdate(), 4 days);
   }
 
+  function testAccrueEarningsBeforeLiquidation() external {
+    uint256 maturity = FixedLib.INTERVAL * 2;
+    uint256 assets = 10_000 ether;
+
+    // BOB adds liquidity for liquidation
+    vm.prank(BOB);
+    market.deposit(assets, BOB);
+
+    // ALICE deposits and borrows
+    ERC20 asset = market.asset();
+    deal(address(asset), ALICE, assets);
+    vm.startPrank(ALICE);
+    market.deposit(assets, ALICE);
+    market.borrowAtMaturity(maturity, (assets * 78 * 78) / 100 / 100, type(uint256).max, ALICE, ALICE);
+    vm.stopPrank();
+
+    // Maturity is over and some time has passed, accruing extra debt fees
+    skip(maturity + (FixedLib.INTERVAL * 90) / 100);
+
+    // ALICE has a health factor below 1 and should be liquidated and end up with 0 assets
+    (uint256 collateral, uint256 debt) = market.accountSnapshot(address(ALICE));
+    assertEq(collateral, 10046671780821917806594); // 10046e18
+    assertEq(debt, 9290724716705852929432); // 9290e18
+
+    // Liquidator liquidates
+    address liquidator = makeAddr("liquidator");
+    deal(address(asset), liquidator, assets);
+    vm.startPrank(liquidator);
+    asset.approve(address(market), type(uint256).max);
+    market.liquidate(ALICE, type(uint256).max, market);
+    vm.stopPrank();
+
+    (collateral, debt) = market.accountSnapshot(address(ALICE));
+
+    assertEq(collateral, 0);
+    assertEq(debt, 0);
+  }
+
   function testLiquidateUpdateFloatingDebt() external {
     irm.setRate(0);
     marketWETH.deposit(1.15 ether, address(this));
@@ -1637,6 +1675,7 @@ contract MarketTest is Test {
     market.repayAtMaturity(FixedLib.INTERVAL, principal + fee, debt, ALICE);
     uint256 earningsAccumulatorBefore = market.earningsAccumulator();
     uint256 lendersIncentive = 1181818181818181800;
+    uint256 distributedEarnings = 680440721299864513;
     uint256 badDebt = 981818181818181818100 + 1100000000000000000000 + 1100000000000000000000 + 1100000000000000000000;
     uint256 untrackedUnassignedEarnings = 300000000000000000000;
     uint256 earlyRepayEarnings = 3069658128703695345;
@@ -1660,7 +1699,8 @@ contract MarketTest is Test {
         accumulatedEarnings +
         earlyRepayEarnings +
         lendersIncentive +
-        untrackedUnassignedEarnings,
+        untrackedUnassignedEarnings +
+        distributedEarnings,
       1e2
     );
     (, uint256 fixedBorrows, ) = market.accounts(address(this));

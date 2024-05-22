@@ -555,6 +555,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     Market seizeMarket
   ) external whenNotPaused returns (uint256 repaidAssets) {
     if (msg.sender == borrower) revert SelfLiquidation();
+    floatingAssets += accrueAccumulatedEarnings();
 
     maxAssets = auditor.checkLiquidation(this, seizeMarket, borrower, maxAssets);
     if (maxAssets == 0) revert ZeroRepay();
