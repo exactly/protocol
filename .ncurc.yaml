@@ -3,3 +3,4 @@ reject:
   - "@openzeppelin/contracts-upgradeable"
   - chai
   - eslint
+  - hardhat

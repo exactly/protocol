@@ -1,12 +1,11 @@
 import { ethers, network, getNamedAccounts } from "hardhat";
 import SafeApiKit from "@safe-global/api-kit";
-import Safe, { EthersAdapter } from "@safe-global/protocol-kit";
+import Safe from "@safe-global/protocol-kit";
 import type { BaseContract } from "ethers";
 import format from "./format";
 
 export default async (account: string, contract: BaseContract, functionName: string, args: readonly unknown[] = []) => {
   const { [account]: senderAddress, multisig: safeAddress } = await getNamedAccounts();
-  const ethAdapter = new EthersAdapter({ ethers, signerOrProvider: await ethers.getSigner(senderAddress) });
   const safeApiKit = new SafeApiKit({
     chainId: BigInt(network.config.chainId ?? (await ethers.provider.getNetwork()).chainId),
   });
@@ -15,7 +14,7 @@ export default async (account: string, contract: BaseContract, functionName: str
   if (!(await safeApiKit.getPendingTransactions(safeAddress)).results.find((tx) => tx.to === to && tx.data === data)) {
     // eslint-disable-next-line no-console
     console.log("multisig: proposing", `${await format(to)}.${functionName}`, await format(args));
-    const safeSdk = await Safe.create({ ethAdapter, safeAddress });
+    const safeSdk = await Safe.init({ safeAddress, signer: senderAddress, provider: network.provider });
     if (!(await safeSdk.isOwner(senderAddress))) {
       // eslint-disable-next-line no-console
       console.log("multisig: manual proposal", { to, data, value: "0" });

@@ -8,6 +8,7 @@ import "hardhat-deploy-ethers";
 import "hardhat-contract-sizer";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
+import "hardhat-tracer";
 import { env } from "process";
 import { setup } from "@tenderly/hardhat-tenderly";
 import { boolean, string } from "hardhat/internal/core/params/argumentTypes";
@@ -23,6 +24,7 @@ const hardhatConfig: Config = {
     settings: { evmVersion: "cancun", optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
   },
   networks: {
+    hardhat: { hardfork: "cancun" },
     ethereum: {
       sunset: true,
       priceDecimals: 18,
