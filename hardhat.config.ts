@@ -365,7 +365,7 @@ extendConfig((extendedConfig, { finance }) => {
           .map(([name, { networks, overrides, interestRateModel, ...market }]) => {
             const config = {
               ...market,
-              ...overrides?.[live ? networkName : Object.keys(overrides)[0]],
+              ...overrides?.[live ? networkName : "optimism"],
               interestRateModel: { ...finance.interestRateModel, ...interestRateModel },
             };
             if (config.rewards) {
