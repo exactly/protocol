@@ -16,7 +16,7 @@
     "test:foundry": "forge test",
     "test:hardhat": "hardhat test --deploy-fixture",
     "coverage": "concurrently 'npm:coverage:*' --kill-others-on-fail --group -c auto",
-    "coverage:foundry": "forge coverage --report lcov",
+    "coverage:foundry": "forge coverage --report lcov --no-match-contract Protocol",
     "coverage:hardhat": "hardhat coverage",
     "coverage:snapshot": "forge snapshot --check --no-match-contract Protocol",
     "coverage:fuzzer": "FOUNDRY_PROFILE=production forge test --no-match-contract Protocol",
