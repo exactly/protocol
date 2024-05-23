@@ -25,6 +25,7 @@ jobs:
       - run: forge build
       - run: bun run coverage
       - uses: codecov/codecov-action@v4
+        if: always()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info,coverage/lcov.info
