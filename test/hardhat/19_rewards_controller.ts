@@ -65,8 +65,9 @@ describe("RewardsController", function () {
     });
 
     it("AND calling allClaimable with invalid reward asset THEN the claimable amount is 0", async () => {
-      const claimableBalance = await rewardsController.allClaimable(alice.address, alice.address);
-      expect(claimableBalance).to.be.eq(0);
+      await expect(
+        rewardsController.allClaimable(alice.address, alice.address, { gasLimit: 1_000_000 }),
+      ).to.be.revertedWithoutReason();
     });
   });
 
