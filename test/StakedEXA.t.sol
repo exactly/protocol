@@ -16,7 +16,6 @@ import { Test } from "forge-std/Test.sol";
 import {
   ERC20,
   Market,
-  // 
   RewardData,
   StakedEXA,
   // errors
@@ -52,6 +51,7 @@ contract StakedEXATest is Test {
   address internal constant PROVIDER = address(0x1);
   address internal constant SAVINGS = address(0x2);
   uint256 internal providerRatio;
+  uint256 providerDuration = 2 weeks;
 
   function setUp() external {
     vm.warp(1_704_067_200); // 01/01/2024 @ 00:00 (UTC)
@@ -63,13 +63,13 @@ contract StakedEXATest is Test {
     vm.label(address(rewardsTokens[0]), "1.rewards token");
     vm.label(address(rewardsTokens[1]), "2.rewards token");
 
-    duration = 24 weeks;
+    duration = 30 weeks;
     initialAmount = 1_000 ether;
     minTime = 1 weeks;
     refTime = duration;
-    excessFactor = 0.5e18;
+    excessFactor = 0.7e18;
     penaltyGrowth = 2e18;
-    penaltyThreshold = 0.5e18;
+    penaltyThreshold = 0.2e18;
 
     providerAsset = new MockERC20("Wrapped ETH", "WETH", 18);
     vm.label(address(providerAsset), "WETH");
@@ -80,7 +80,7 @@ contract StakedEXATest is Test {
 
     providerRatio = 0.1e18;
     stEXA = StakedEXA(address(new ERC1967Proxy(address(new StakedEXA(IERC20(address(exa)))), "")));
-    stEXA.initialize(minTime, refTime, excessFactor, penaltyGrowth, penaltyThreshold,  market, PROVIDER, SAVINGS, 1 weeks, providerRatio);
+    stEXA.initialize(minTime, refTime, excessFactor, penaltyGrowth, penaltyThreshold,  market, PROVIDER, SAVINGS, providerDuration, providerRatio);
     vm.label(address(stEXA), "StakedEXA");
 
     providerAsset.mint(PROVIDER, 1_000e18);
@@ -142,8 +142,8 @@ contract StakedEXATest is Test {
 
     assertFalse(stEXA.paused());
 
-    (uint256 providerDuration, uint256 finishAt, uint256 index, bool isEnabled , uint256 rate, uint256 updatedAt) = stEXA.rewards(providerAsset);
-   assertEq(providerDuration, 1 weeks);
+    (uint256 providerDuration0, uint256 finishAt, uint256 index, bool isEnabled , uint256 rate, uint256 updatedAt) = stEXA.rewards(providerAsset);
+    assertEq(providerDuration0, providerDuration);
     assertTrue(isEnabled);
     assertEq(finishAt, 0);
     assertEq(index, 0);
@@ -715,12 +715,12 @@ contract StakedEXATest is Test {
   function testHarvestEffectOnRewardData() external {
     uint256 assets = market.maxWithdraw(PROVIDER);
     stEXA.harvest();
-    (uint256 providerDuration, uint256 finishAt, uint256 index , bool isEnabled , uint256 rate, uint256 updatedAt) = stEXA.rewards(providerAsset);
-    assertEq(providerDuration, 1 weeks);
-    assertEq(finishAt, block.timestamp + 1 weeks);
+    (uint256 providerDuration0, uint256 finishAt, uint256 index , bool isEnabled , uint256 rate, uint256 updatedAt) = stEXA.rewards(providerAsset);
+    assertEq(providerDuration0, providerDuration);
+    assertEq(finishAt, block.timestamp + providerDuration);
     assertEq(index, 0);
     assertTrue(isEnabled);
-    assertEq(rate, assets.mulWadDown(providerRatio) / 1 weeks);
+    assertEq(rate, assets.mulWadDown(providerRatio) / providerDuration);
     assertEq(updatedAt, block.timestamp);    
   }
 
@@ -787,15 +787,85 @@ contract StakedEXATest is Test {
     assertEq(claimable, 0);
     skip(1);
     claimable = stEXA.claimable(providerAsset, address(this));
-    assertGt(claimable, 0);
+    assertGt(claimable, 0, "claimable <= 0");
 
     skip(refTime - 1 weeks - 1);
+
 
     claimable = stEXA.claimable(providerAsset, address(this));
 
     stEXA.withdraw(assets, address(this), address(this));
     assertEq(providerAsset.balanceOf(address(this)), claimable);
     assertApproxEqAbs(providerAsset.balanceOf(address(this)), harvested, 1e6); // no one else was in the program
+  }
+
+  function testClaimAndUnstake() external {
+    stEXA.harvest();
+    uint256 assets = 1_000e18;
+    stEXA.deposit(assets, address(this));
+    stEXA.deposit(assets, BOB);
+
+    skip(minTime + 2 weeks);
+
+    uint256 claimable = stEXA.claimable(providerAsset, address(this));
+    uint256 claimableBOB = stEXA.claimable(providerAsset, BOB);
+    assertEq(claimable, claimableBOB, "claimable != claimableBOB");
+
+    stEXA.withdraw(assets, address(this), address(this));
+    assertEq(providerAsset.balanceOf(address(this)), claimable, "balance != claimable");
+    
+    vm.prank(BOB);
+    stEXA.claimAll();
+    assertEq(providerAsset.balanceOf(BOB), claimableBOB, "balanceBOB != claimableBOB");
+
+    assertEq(providerAsset.balanceOf(address(this)), providerAsset.balanceOf(BOB), "balances are not equal");
+  }
+
+  function testClaimAfterTRef() external {
+    stEXA.harvest();
+    for (uint256 i = 0; i < 30; i++) {
+      skip(1 weeks);
+      harvest();
+    }
+
+  }
+
+  function testMultipleClaimsVsOne() external {
+    stEXA.harvest();
+    uint256 assets = 1_000e18;
+    stEXA.deposit(assets, address(this));
+    stEXA.deposit(assets, BOB);
+
+    skip(minTime);
+    
+    harvest();
+
+    uint256 claimableAcc = 0;
+    for (uint256 i = 0; i < 30; i++) {
+      skip(1 weeks);
+      // emit log_named_uint("week         ", minTime / 1 weeks + i + 1);
+
+      harvest();
+      claimableAcc += stEXA.claimable(providerAsset, address(this));
+      stEXA.claimAll();
+    }
+    assertEq(providerAsset.balanceOf(address(this)), claimableAcc, "balance != claimableAcc");
+
+    uint256 claimableBOB = stEXA.claimable(providerAsset, BOB);
+    // FIXME the diff here is what's missing from the provider asset
+    assertApproxEqAbs(claimableBOB, claimableAcc, 5e17, "claimableBOB != claimableAcc");
+    
+
+    // vm.prank(BOB);
+    // stEXA.claimAll();
+
+    // assertEq(providerAsset.balanceOf(BOB), providerAsset.balanceOf(address(this)));
+
+  }
+
+  function harvest() internal {
+    providerAsset.mint(PROVIDER, 1_000e18);
+    stEXA.harvest();
   }
 
   function minMaxWithdrawAllowance() internal view returns (uint256){

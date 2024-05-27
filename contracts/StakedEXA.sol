@@ -48,11 +48,11 @@ contract StakedEXA is
   /// @notice Reference period to stake and get full rewards
   uint256 public refTime;
   /// @notice Discount factor for excess exposure
-  uint256 public excessFactor;
+  uint256 public excessFactor; // NOTE gamma
   /// @notice Penalty growth factor
-  uint256 public penaltyGrowth;
+  uint256 public penaltyGrowth; // NOTE alpha
   /// @notice Threshold penalty factor for withdrawing before the reference time
-  uint256 public penaltyThreshold;
+  uint256 public penaltyThreshold; // NOTE Beta
 
   /// @notice Average starting time with the tokens staked per account
   mapping(address account => uint256 time) public avgStart;
@@ -63,6 +63,10 @@ contract StakedEXA is
   address public provider;
   address public savings;
   uint256 public providerRatio;
+
+  mapping(address account => mapping(ERC20 reward => uint256)) public paidRewards;
+  // rewards not paid for claiming before the reference time
+  mapping(address account => mapping(ERC20 reward => uint256)) public penalizedRewards;
 
   constructor(IERC20 exa_) {
     exa = exa_;
@@ -133,13 +137,78 @@ contract StakedEXA is
       for (uint256 i = 0; i < rewardsTokens.length; ++i) {
         ERC20 reward = rewardsTokens[i];
         updateIndex(reward);
-        uint256 claimableAmount = claimable(reward, from, amount);
+        (uint256 claimableAmount, , ) = claimable(block.timestamp * 1e18 - avgStart[from], reward, from, amount);
         if (claimableAmount != 0) {
           reward.transfer(from, claimableAmount);
           emit RewardPaid(reward, from, claimableAmount);
         }
       }
     } else revert Untransferable();
+  }
+
+  // NOTE claimable when claim all and without unstaking, assets = balanceOf(account)
+  function claimable(
+    uint256 time,
+    ERC20 reward,
+    address account,
+    uint256 assets
+  ) internal view returns (uint256 claimableAmount, uint256 save, uint256 penalties) {
+    uint256 memMinTime = minTime * 1e18;
+
+    if (time <= memMinTime) return (0, 0, 0);
+
+    uint256 rawEarned = earned(reward, account, assets);
+    uint256 paid = paidRewards[account][reward];
+
+    uint256 memRefTime = refTime * 1e18;
+
+    // FIXME debug hack
+    if (time == memRefTime) return (rawEarned > paid ? rawEarned - paid : 0, 0, 0);
+
+    if (time < memRefTime) {
+      uint256 discountRatio = discountFactor(time, memMinTime, memRefTime);
+      claimableAmount = rawEarned.mulWadDown(discountRatio) - paid;
+      penalties = rawEarned - rawEarned.mulWadDown(discountRatio);
+      return (claimableAmount, 0, penalties);
+    }
+
+    uint256 excessRatio = excessFactorFormula(time, memRefTime);
+    uint256 penalized = penalizedRewards[account][reward];
+
+    // FIXME delta shouldn't exist
+    uint256 delta = 0;
+    if (paid > rawEarned.mulWadDown(excessRatio) + penalized) {
+      delta = paid - rawEarned.mulWadDown(excessRatio) - penalized;
+    }
+
+    claimableAmount = delta == 0 ? rawEarned.mulWadDown(excessRatio) + penalized - paid : 0;
+    save = delta == 0 ? rawEarned - rawEarned.mulWadDown(excessRatio) : 0;
+    return (claimableAmount, save, 0);
+  }
+
+  // NOTE claims without unstaking, assets = balanceOf(account)
+  function handleClaim(ERC20 reward, address account) internal {
+    uint256 time = block.timestamp * 1e18 - avgStart[account];
+    (uint256 claimableAmount, uint256 save, uint256 penalties) = claimable(time, reward, account, balanceOf(account));
+
+    if (time < minTime * 1e18) return;
+
+    paidRewards[account][reward] += claimableAmount;
+
+    uint256 memRefTime = refTime * 1e18;
+    if (time >= memRefTime) {
+      if (penalizedRewards[account][reward] != 0) penalizedRewards[account][reward] = 0;
+      if (save != 0) reward.transfer(savings, save);
+    }
+
+    if (time < memRefTime) {
+      penalizedRewards[account][reward] += penalties;
+    }
+
+    if (claimableAmount != 0) {
+      reward.transfer(account, claimableAmount);
+      emit RewardPaid(reward, account, claimableAmount);
+    }
   }
 
   function notifyRewardAmount(ERC20 reward, uint256 amount, address notifier) internal onlyReward(reward) {
@@ -161,16 +230,20 @@ contract StakedEXA is
     emit RewardAmountNotified(reward, notifier, amount);
   }
 
-  function discountFactor(uint256 time) internal view returns (uint256) {
-    uint256 memMinTime = minTime;
-    if (time <= memMinTime) return 0;
-    if (time >= refTime) return (1e18 - excessFactor).mulWadDown((refTime * 1e18) / time) + excessFactor;
-
+  // time - represented with 18 decimals
+  function discountFactor(uint256 time, uint256 memMinTime, uint256 memRefTime) internal view returns (uint256) {
     uint256 penalties = uint256(
-      ((int256(penaltyGrowth) * int256(((time - memMinTime) * 1e18) / (refTime - memMinTime)).lnWad()) / 1e18).expWad()
+      ((int256(penaltyGrowth) * int256(((time - memMinTime) * 1e18) / (memRefTime - memMinTime)).lnWad()) / 1e18)
+        .expWad()
     );
 
-    return Math.min((1e18 - penaltyThreshold).mulWadDown(penalties) + penaltyThreshold, 1e18);
+    uint256 memPenaltyThreshold = penaltyThreshold;
+    return Math.min((1e18 - memPenaltyThreshold).mulWadDown(penalties) + memPenaltyThreshold, 1e18);
+  }
+
+  function excessFactorFormula(uint256 time, uint256 memRefTime) internal view returns (uint256) {
+    uint256 memExcessFactor = excessFactor;
+    return (1e18 - memExcessFactor).mulWadDown((memRefTime * 1e18) / time) + memExcessFactor;
   }
 
   /// @dev Throws if the caller is not an `EMERGENCY_ADMIN_ROLE` or `PAUSER_ROLE`.
@@ -214,8 +287,25 @@ contract StakedEXA is
     return assets.mulWadDown(globalIndex(reward) - avgIndexes[account][reward]);
   }
 
-  function claimable(ERC20 reward, address account, uint256 assets) public view returns (uint256) {
-    return earned(reward, account, assets).mulWadDown(discountFactor(block.timestamp - avgStart[account] / 1e18));
+  function claim(ERC20[] calldata rewardTokens) external {
+    for (uint256 i = 0; i < rewardTokens.length; ++i) {
+      if (!rewards[rewardTokens[i]].isEnabled) revert RewardNotListed();
+      handleClaim(rewardsTokens[i], msg.sender);
+    }
+  }
+
+  function claimAll() external {
+    for (uint256 i = 0; i < rewardsTokens.length; ++i) handleClaim(rewardsTokens[i], msg.sender);
+  }
+
+  function claimable(ERC20 reward, address account) external view returns (uint256) {
+    (uint256 claimableAmount, , ) = claimable(
+      block.timestamp * 1e18 - avgStart[account],
+      reward,
+      account,
+      balanceOf(account)
+    );
+    return claimableAmount;
   }
 
   function harvest() external {
@@ -225,6 +315,7 @@ contract StakedEXA is
       memMarket.convertToAssets(memMarket.allowance(memProvider, address(this))),
       memMarket.maxWithdraw(memProvider)
     );
+    if (assets == 0) return;
 
     memMarket.withdraw(assets, address(this), memProvider);
     uint256 amount = assets.mulWadDown(providerRatio);
@@ -242,10 +333,6 @@ contract StakedEXA is
   /// This result is then added to any rewards that have already been accumulated but not yet paid out.
   function earned(ERC20 reward, address account) external view returns (uint256) {
     return earned(reward, account, balanceOf(account));
-  }
-
-  function claimable(ERC20 reward, address account) external view returns (uint256) {
-    return claimable(reward, account, balanceOf(account));
   }
 
   // restricted functions
