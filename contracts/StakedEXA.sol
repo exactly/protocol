@@ -36,6 +36,7 @@ contract StakedEXA is
   bytes32 public constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN_ROLE");
 
   /// @notice Staking token
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IERC20 public immutable exa;
   /// @notice Rewards tokens
   ERC20[] public rewardsTokens;
@@ -68,6 +69,7 @@ contract StakedEXA is
   // rewards not paid for claiming before the reference time
   mapping(address account => mapping(ERC20 reward => uint256)) public penalizedRewards;
 
+  /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(IERC20 exa_) {
     exa = exa_;
 
