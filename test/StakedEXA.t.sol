@@ -855,11 +855,36 @@ contract StakedEXATest is Test {
     // FIXME the diff here is what's missing from the provider asset
     assertApproxEqAbs(claimableBOB, claimableAcc, 5e17, "claimableBOB != claimableAcc");
     
-
     // vm.prank(BOB);
     // stEXA.claimAll();
 
     // assertEq(providerAsset.balanceOf(BOB), providerAsset.balanceOf(address(this)));
+
+  }
+
+  function testClaimAndUnstakeCombinations() external {
+    stEXA.harvest();
+    uint256 assets = 1_000e18;
+    stEXA.deposit(assets, address(this));
+
+    skip(minTime);
+
+    harvest();
+
+    for (uint256 i = 0; i < 10; i++) {
+      skip(1 weeks);
+      emit log_named_uint("week         ", minTime / 1 weeks + i + 1);
+
+      harvest();
+      stEXA.claimAll();
+    }
+
+    emit log("claimed all");
+    
+
+    stEXA.withdraw(assets, address(this), address(this));
+
+    
 
   }
 

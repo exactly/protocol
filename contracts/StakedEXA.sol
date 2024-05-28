@@ -19,6 +19,8 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { Market } from "./Market.sol";
 
+import { console2 as console } from "forge-std/console2.sol";
+
 contract StakedEXA is
   Initializable,
   AccessControlUpgradeable,
@@ -129,23 +131,49 @@ contract StakedEXA is
       uint256 weight = balance.divWadDown(balance + amount);
       for (uint256 i = 0; i < rewardsTokens.length; ++i) {
         ERC20 reward = rewardsTokens[i];
-        updateIndex(reward);
-        avgIndexes[to][reward] =
-          avgIndexes[to][reward].mulWadDown(weight) +
-          rewards[reward].index.mulWadDown(1e18 - weight);
+        if (rewards[reward].isEnabled) {
+          updateIndex(reward);
+          avgIndexes[to][reward] =
+            avgIndexes[to][reward].mulWadDown(weight) +
+            rewards[reward].index.mulWadDown(1e18 - weight);
+        }
       }
       avgStart[to] = avgStart[to].mulWadDown(weight) + (block.timestamp) * (1e18 - weight);
     } else if (to == address(0)) {
-      for (uint256 i = 0; i < rewardsTokens.length; ++i) {
-        ERC20 reward = rewardsTokens[i];
-        updateIndex(reward);
-        (uint256 claimableAmount, , ) = claimable(block.timestamp * 1e18 - avgStart[from], reward, from, amount);
-        if (claimableAmount != 0) {
-          reward.transfer(from, claimableAmount);
-          emit RewardPaid(reward, from, claimableAmount);
-        }
-      }
+      claimUnstake(from, amount);
     } else revert Untransferable();
+  }
+
+  function claimUnstake(address account, uint256 assets) internal {
+    uint256 balance = balanceOf(account);
+    uint256 proportion = (balance - assets).divWadDown(balance);
+    uint256 time = block.timestamp * 1e18 - avgStart[account];
+    uint256 memMinTime = minTime * 1e18;
+    uint256 memRefTime = refTime * 1e18;
+
+    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+      ERC20 reward = rewardsTokens[i];
+      updateIndex(reward);
+
+      uint256 claimableAmount = 0;
+      uint256 rawEarned = earned(reward, account, assets);
+      if (time > memMinTime && time <= memRefTime) {
+        claimableAmount = rawEarned.mulWadDown(discountFactor(time, memMinTime, memRefTime));
+      } else if (time > memRefTime) {
+        claimableAmount = rawEarned.mulWadDown(excessFactorFormula(time, memRefTime));
+      }
+
+      uint256 paid = paidRewards[account][reward];
+      if (claimableAmount != 0) {
+        reward.transfer(account, claimableAmount - paid);
+        emit RewardPaid(reward, account, claimableAmount - paid);
+      }
+      uint256 save = rawEarned - claimableAmount;
+      if (save != 0) reward.transfer(savings, save);
+
+      penalizedRewards[account][reward] = penalizedRewards[account][reward].mulWadDown(proportion);
+      paidRewards[account][reward] = paid.mulWadDown(proportion);
+    }
   }
 
   // NOTE claimable when claim all and without unstaking, assets = balanceOf(account)
@@ -165,7 +193,8 @@ contract StakedEXA is
     uint256 memRefTime = refTime * 1e18;
 
     // FIXME debug hack
-    if (time == memRefTime) return (rawEarned > paid ? rawEarned - paid : 0, 0, 0);
+    if (time == memRefTime) return (rawEarned - paid, 0, 0);
+    // if (time == memRefTime) return (rawEarned > paid ? rawEarned - paid : 0, 0, 0);
 
     if (time < memRefTime) {
       uint256 discountRatio = discountFactor(time, memMinTime, memRefTime);
@@ -181,6 +210,13 @@ contract StakedEXA is
     uint256 delta = 0;
     if (paid > rawEarned.mulWadDown(excessRatio) + penalized) {
       delta = paid - rawEarned.mulWadDown(excessRatio) - penalized;
+    }
+    if (delta != 0) {
+      console.log("------- time > tRef && delta > 0 -------");
+      console.log("delta      :", delta);
+      console.log("paid       :", paid);
+      console.log("penalized  :", penalized);
+      console.log("rawEarned  :", rawEarned);
     }
 
     claimableAmount = delta == 0 ? rawEarned.mulWadDown(excessRatio) + penalized - paid : 0;
