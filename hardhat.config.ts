@@ -55,6 +55,9 @@ const hardhatConfig: Config = {
       optimism: "0x23fD464e0b0eE21cEdEb929B19CABF9bD5215019",
       "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
+    savings: {
+      "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
+    },
   },
   finance: {
     treasuryFeeRate: 0.2,
@@ -90,6 +93,16 @@ const hardhatConfig: Config = {
     escrow: {
       vestingPeriod: 365 * 86_400,
       reserveRatio: 0.25,
+    },
+    staking: {
+      minTime: 1 * 86_400,
+      refTime: 3 * 86_400,
+      excessFactor: 0.7,
+      penaltyGrowth: 2,
+      penaltyThreshold: 0.2,
+      market: "WETH",
+      duration: 4 * 7 * 86_400,
+      providerRatio: 0.69,
     },
     markets: {
       WETH: {
@@ -396,6 +409,7 @@ declare module "hardhat/types/config" {
     earningsAccumulatorSmoothFactor: number;
     rewards: RewardsParameters;
     escrow: EscrowParameters;
+    staking: StakingParameters;
     interestRateModel: IRMParameters;
     markets: { [asset: string]: MarketConfig };
     periphery?: PeripheryConfig;
@@ -420,6 +434,17 @@ declare module "hardhat/types/config" {
   export interface EscrowParameters {
     vestingPeriod: number;
     reserveRatio: number;
+  }
+
+  export interface StakingParameters {
+    minTime: number;
+    refTime: number;
+    excessFactor: number;
+    penaltyGrowth: number;
+    penaltyThreshold: number;
+    market: string;
+    duration: number;
+    providerRatio: number;
   }
 
   export interface MarketConfig {
