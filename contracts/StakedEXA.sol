@@ -67,9 +67,9 @@ contract StakedEXA is
   address public savings;
   uint256 public providerRatio;
 
-  mapping(address account => mapping(ERC20 reward => uint256)) public paidRewards;
+  mapping(address account => mapping(ERC20 reward => uint256)) public claimed;
   // rewards not paid for claiming before the reference time
-  mapping(address account => mapping(ERC20 reward => uint256)) public penalizedRewards;
+  mapping(address account => mapping(ERC20 reward => uint256)) public saves;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(IERC20 exa_) {
@@ -118,6 +118,7 @@ contract StakedEXA is
     savings = savings_;
   }
 
+  // NOTE should be called only with enabled rewards
   function updateIndex(ERC20 reward) internal {
     RewardData storage rewardData = rewards[reward];
     rewardData.index = globalIndex(reward);
@@ -140,13 +141,16 @@ contract StakedEXA is
       }
       avgStart[to] = avgStart[to].mulWadDown(weight) + (block.timestamp) * (1e18 - weight);
     } else if (to == address(0)) {
-      claimUnstake(from, amount);
+      claimWithdrawal(from, amount);
     } else revert Untransferable();
   }
 
-  function claimUnstake(address account, uint256 assets) internal {
+  function handleDeposit(address account, uint256 assets) internal {}
+
+  function claimWithdrawal(address account, uint256 assets) internal {
     uint256 balance = balanceOf(account);
-    uint256 proportion = (balance - assets).divWadDown(balance);
+    // weight = % of the assets that is keeping, if assets == balance -> weight = 0
+    uint256 weight = (balance - assets).divWadDown(balance);
     uint256 time = block.timestamp * 1e18 - avgStart[account];
     uint256 memMinTime = minTime * 1e18;
     uint256 memRefTime = refTime * 1e18;
@@ -157,22 +161,42 @@ contract StakedEXA is
 
       uint256 claimableAmount = 0;
       uint256 rawEarned = earned(reward, account, assets);
-      if (time > memMinTime && time <= memRefTime) {
+      uint256 paid = claimed[account][reward];
+      if (time <= memMinTime) {
+        // transfer all to savings
+        if (rawEarned != 0) reward.transfer(savings, rawEarned);
+        claimed[account][reward] = paid.mulWadDown(weight);
+        return;
+      }
+      if (time <= memRefTime) {
         claimableAmount = rawEarned.mulWadDown(discountFactor(time, memMinTime, memRefTime));
-      } else if (time > memRefTime) {
+      } else {
         claimableAmount = rawEarned.mulWadDown(excessFactorFormula(time, memRefTime));
       }
 
-      uint256 paid = paidRewards[account][reward];
       if (claimableAmount != 0) {
-        reward.transfer(account, claimableAmount - paid);
-        emit RewardPaid(reward, account, claimableAmount - paid);
+        console.log("1.claimableAmount", claimableAmount);
+
+        console.log("paid             ", paid);
+        console.log("weight           ", weight);
+        console.log("1e18 - weight    ", 1e18 - weight);
+        console.log("claimableAmount  ", claimableAmount);
+        console.log("paid.mulWadDown(1e18 - weight)", paid.mulWadDown(1e18 - weight));
+
+        // NOTE
+        claimableAmount = claimableAmount > paid.mulWadDown(1e18 - weight)
+          ? claimableAmount - paid.mulWadDown(1e18 - weight)
+          : 0;
+
+        console.log("2.claimableAmount", claimableAmount);
+        reward.transfer(account, claimableAmount);
+        emit RewardPaid(reward, account, claimableAmount);
       }
-      uint256 save = rawEarned - claimableAmount;
+      uint256 save = rawEarned - claimableAmount - paid.mulWadDown(1e18 - weight);
       if (save != 0) reward.transfer(savings, save);
 
-      penalizedRewards[account][reward] = penalizedRewards[account][reward].mulWadDown(proportion);
-      paidRewards[account][reward] = paid.mulWadDown(proportion);
+      // update paid according to the weight
+      claimed[account][reward] = paid.mulWadDown(weight);
     }
   }
 
@@ -182,70 +206,47 @@ contract StakedEXA is
     ERC20 reward,
     address account,
     uint256 assets
-  ) internal view returns (uint256 claimableAmount, uint256 save, uint256 penalties) {
+  ) internal view returns (uint256 amount, uint256 rawEarned, uint256 paid) {
+    rawEarned = earned(reward, account, assets);
+
     uint256 memMinTime = minTime * 1e18;
+    if (time <= memMinTime) return (0, rawEarned, 0);
 
-    if (time <= memMinTime) return (0, 0, 0);
-
-    uint256 rawEarned = earned(reward, account, assets);
-    uint256 paid = paidRewards[account][reward];
-
+    paid = claimed[account][reward];
     uint256 memRefTime = refTime * 1e18;
 
-    // FIXME debug hack
-    if (time == memRefTime) return (rawEarned - paid, 0, 0);
-    // if (time == memRefTime) return (rawEarned > paid ? rawEarned - paid : 0, 0, 0);
-
-    if (time < memRefTime) {
-      uint256 discountRatio = discountFactor(time, memMinTime, memRefTime);
-      claimableAmount = rawEarned.mulWadDown(discountRatio) - paid;
-      penalties = rawEarned - rawEarned.mulWadDown(discountRatio);
-      return (claimableAmount, 0, penalties);
+    if (time <= memRefTime) {
+      return (rawEarned.mulWadDown(discountFactor(time, memMinTime, memRefTime)) - paid, rawEarned, paid);
     }
-
-    uint256 excessRatio = excessFactorFormula(time, memRefTime);
-    uint256 penalized = penalizedRewards[account][reward];
-
-    // FIXME delta shouldn't exist
-    uint256 delta = 0;
-    if (paid > rawEarned.mulWadDown(excessRatio) + penalized) {
-      delta = paid - rawEarned.mulWadDown(excessRatio) - penalized;
-    }
-    if (delta != 0) {
-      console.log("------- time > tRef && delta > 0 -------");
-      console.log("delta      :", delta);
-      console.log("paid       :", paid);
-      console.log("penalized  :", penalized);
-      console.log("rawEarned  :", rawEarned);
-    }
-
-    claimableAmount = delta == 0 ? rawEarned.mulWadDown(excessRatio) + penalized - paid : 0;
-    save = delta == 0 ? rawEarned - rawEarned.mulWadDown(excessRatio) : 0;
-    return (claimableAmount, save, 0);
+    // console.log("rawEarned", rawEarned);
+    // console.log("claimed  ", paid);
+    // console.log("deserved ", deserved);
+    // console.log("pay now  ", deserved > paid ? deserved - paid : 0);
+    uint256 deserved = rawEarned.mulWadDown(excessFactorFormula(time, memRefTime));
+    return (deserved > paid ? deserved - paid : 0, rawEarned, paid);
   }
 
   // NOTE claims without unstaking, assets = balanceOf(account)
   function handleClaim(ERC20 reward, address account) internal {
     uint256 time = block.timestamp * 1e18 - avgStart[account];
-    (uint256 claimableAmount, uint256 save, uint256 penalties) = claimable(time, reward, account, balanceOf(account));
 
     if (time < minTime * 1e18) return;
 
-    paidRewards[account][reward] += claimableAmount;
+    (uint256 amount, uint256 rawEarned, uint256 paid) = claimable(time, reward, account, balanceOf(account));
 
-    uint256 memRefTime = refTime * 1e18;
-    if (time >= memRefTime) {
-      if (penalizedRewards[account][reward] != 0) penalizedRewards[account][reward] = 0;
-      if (save != 0) reward.transfer(savings, save);
+    if (time > refTime * 1e18) {
+      uint256 saved = saves[account][reward];
+      uint256 save = rawEarned - amount - saved;
+      if (save != 0) {
+        saves[account][reward] = saved + save;
+        reward.transfer(savings, save);
+      }
     }
 
-    if (time < memRefTime) {
-      penalizedRewards[account][reward] += penalties;
-    }
-
-    if (claimableAmount != 0) {
-      reward.transfer(account, claimableAmount);
-      emit RewardPaid(reward, account, claimableAmount);
+    if (amount != 0) {
+      claimed[account][reward] = paid + amount;
+      reward.transfer(account, amount);
+      emit RewardPaid(reward, account, amount);
     }
   }
 
@@ -333,17 +334,16 @@ contract StakedEXA is
   }
 
   function claimAll() external {
-    for (uint256 i = 0; i < rewardsTokens.length; ++i) handleClaim(rewardsTokens[i], msg.sender);
+    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+      ERC20 reward = rewardsTokens[i];
+      updateIndex(reward);
+      handleClaim(reward, msg.sender);
+    }
   }
 
   function claimable(ERC20 reward, address account) external view returns (uint256) {
-    (uint256 claimableAmount, , ) = claimable(
-      block.timestamp * 1e18 - avgStart[account],
-      reward,
-      account,
-      balanceOf(account)
-    );
-    return claimableAmount;
+    (uint256 amount, , ) = claimable(block.timestamp * 1e18 - avgStart[account], reward, account, balanceOf(account));
+    return amount;
   }
 
   function harvest() external {
