@@ -939,6 +939,82 @@ contract StakedEXATest is Test {
     assertEq(finishAt, newFinishAt);
   }
 
+  function testSetMarketOnlyAdmin() external {
+    address nonAdmin = address(0x1);
+    Market newMarket = Market(address(new MockMarket(exa)));
+
+    vm.prank(nonAdmin);
+    vm.expectRevert(bytes(""));
+    stEXA.setMarket(newMarket);
+
+    address admin = address(0x2);
+    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
+    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+
+    vm.prank(admin);
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit MarketSet(newMarket, admin);
+    stEXA.setMarket(newMarket);
+    assertEq(address(stEXA.market()), address(newMarket));
+  }
+
+  function testOnlyAdminSetProvider() external {
+    address nonAdmin = address(0x1);
+    address newProvider = address(0x2);
+
+    vm.prank(nonAdmin);
+    vm.expectRevert(bytes(""));
+    stEXA.setProvider(newProvider);
+
+    address admin = address(0x3);
+    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
+    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+
+    vm.prank(admin);
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit ProviderSet(newProvider, admin);
+    stEXA.setProvider(newProvider);
+    assertEq(stEXA.provider(), newProvider);
+  }
+
+  function testOnlyAdminSetProviderRatio() external {
+    address nonAdmin = address(0x1);
+    uint256 newProviderRatio = 0.5e18;
+
+    vm.prank(nonAdmin);
+    vm.expectRevert(bytes(""));
+    stEXA.setProviderRatio(newProviderRatio);
+
+    address admin = address(0x2);
+    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
+    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+
+    vm.prank(admin);
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit ProviderRatioSet(newProviderRatio, admin);
+    stEXA.setProviderRatio(newProviderRatio);
+    assertEq(stEXA.providerRatio(), newProviderRatio);
+  }
+
+  function testOnlyAdminSetSavings() external {
+    address nonAdmin = address(0x1);
+    address newSavings = address(0x2);
+
+    vm.prank(nonAdmin);
+    vm.expectRevert(bytes(""));
+    stEXA.setSavings(newSavings);
+
+    address admin = address(0x3);
+    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
+    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+
+    vm.prank(admin);
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit SavingsSet(newSavings, admin);
+    stEXA.setSavings(newSavings);
+    assertEq(stEXA.savings(), newSavings);
+  }
+
   function minMaxWithdrawAllowance() internal view returns (uint256){
     return Math.min(
       market.convertToAssets(market.allowance(PROVIDER, address(stEXA))),
@@ -959,11 +1035,15 @@ contract StakedEXATest is Test {
     uint256 assets,
     uint256 shares
   );
+  event MarketSet(Market indexed market, address indexed account);
+  event ProviderRatioSet(uint256 providerRatio, address indexed account);
+  event ProviderSet(address indexed provider, address indexed account);
   event RewardAmountNotified(ERC20 indexed reward, address indexed account, uint256 amount);
   event RewardDisabled(ERC20 indexed reward, address indexed account);
   event RewardPaid(ERC20 indexed reward, address indexed account, uint256 amount);
   event RewardListed(ERC20 indexed reward, address indexed account);
   event RewardsDurationSet(ERC20 indexed reward, address indexed account, uint256 duration);
+  event SavingsSet(address indexed savings, address indexed account);
 }
 
 contract MockMarket is ERC4626 {
