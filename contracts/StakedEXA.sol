@@ -107,9 +107,9 @@ contract StakedEXA is
 
     market_.asset().approve(address(market), type(uint256).max);
 
-    provider = provider_;
-    providerRatio = providerRatio_;
-    savings = savings_;
+    setProvider(provider_);
+    setProviderRatio(providerRatio_);
+    setSavings(savings_);
   }
 
   function updateIndex(ERC20 reward) internal {
@@ -292,17 +292,20 @@ contract StakedEXA is
     emit MarketSet(market_, msg.sender);
   }
 
-  function setProvider(address provider_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setProvider(address provider_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (provider_ == address(0)) revert ZeroAddress();
     provider = provider_;
     emit ProviderSet(provider_, msg.sender);
   }
 
-  function setProviderRatio(uint256 providerRatio_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setProviderRatio(uint256 providerRatio_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (providerRatio_ > 1e18) revert InvalidRatio();
     providerRatio = providerRatio_;
     emit ProviderRatioSet(providerRatio_, msg.sender);
   }
 
-  function setSavings(address savings_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setSavings(address savings_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (savings_ == address(0)) revert ZeroAddress();
     savings = savings_;
     emit SavingsSet(savings_, msg.sender);
   }
@@ -342,13 +345,15 @@ contract StakedEXA is
 }
 
 error AlreadyListed();
+error InvalidRatio();
 error InsufficientBalance();
 error NotFinished();
 error NotPausingRole();
 error RewardNotListed();
 error Untransferable();
-error ZeroAmount();
+error ZeroAddress();
 error ZeroRate();
+error ZeroAmount();
 
 // TODO: optimize size
 struct RewardData {
