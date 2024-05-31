@@ -22,10 +22,12 @@ import {
   // errors
   AlreadyListed,
   InsufficientBalance,
+  InvalidRatio,
   NotFinished,
   NotPausingRole,
   RewardNotListed,
   Untransferable,
+  ZeroAddress,
   ZeroAmount,
   ZeroRate
 } from "../contracts/StakedEXA.sol";
@@ -1013,6 +1015,21 @@ contract StakedEXATest is Test {
     emit SavingsSet(newSavings, admin);
     stEXA.setSavings(newSavings);
     assertEq(stEXA.savings(), newSavings);
+  }
+
+  function testSetProviderZeroAddressError() external {
+    vm.expectRevert(ZeroAddress.selector);
+    stEXA.setProvider(address(0));
+  }
+
+  function testSetSavingsZeroAddressError() external {
+    vm.expectRevert(ZeroAddress.selector);
+    stEXA.setSavings(address(0));
+  }
+
+  function testSetProviderRatioOverOneError() external {
+    vm.expectRevert(InvalidRatio.selector);
+    stEXA.setProviderRatio(1e18 + 1);
   }
 
   function minMaxWithdrawAllowance() internal view returns (uint256){
