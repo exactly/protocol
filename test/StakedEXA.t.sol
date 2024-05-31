@@ -20,9 +20,9 @@ import {
   RewardData,
   StakedEXA,
   // errors
+  AlreadyListed,
   InsufficientBalance,
   NotFinished,
-  AlreadyListed,
   RewardNotListed,
   Untransferable,
   ZeroAmount,
@@ -696,9 +696,12 @@ contract StakedEXATest is Test {
   }
 
   function testRewardNotListedError() external {
-    ERC20 notListed = new MockERC20("3.rewards token", "2.REW", 18);
+    MockERC20 notListed = new MockERC20("3.rewards token", "2.REW", 18);
+    uint256 amount = 1;
+    notListed.mint(address(stEXA), amount);
+    
     vm.expectRevert(RewardNotListed.selector);
-    stEXA.setRewardsDuration(notListed, 1);
+    stEXA.notifyRewardAmount(notListed, amount);
   }
 
   function testHarvest() external  {
@@ -798,11 +801,146 @@ contract StakedEXATest is Test {
     assertApproxEqAbs(providerAsset.balanceOf(address(this)), harvested, 1e6); // no one else was in the program
   }
 
+  function testDisableRewardStopsEmission() external {
+    uint256 assets = 1_000e18;
+    stEXA.deposit(assets, address(this));
+    stEXA.deposit(assets, BOB);
+    skip(minTime + 1 );
+
+    uint256 claimable = stEXA.claimable(rewardsTokens[0], address(this));
+    uint256 earned = stEXA.earned(rewardsTokens[0], address(this));
+
+    stEXA.disableReward(rewardsTokens[0]);
+    stEXA.withdraw(assets, address(this), address(this));
+    assertEq(rewardsTokens[0].balanceOf(address(this)), claimable);
+
+    // stops emission
+    skip(2 weeks);
+
+    assertEq(stEXA.earned(rewardsTokens[0], BOB), earned);
+    
+    // lets claim
+    uint256 bobClaimable = stEXA.claimable(rewardsTokens[0], BOB);
+    vm.prank(BOB);
+    stEXA.withdraw(assets, BOB, BOB);
+    assertEq(rewardsTokens[0].balanceOf(BOB), bobClaimable);
+  }
+
+  function testDisableRewardLetsClaimUnclaimed() external {
+    uint256 assets = 1_000e18;
+    stEXA.deposit(assets, address(this));
+    stEXA.deposit(assets, BOB);
+    skip(minTime + 1 );
+
+    uint256 claimable = stEXA.claimable(rewardsTokens[0], address(this));
+    uint256 earned = stEXA.earned(rewardsTokens[0], address(this));
+
+    stEXA.disableReward(rewardsTokens[0]);
+    uint256 newClaimable = stEXA.claimable(rewardsTokens[0], address(this));
+    assertEq(claimable, newClaimable);
+    stEXA.withdraw(assets, address(this), address(this));
+    assertEq(rewardsTokens[0].balanceOf(address(this)), claimable);
+
+    // lets claim the unclaimed
+    skip(2 weeks);
+
+    assertEq(stEXA.claimable(rewardsTokens[0], address(this)), 0);
+    assertEq(stEXA.earned(rewardsTokens[0], BOB), earned);
+    uint256 bobClaimable = stEXA.claimable(rewardsTokens[0], BOB);
+    vm.prank(BOB);
+    stEXA.withdraw(assets, BOB, BOB);
+    assertEq(rewardsTokens[0].balanceOf(BOB), bobClaimable);
+  }
+
+
+  function testDisableRewardEmitEvent() external{
+    harvest();
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit RewardDisabled(providerAsset, address(this));
+    stEXA.disableReward(providerAsset);
+  }
+
+  
+  function testOnlyAdminDisableReward() external {
+    vm.prank(BOB);
+    vm.expectRevert(bytes(""));
+    stEXA.disableReward(rewardsTokens[0]);
+
+    address admin = address(0x1);
+    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
+    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+
+    vm.prank(admin);
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit RewardDisabled(rewardsTokens[0], admin);
+    stEXA.disableReward(rewardsTokens[0]);
+
+    (, , , bool isEnabled, , ) = stEXA.rewards(rewardsTokens[0]);
+    assertFalse(isEnabled);
+  }
+
+  function testCannotDisableTwice() external {
+    stEXA.disableReward(rewardsTokens[0]);
+    vm.expectRevert(RewardNotListed.selector);
+    stEXA.disableReward(rewardsTokens[0]);
+  }
+
+  function testCanChangeRewardsDurationWhenDisabled() external {
+    vm.expectRevert(NotFinished.selector);
+    stEXA.setRewardsDuration(rewardsTokens[0], 1);
+
+    stEXA.disableReward(rewardsTokens[0]);
+    stEXA.setRewardsDuration(rewardsTokens[0], 1 weeks);
+
+    (uint256 duration0, , , bool isEnabled, , ) = stEXA.rewards(rewardsTokens[0]);
+
+    assertEq(duration0, 1 weeks);
+    assertFalse(isEnabled);
+  }
+
+  function testDisableRewardTransfersRemainingToSavings() external {
+    uint256 savingsBalance = rewardsTokens[0].balanceOf(SAVINGS);
+    
+    (, uint256 finishAt, , , uint256 rate, ) = stEXA.rewards(rewardsTokens[0]);
+    uint256 remainingRewards = rate * (finishAt - block.timestamp);
+
+    stEXA.disableReward(rewardsTokens[0]);
+    assertEq(rewardsTokens[0].balanceOf(SAVINGS), savingsBalance + remainingRewards);
+    
+    (, finishAt, , , , ) = stEXA.rewards(rewardsTokens[0]);
+    assertEq(finishAt, block.timestamp);
+  }
+
+  function testDisableRewardThatAlreadyFinished() external {
+    stEXA.deposit(1_000e18, address(this));
+    skip(duration + 1);
+    
+    uint256 savingsBalance = rewardsTokens[0].balanceOf(SAVINGS);
+    
+
+    (, uint256 finishAt, , , uint256 rate, ) = stEXA.rewards(rewardsTokens[0]);
+
+    uint256 remainingRewards = finishAt > block.timestamp ? rate * (finishAt - block.timestamp) : 0;
+
+    assertEq(remainingRewards, 0);
+
+    stEXA.disableReward(rewardsTokens[0]);
+    assertEq(rewardsTokens[0].balanceOf(SAVINGS), savingsBalance);
+
+    (, uint256 newFinishAt, , , , ) = stEXA.rewards(rewardsTokens[0]);
+    assertEq(finishAt, newFinishAt);
+  }
+
   function minMaxWithdrawAllowance() internal view returns (uint256){
     return Math.min(
       market.convertToAssets(market.allowance(PROVIDER, address(stEXA))),
       market.maxWithdraw(PROVIDER)
     );
+  }
+
+  function harvest() internal {
+    providerAsset.mint(PROVIDER, 1_000e18);
+    stEXA.harvest();
   }
 
   event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
@@ -814,6 +952,7 @@ contract StakedEXATest is Test {
     uint256 shares
   );
   event RewardAmountNotified(ERC20 indexed reward, address indexed account, uint256 amount);
+  event RewardDisabled(ERC20 indexed reward, address indexed account);
   event RewardPaid(ERC20 indexed reward, address indexed account, uint256 amount);
   event RewardListed(ERC20 indexed reward, address indexed account);
   event RewardsDurationSet(ERC20 indexed reward, address indexed account, uint256 duration);

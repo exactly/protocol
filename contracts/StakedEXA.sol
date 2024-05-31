@@ -260,8 +260,20 @@ contract StakedEXA is
     emit RewardListed(reward, msg.sender);
   }
 
+  function disableReward(ERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) onlyReward(reward) {
+    updateIndex(reward);
+
+    if (block.timestamp < rewards[reward].finishAt) {
+      reward.transfer(savings, (rewards[reward].finishAt - block.timestamp) * rewards[reward].rate);
+      rewards[reward].finishAt = block.timestamp;
+    }
+    rewards[reward].isEnabled = false;
+
+    emit RewardDisabled(reward, msg.sender);
+  }
+
   // notice - can only change the duration if the reward is finished
-  function setRewardsDuration(ERC20 reward, uint256 duration) public onlyRole(DEFAULT_ADMIN_ROLE) onlyReward(reward) {
+  function setRewardsDuration(ERC20 reward, uint256 duration) public onlyRole(DEFAULT_ADMIN_ROLE) {
     RewardData storage rewardData = rewards[reward];
     if (rewardData.finishAt > block.timestamp) revert NotFinished();
 
@@ -300,6 +312,7 @@ contract StakedEXA is
 
   // TODO:  and setters
   event RewardAmountNotified(ERC20 indexed reward, address indexed notifier, uint256 amount);
+  event RewardDisabled(ERC20 indexed reward, address indexed account);
   event RewardPaid(ERC20 indexed reward, address indexed account, uint256 amount);
   event RewardListed(ERC20 indexed reward, address indexed account);
   event RewardsDurationSet(ERC20 indexed reward, address indexed account, uint256 duration);
