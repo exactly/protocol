@@ -23,6 +23,7 @@ import {
   AlreadyListed,
   InsufficientBalance,
   NotFinished,
+  NotPausingRole,
   RewardNotListed,
   Untransferable,
   ZeroAmount,
@@ -664,6 +665,13 @@ contract StakedEXATest is Test {
 
     stEXA.redeem(1, address(this), address(this));
     stEXA.withdraw(1, address(this), address(this));
+  }
+
+  function testNotPausingRoleError() external {
+    address nonPauser = address(0x1);
+    vm.expectRevert(NotPausingRole.selector);
+    vm.prank(nonPauser);
+    stEXA.pause();
   }
 
   function testOnlyAdminEnableReward() external {
