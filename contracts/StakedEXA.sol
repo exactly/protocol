@@ -287,6 +287,26 @@ contract StakedEXA is
     notifyRewardAmount(reward, amount, msg.sender);
   }
 
+  function setMarket(Market market_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    market = market_;
+    emit MarketSet(market_, msg.sender);
+  }
+
+  function setProvider(address provider_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    provider = provider_;
+    emit ProviderSet(provider_, msg.sender);
+  }
+
+  function setProviderRatio(uint256 providerRatio_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    providerRatio = providerRatio_;
+    emit ProviderRatioSet(providerRatio_, msg.sender);
+  }
+
+  function setSavings(address savings_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    savings = savings_;
+    emit SavingsSet(savings_, msg.sender);
+  }
+
   /// @notice Sets the pause state to true in case of emergency, triggered by an authorized account.
   function pause() external onlyPausingRoles {
     _pause();
@@ -310,12 +330,15 @@ contract StakedEXA is
     return "mode=timestamp";
   }
 
-  // TODO:  and setters
+  event MarketSet(Market indexed market, address indexed account);
+  event ProviderRatioSet(uint256 providerRatio, address indexed account);
+  event ProviderSet(address indexed provider, address indexed account);
   event RewardAmountNotified(ERC20 indexed reward, address indexed notifier, uint256 amount);
   event RewardDisabled(ERC20 indexed reward, address indexed account);
   event RewardPaid(ERC20 indexed reward, address indexed account, uint256 amount);
   event RewardListed(ERC20 indexed reward, address indexed account);
   event RewardsDurationSet(ERC20 indexed reward, address indexed account, uint256 duration);
+  event SavingsSet(address indexed savings, address indexed account);
 }
 
 error AlreadyListed();
