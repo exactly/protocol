@@ -145,10 +145,10 @@ const hardhatConfig: Config = {
           optimism: {
             rewards: {
               OP: {
-                total: 27_100,
+                total: 32_400,
                 debt: 7_000_000,
                 start: "2024-04-24",
-                period: 6 * 7 * 86_400,
+                period: 8 * 7 * 86_400,
                 undistributedFactor: 1,
                 transitionFactor: 0.1,
                 compensationFactor: 0,
