@@ -1,5 +1,25 @@
 # @exactly/protocol
 
+## 0.2.20
+
+### Patch Changes
+
+- b7d43f0: 📌 solidity: relax version and set compiler to `0.8.23`
+- 0b0f1b9: ♻️ market: use new irm interface
+- 9cad450: 🦺 irm: limit parameters range
+- 34f9095: 🚀 optimism: deploy new interest rate models
+- 9482ec2: 👔 irm: new fixed rate model
+- c39b05a: ✨ market: extend pausable to public entry points
+- eb0a9f7: 🚀 optimism: deploy installments router, native USDC, and upgrade markets
+- d41002c: 🚚 optimism: rename bridged USDC to USDC.e
+- f97a577: ✨ market: add frozen state
+- 0c0d983: 👔 irm: new floating rate model
+- 9bd8d2e: ✨ market: set custom name and symbol
+- 59acfb9: 👔 rewards: use new utilization definition
+- ba6c0e5: ✨ installments: add permit flow
+- a3ceabe: ✨ installments: add router contract
+- a91c85a: ⚡️ market: avoid unnecessary cache on `totalAssets`
+
 ## 0.2.19
 
 ### Patch Changes
