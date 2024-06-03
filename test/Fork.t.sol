@@ -26,6 +26,7 @@ abstract contract ForkTest is Test {
   }
 
   function chain() internal returns (string memory) {
+    if (block.chainid == 1) return "ethereum";
     if (block.chainid == 11155420) return "op-sepolia";
     return getChain(block.chainid).chainAlias;
   }
