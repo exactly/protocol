@@ -315,7 +315,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     {
       uint256 lastUpdate = rewardData.lastUpdate;
       // `lastUpdate` can be greater than `block.timestamp` if distribution is set to start on a future date
-      if (block.timestamp > lastUpdate) {
+      if (block.timestamp > lastUpdate && (lastUpdate < rewardData.end || rewardData.lastUndistributed != 0)) {
         (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) = previewAllocation(
           rewardData,
           market,

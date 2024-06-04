@@ -799,6 +799,31 @@ contract RewardsControllerTest is Test {
     assertEq(opRewardAsset.balanceOf(address(this)), opRewards);
   }
 
+  function testLastUpdateAfterDistributionPeriodEnd() external {
+    marketWETH.deposit(40_000 ether, address(this));
+    marketWETH.borrow(20_000 ether, address(this), address(this));
+
+    (, uint256 distributionEnd, ) = rewardsController.distributionTime(marketWETH, opRewardAsset);
+    vm.warp(distributionEnd / 2);
+    rewardsController.claimAll(address(this));
+
+    vm.warp(distributionEnd + 1);
+    rewardsController.claimAll(address(this));
+    (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
+    (, , uint256 lastUpdate) = rewardsController.distributionTime(marketWETH, opRewardAsset);
+    assertEq(lastUndistributed, 0);
+    assertEq(lastUpdate, distributionEnd + 1);
+
+    vm.warp(distributionEnd * 2);
+    rewardsController.claimAll(address(this));
+    (, , lastUpdate) = rewardsController.distributionTime(marketWETH, opRewardAsset);
+
+    (, , lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
+    (, , lastUpdate) = rewardsController.distributionTime(marketWETH, opRewardAsset);
+    assertEq(lastUndistributed, 0);
+    assertEq(lastUpdate, distributionEnd + 1);
+  }
+
   function testSetDistributionWithOnGoingMarketOperations() external {
     vm.warp(1 days);
     marketWBTC.deposit(10e8, address(this));
