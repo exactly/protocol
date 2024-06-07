@@ -250,6 +250,10 @@ contract StakedEXA is
     return claimable(reward, account, balanceOf(account));
   }
 
+  function allRewardsTokens() external view returns (ERC20[] memory) {
+    return rewardsTokens;
+  }
+
   // restricted functions
   function enableReward(ERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (rewards[reward].isEnabled) revert AlreadyListed();
