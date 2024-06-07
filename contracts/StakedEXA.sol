@@ -189,7 +189,7 @@ contract StakedEXA is
   }
 
   modifier onlyReward(ERC20 reward) {
-    if (!rewards[reward].isEnabled) revert RewardNotListed();
+    if (rewards[reward].finishAt == 0) revert RewardNotListed();
     _;
   }
 
@@ -256,9 +256,9 @@ contract StakedEXA is
 
   // restricted functions
   function enableReward(ERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (rewards[reward].isEnabled) revert AlreadyListed();
+    if (rewards[reward].finishAt != 0) revert AlreadyListed();
 
-    rewards[reward].isEnabled = true;
+    rewards[reward].finishAt = block.timestamp;
     rewardsTokens.push(reward);
 
     emit RewardListed(reward, msg.sender);
@@ -268,10 +268,10 @@ contract StakedEXA is
     updateIndex(reward);
 
     if (block.timestamp < rewards[reward].finishAt) {
-      reward.transfer(savings, (rewards[reward].finishAt - block.timestamp) * rewards[reward].rate);
+      uint256 finishAt = rewards[reward].finishAt;
       rewards[reward].finishAt = block.timestamp;
+      reward.transfer(savings, (finishAt - block.timestamp) * rewards[reward].rate);
     }
-    rewards[reward].isEnabled = false;
 
     emit RewardDisabled(reward, msg.sender);
   }
@@ -368,7 +368,6 @@ struct RewardData {
   uint256 duration;
   uint256 finishAt;
   uint256 index;
-  bool isEnabled;
   uint256 rate;
   uint256 updatedAt;
 }
