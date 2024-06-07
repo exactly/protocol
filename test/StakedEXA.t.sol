@@ -11,7 +11,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 
-import { Test } from "forge-std/Test.sol";
+import { Test, stdError } from "forge-std/Test.sol";
 
 import {
   ERC20,
@@ -52,6 +52,9 @@ contract StakedEXATest is Test {
   uint256 internal providerRatio;
 
   address[] internal accounts;
+  mapping(address account => uint256 start) public avgStart;
+  mapping(MockERC20 reward => uint256 index) internal globalIndex;
+  mapping(address account => mapping(MockERC20 reward => uint256 index)) public avgIndexes;
   mapping(MockERC20 reward => mapping(address account => uint256 amount)) internal claimable;
 
   function setUp() external {
@@ -132,6 +135,141 @@ contract StakedEXATest is Test {
 
     accounts.push(address(this));
     accounts.push(BOB);
+
+    targetContract(address(this));
+    bytes4[] memory selectors = new bytes4[](5);
+    selectors[0] = this.handlerSkip.selector;
+    selectors[1] = this.testHandlerDeposit.selector;
+    selectors[2] = this.testHandlerWithdraw.selector;
+    selectors[3] = this.testHandlerNotifyRewardAmount.selector;
+    selectors[4] = this.testHandlerSetDuration.selector;
+    targetSelector(FuzzSelector(address(this), selectors));
+  }
+
+  function invariantRewardsUpOnly() external view {
+    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+      for (uint256 a = 0; a < accounts.length; ++a) {
+        // TODO assert excess exposure
+        if (refTime * 1e18 + stEXA.avgStart(accounts[a]) > block.timestamp * 1e18) continue;
+        assertGe(stEXA.claimable(rewardsTokens[i], accounts[a]), claimable[rewardsTokens[i]][accounts[a]]);
+      }
+    }
+  }
+
+  function invariantIndexUpOnly() external view {
+    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+      for (uint256 a = 0; a < accounts.length; ++a) {
+        MockERC20 reward = rewardsTokens[i];
+        assertGe(stEXA.globalIndex(reward), globalIndex[reward]);
+      }
+    }
+  }
+
+  function invariantAvgIndexUpOnly() external view {
+    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+      for (uint256 a = 0; a < accounts.length; ++a) {
+        address account = accounts[a];
+        MockERC20 reward = rewardsTokens[i];
+        assertGe(stEXA.avgIndex(reward, account) + 10, avgIndexes[account][reward]); // TODO precision issue
+      }
+    }
+  }
+
+  function invariantAvgStartUpOnly() external view {
+    for (uint256 a = 0; a < accounts.length; ++a) {
+      address account = accounts[a];
+      assertGe(stEXA.avgStart(account), avgStart[account]);
+    }
+  }
+
+  function invariantShareValueIsOne() external view {
+    assertEq(stEXA.totalSupply(), stEXA.totalAssets());
+  }
+
+  function invariantNoDuplicatedReward() external view {
+    ERC20[] memory rewards = stEXA.allRewardsTokens();
+    for (uint256 i = 0; i < rewards.length; ++i) {
+      for (uint256 j = i + 1; j < rewards.length; ++j) {
+        assertNotEq(address(rewards[i]), address(rewards[j]));
+      }
+    }
+  }
+
+  function handlerSkip(uint16 time) external {
+    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+      for (uint256 a = 0; a < accounts.length; ++a) {
+        avgStart[accounts[a]] = stEXA.avgStart(accounts[a]);
+        globalIndex[rewardsTokens[i]] = stEXA.globalIndex(rewardsTokens[i]);
+        avgIndexes[accounts[a]][rewardsTokens[i]] = stEXA.avgIndex(rewardsTokens[i], accounts[a]);
+        claimable[rewardsTokens[i]][accounts[a]] = stEXA.claimable(rewardsTokens[i], accounts[a]);
+      }
+    }
+    skip(time);
+  }
+
+  function testHandlerDeposit(uint256 assets) external {
+    assets = _bound(assets, 0, exaBalance);
+    uint256 prevAssets = stEXA.totalAssets();
+
+    address account = accounts[uint256(keccak256(abi.encode(assets, block.timestamp))) % accounts.length];
+    vm.startPrank(account);
+    exa.mint(account, exaBalance);
+    exa.approve(address(stEXA), assets);
+    if (assets == 0) vm.expectRevert(ZeroAmount.selector);
+    stEXA.deposit(assets, account);
+    vm.stopPrank();
+    assertEq(stEXA.totalAssets(), prevAssets + assets, "missing assets");
+  }
+
+  function testHandlerWithdraw(uint256 assets) external {
+    address account = accounts[uint256(keccak256(abi.encode(assets, block.timestamp))) % accounts.length];
+    assets = _bound(assets, 0, stEXA.maxWithdraw(account));
+    uint256 prevAssets = stEXA.totalAssets();
+
+    vm.prank(account);
+    if (assets == 0) vm.expectRevert(ZeroAmount.selector);
+    stEXA.withdraw(assets, account, account);
+
+    assertEq(stEXA.totalAssets(), prevAssets - assets, "missing assets");
+  }
+
+  function testHandlerNotifyRewardAmount(uint64 assets) external {
+    ERC20[] memory rewards = stEXA.allRewardsTokens();
+    ERC20 reward = rewards[uint256(keccak256(abi.encode(assets, block.timestamp))) % rewards.length];
+
+    MockERC20(address(reward)).mint(address(stEXA), assets);
+
+    (uint256 rDuration, uint256 finishAt, , uint256 rate, ) = stEXA.rewards(reward);
+    if (rDuration == 0) vm.expectRevert(stdError.divisionError);
+    else if (
+      (
+        block.timestamp >= finishAt ? assets / rDuration : (assets + ((finishAt - block.timestamp) * rate)) / rDuration
+      ) == 0
+    ) vm.expectRevert(ZeroRate.selector);
+    stEXA.notifyRewardAmount(reward, assets);
+  }
+
+  function testHandlerSetDuration(uint24 period) external {
+    ERC20[] memory rewards = stEXA.allRewardsTokens();
+    ERC20 reward = rewards[uint256(keccak256(abi.encode(period, block.timestamp))) % rewards.length];
+
+    uint256 savingsBalance = reward.balanceOf(SAVINGS);
+
+    (, uint256 finishAt, , uint256 rate, ) = stEXA.rewards(reward);
+
+    if (finishAt > block.timestamp) {
+      uint256 remainingRewards = rate * (finishAt - block.timestamp);
+
+      stEXA.disableReward(reward);
+      assertEq(reward.balanceOf(SAVINGS), savingsBalance + remainingRewards, "missing remaining savings");
+      (, finishAt, , , ) = stEXA.rewards(reward);
+      assertEq(finishAt, block.timestamp, "finish != block timestamp");
+    }
+
+    stEXA.setRewardsDuration(reward, period);
+    uint256 newRate;
+    (, finishAt, , newRate, ) = stEXA.rewards(reward);
+    assertEq(rate, newRate, "rate != new rate");
   }
 
   function testInitialValues() external view {
@@ -778,7 +916,9 @@ contract StakedEXATest is Test {
     assertEq(allowance.mulWadDown(providerRatio), harvested);
   }
 
-  function testHarvestSetters() external {}
+  function testHarvestSetters() external {
+    // TODO
+  }
 
   function testMultipleHarvests() external {
     uint256 assets = market.maxWithdraw(PROVIDER);
