@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.0; // solhint-disable-line one-contract-per-file
 
 import { ERC4626 } from "solmate/src/mixins/ERC4626.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
@@ -16,10 +16,8 @@ import { Test } from "forge-std/Test.sol";
 import {
   ERC20,
   Market,
-  // 
   RewardData,
   StakedEXA,
-  // errors
   AlreadyListed,
   InsufficientBalance,
   InvalidRatio,
@@ -83,7 +81,18 @@ contract StakedEXATest is Test {
 
     providerRatio = 0.1e18;
     stEXA = StakedEXA(address(new ERC1967Proxy(address(new StakedEXA(IERC20(address(exa)))), "")));
-    stEXA.initialize(minTime, refTime, excessFactor, penaltyGrowth, penaltyThreshold,  market, PROVIDER, SAVINGS, 1 weeks, providerRatio);
+    stEXA.initialize(
+      minTime,
+      refTime,
+      excessFactor,
+      penaltyGrowth,
+      penaltyThreshold,
+      market,
+      PROVIDER,
+      SAVINGS,
+      1 weeks,
+      providerRatio
+    );
     vm.label(address(stEXA), "StakedEXA");
 
     providerAsset.mint(PROVIDER, 1_000e18);
@@ -148,12 +157,11 @@ contract StakedEXATest is Test {
     (uint256 providerDuration, uint256 finishAt, uint256 index, uint256 rate, uint256 updatedAt) = stEXA.rewards(
       providerAsset
     );
-   assertEq(providerDuration, 1 weeks);
+    assertEq(providerDuration, 1 weeks);
     assertEq(finishAt, block.timestamp);
     assertEq(index, 0);
     assertEq(rate, 0);
-    assertEq(updatedAt, 0); 
-
+    assertEq(updatedAt, 0);
   }
 
   function testInsufficientBalanceError(uint256 amount) external {
@@ -710,16 +718,16 @@ contract StakedEXATest is Test {
     MockERC20 notListed = new MockERC20("3.rewards token", "2.REW", 18);
     uint256 amount = 1;
     notListed.mint(address(stEXA), amount);
-    
+
     vm.expectRevert(RewardNotListed.selector);
     stEXA.notifyRewardAmount(notListed, amount);
   }
 
-  function testHarvest() external  {
+  function testHarvest() external {
     uint256 assets = market.maxWithdraw(PROVIDER); // 1_000e18
-    
+
     stEXA.harvest();
-    
+
     assertEq(market.maxWithdraw(PROVIDER), 0);
     assertEq(minMaxWithdrawAllowance(), 0);
     assertEq(providerAsset.balanceOf(address(stEXA)), assets.mulWadDown(providerRatio));
@@ -736,7 +744,7 @@ contract StakedEXATest is Test {
     assertEq(finishAt, block.timestamp + 1 weeks);
     assertEq(index, 0);
     assertEq(rate, assets.mulWadDown(providerRatio) / 1 weeks);
-    assertEq(updatedAt, block.timestamp);    
+    assertEq(updatedAt, block.timestamp);
   }
 
   function testHarvestZero() external {
@@ -817,7 +825,7 @@ contract StakedEXATest is Test {
     uint256 assets = 1_000e18;
     stEXA.deposit(assets, address(this));
     stEXA.deposit(assets, BOB);
-    skip(minTime + 1 );
+    skip(minTime + 1);
 
     uint256 claimable = stEXA.claimable(rewardsTokens[0], address(this));
     uint256 earned = stEXA.earned(rewardsTokens[0], address(this));
@@ -830,7 +838,7 @@ contract StakedEXATest is Test {
     skip(2 weeks);
 
     assertEq(stEXA.earned(rewardsTokens[0], BOB), earned);
-    
+
     // lets claim
     uint256 bobClaimable = stEXA.claimable(rewardsTokens[0], BOB);
     vm.prank(BOB);
@@ -842,7 +850,7 @@ contract StakedEXATest is Test {
     uint256 assets = 1_000e18;
     stEXA.deposit(assets, address(this));
     stEXA.deposit(assets, BOB);
-    skip(minTime + 1 );
+    skip(minTime + 1);
 
     uint256 claimable = stEXA.claimable(rewardsTokens[0], address(this));
     uint256 earned = stEXA.earned(rewardsTokens[0], address(this));
@@ -864,15 +872,13 @@ contract StakedEXATest is Test {
     assertEq(rewardsTokens[0].balanceOf(BOB), bobClaimable);
   }
 
-
-  function testDisableRewardEmitEvent() external{
+  function testDisableRewardEmitEvent() external {
     harvest();
     vm.expectEmit(true, true, true, true, address(stEXA));
     emit RewardDisabled(providerAsset, address(this));
     stEXA.disableReward(providerAsset);
   }
 
-  
   function testOnlyAdminDisableReward() external {
     vm.prank(BOB);
     vm.expectRevert(bytes(""));
@@ -1027,11 +1033,8 @@ contract StakedEXATest is Test {
     stEXA.setProviderRatio(1e18 + 1);
   }
 
-  function minMaxWithdrawAllowance() internal view returns (uint256){
-    return Math.min(
-      market.convertToAssets(market.allowance(PROVIDER, address(stEXA))),
-      market.maxWithdraw(PROVIDER)
-    );
+  function minMaxWithdrawAllowance() internal view returns (uint256) {
+    return Math.min(market.convertToAssets(market.allowance(PROVIDER, address(stEXA))), market.maxWithdraw(PROVIDER));
   }
 
   function harvest() internal {
