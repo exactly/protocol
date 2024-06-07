@@ -115,23 +115,23 @@ contract StakedEXATest is Test {
   }
 
   function testInitialValues() external view {
-    (uint256 duration0, uint256 finishAt0, uint256 index0, bool isEnabled0, uint256 rate0, uint256 updatedAt0) = stEXA
-      .rewards(rewardsTokens[0]);
+    (uint256 duration0, uint256 finishAt0, uint256 index0, uint256 rate0, uint256 updatedAt0) = stEXA.rewards(
+      rewardsTokens[0]
+    );
 
     assertEq(duration0, duration);
     assertEq(finishAt0, block.timestamp + duration);
     assertEq(index0, 0);
-    assertTrue(isEnabled0);
     assertEq(rate0, initialAmount / duration);
     assertEq(updatedAt0, block.timestamp);
 
-    (uint256 duration1, uint256 finishAt1, uint256 index1, bool isEnabled1, uint256 rate1, uint256 updatedAt1) = stEXA
-      .rewards(rewardsTokens[1]);
+    (uint256 duration1, uint256 finishAt1, uint256 index1, uint256 rate1, uint256 updatedAt1) = stEXA.rewards(
+      rewardsTokens[1]
+    );
 
     assertEq(duration1, duration);
     assertEq(finishAt1, block.timestamp + duration);
     assertEq(index1, 0);
-    assertTrue(isEnabled1);
     assertEq(rate1, initialAmount / duration);
     assertEq(updatedAt1, block.timestamp);
 
@@ -145,10 +145,11 @@ contract StakedEXATest is Test {
 
     assertFalse(stEXA.paused());
 
-    (uint256 providerDuration, uint256 finishAt, uint256 index, bool isEnabled , uint256 rate, uint256 updatedAt) = stEXA.rewards(providerAsset);
+    (uint256 providerDuration, uint256 finishAt, uint256 index, uint256 rate, uint256 updatedAt) = stEXA.rewards(
+      providerAsset
+    );
    assertEq(providerDuration, 1 weeks);
-    assertTrue(isEnabled);
-    assertEq(finishAt, 0);
+    assertEq(finishAt, block.timestamp);
     assertEq(index, 0);
     assertEq(rate, 0);
     assertEq(updatedAt, 0); 
@@ -184,7 +185,7 @@ contract StakedEXATest is Test {
     if (skipTime < duration) vm.expectRevert(NotFinished.selector);
     stEXA.setRewardsDuration(rewardsTokens[0], duration_);
 
-    (uint256 duration0, , , , , ) = stEXA.rewards(rewardsTokens[0]);
+    (uint256 duration0, , , , ) = stEXA.rewards(rewardsTokens[0]);
 
     if (skipTime <= duration) assertEq(duration0, duration);
     else assertEq(duration0, duration_);
@@ -311,7 +312,7 @@ contract StakedEXATest is Test {
     time = _bound(time, 1, duration * 2);
 
     vm.warp(block.timestamp + time);
-    (, uint256 finishAt, , , uint256 rate, uint256 updatedAt) = stEXA.rewards(rewardsTokens[0]);
+    (, uint256 finishAt, , uint256 rate, uint256 updatedAt) = stEXA.rewards(rewardsTokens[0]);
 
     uint256 expectedRate = 0;
     if (block.timestamp >= finishAt) {
@@ -325,7 +326,7 @@ contract StakedEXATest is Test {
     emit RewardAmountNotified(rewardsTokens[0], address(this), amount);
     stEXA.notifyRewardAmount(rewardsTokens[0], amount);
 
-    (, finishAt, , , rate, updatedAt) = stEXA.rewards(rewardsTokens[0]);
+    (, finishAt, , rate, updatedAt) = stEXA.rewards(rewardsTokens[0]);
     assertEq(rate, expectedRate, "rate != expected");
     assertEq(finishAt, block.timestamp + duration, "finishAt != expected");
     assertEq(updatedAt, block.timestamp, "updatedAt != expected");
@@ -347,7 +348,7 @@ contract StakedEXATest is Test {
     vm.prank(admin);
     stEXA.setRewardsDuration(rewardsTokens[0], 1);
 
-    (uint256 duration0, , , , , ) = stEXA.rewards(rewardsTokens[0]);
+    (uint256 duration0, , , , ) = stEXA.rewards(rewardsTokens[0]);
     assertEq(duration0, 1);
   }
 
@@ -371,7 +372,7 @@ contract StakedEXATest is Test {
     emit RewardAmountNotified(rewardsTokens[0], admin, amount);
     stEXA.notifyRewardAmount(rewardsTokens[0], amount);
 
-    (uint256 duration0, uint256 finishAt, , , , uint256 updatedAt) = stEXA.rewards(rewardsTokens[0]);
+    (uint256 duration0, uint256 finishAt, , , uint256 updatedAt) = stEXA.rewards(rewardsTokens[0]);
     assertEq(finishAt, block.timestamp + duration0);
     assertEq(updatedAt, block.timestamp);
   }
@@ -381,7 +382,7 @@ contract StakedEXATest is Test {
 
     uint256 time = 10 days;
 
-    (, , , , uint256 rate, ) = stEXA.rewards(rewardsTokens[0]);
+    (, , , uint256 rate, ) = stEXA.rewards(rewardsTokens[0]);
     stEXA.deposit(assets, address(this));
 
     skip(time);
@@ -684,8 +685,8 @@ contract StakedEXATest is Test {
     vm.expectRevert(bytes(""));
     stEXA.enableReward(notListed);
 
-    (, , , bool isEnabled, , ) = stEXA.rewards(notListed);
-    assertFalse(isEnabled);
+    (, uint256 finishAt, , , ) = stEXA.rewards(notListed);
+    assertEq(finishAt, 0);
 
     address admin = address(0x2);
     stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
@@ -696,8 +697,8 @@ contract StakedEXATest is Test {
     emit RewardListed(notListed, admin);
     stEXA.enableReward(notListed);
 
-    (, , , isEnabled, , ) = stEXA.rewards(notListed);
-    assertTrue(isEnabled);
+    (, finishAt, , , ) = stEXA.rewards(notListed);
+    assertNotEq(finishAt, 0);
   }
 
   function testAlreadyListedError() external {
@@ -728,11 +729,12 @@ contract StakedEXATest is Test {
   function testHarvestEffectOnRewardData() external {
     uint256 assets = market.maxWithdraw(PROVIDER);
     stEXA.harvest();
-    (uint256 providerDuration, uint256 finishAt, uint256 index , bool isEnabled , uint256 rate, uint256 updatedAt) = stEXA.rewards(providerAsset);
+    (uint256 providerDuration, uint256 finishAt, uint256 index, uint256 rate, uint256 updatedAt) = stEXA.rewards(
+      providerAsset
+    );
     assertEq(providerDuration, 1 weeks);
     assertEq(finishAt, block.timestamp + 1 weeks);
     assertEq(index, 0);
-    assertTrue(isEnabled);
     assertEq(rate, assets.mulWadDown(providerRatio) / 1 weeks);
     assertEq(updatedAt, block.timestamp);    
   }
@@ -885,14 +887,8 @@ contract StakedEXATest is Test {
     emit RewardDisabled(rewardsTokens[0], admin);
     stEXA.disableReward(rewardsTokens[0]);
 
-    (, , , bool isEnabled, , ) = stEXA.rewards(rewardsTokens[0]);
-    assertFalse(isEnabled);
-  }
-
-  function testCannotDisableTwice() external {
-    stEXA.disableReward(rewardsTokens[0]);
-    vm.expectRevert(RewardNotListed.selector);
-    stEXA.disableReward(rewardsTokens[0]);
+    (, uint256 finishAt, , , ) = stEXA.rewards(rewardsTokens[0]);
+    assertNotEq(finishAt, 0);
   }
 
   function testCanChangeRewardsDurationWhenDisabled() external {
@@ -902,33 +898,32 @@ contract StakedEXATest is Test {
     stEXA.disableReward(rewardsTokens[0]);
     stEXA.setRewardsDuration(rewardsTokens[0], 1 weeks);
 
-    (uint256 duration0, , , bool isEnabled, , ) = stEXA.rewards(rewardsTokens[0]);
+    (uint256 duration0, uint256 finishAt, , , ) = stEXA.rewards(rewardsTokens[0]);
 
     assertEq(duration0, 1 weeks);
-    assertFalse(isEnabled);
+    assertEq(finishAt, block.timestamp);
   }
 
   function testDisableRewardTransfersRemainingToSavings() external {
     uint256 savingsBalance = rewardsTokens[0].balanceOf(SAVINGS);
-    
-    (, uint256 finishAt, , , uint256 rate, ) = stEXA.rewards(rewardsTokens[0]);
+
+    (, uint256 finishAt, , uint256 rate, ) = stEXA.rewards(rewardsTokens[0]);
     uint256 remainingRewards = rate * (finishAt - block.timestamp);
 
     stEXA.disableReward(rewardsTokens[0]);
     assertEq(rewardsTokens[0].balanceOf(SAVINGS), savingsBalance + remainingRewards);
-    
-    (, finishAt, , , , ) = stEXA.rewards(rewardsTokens[0]);
+
+    (, finishAt, , , ) = stEXA.rewards(rewardsTokens[0]);
     assertEq(finishAt, block.timestamp);
   }
 
   function testDisableRewardThatAlreadyFinished() external {
     stEXA.deposit(1_000e18, address(this));
     skip(duration + 1);
-    
-    uint256 savingsBalance = rewardsTokens[0].balanceOf(SAVINGS);
-    
 
-    (, uint256 finishAt, , , uint256 rate, ) = stEXA.rewards(rewardsTokens[0]);
+    uint256 savingsBalance = rewardsTokens[0].balanceOf(SAVINGS);
+
+    (, uint256 finishAt, , uint256 rate, ) = stEXA.rewards(rewardsTokens[0]);
 
     uint256 remainingRewards = finishAt > block.timestamp ? rate * (finishAt - block.timestamp) : 0;
 
@@ -937,7 +932,7 @@ contract StakedEXATest is Test {
     stEXA.disableReward(rewardsTokens[0]);
     assertEq(rewardsTokens[0].balanceOf(SAVINGS), savingsBalance);
 
-    (, uint256 newFinishAt, , , , ) = stEXA.rewards(rewardsTokens[0]);
+    (, uint256 newFinishAt, , , ) = stEXA.rewards(rewardsTokens[0]);
     assertEq(finishAt, newFinishAt);
   }
 
