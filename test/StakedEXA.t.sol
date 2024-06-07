@@ -16,7 +16,6 @@ import { Test } from "forge-std/Test.sol";
 import {
   ERC20,
   Market,
-  RewardData,
   StakedEXA,
   AlreadyListed,
   InsufficientBalance,
@@ -29,8 +28,6 @@ import {
   ZeroAmount,
   ZeroRate
 } from "../contracts/StakedEXA.sol";
-
-import { Auditor } from "../contracts/Auditor.sol";
 
 contract StakedEXATest is Test {
   using FixedPointMathLib for uint256;
@@ -54,15 +51,18 @@ contract StakedEXATest is Test {
   address internal constant SAVINGS = address(0x2);
   uint256 internal providerRatio;
 
+  address[] internal accounts;
+  mapping(MockERC20 reward => mapping(address account => uint256 amount)) internal claimable;
+
   function setUp() external {
     vm.warp(1_704_067_200); // 01/01/2024 @ 00:00 (UTC)
     exa = new MockERC20("Exactly token", "EXA", 18);
     vm.label(address(exa), "EXA");
     rewardsTokens = new MockERC20[](2);
-    rewardsTokens[0] = new MockERC20("1.rewards token", "1.REW", 18);
-    rewardsTokens[1] = new MockERC20("2.rewards token", "2.REW", 18);
-    vm.label(address(rewardsTokens[0]), "1.rewards token");
-    vm.label(address(rewardsTokens[1]), "2.rewards token");
+    rewardsTokens[0] = new MockERC20("reward A", "rA", 18);
+    rewardsTokens[1] = new MockERC20("reward B", "rB", 6);
+    vm.label(address(rewardsTokens[0]), "rA");
+    vm.label(address(rewardsTokens[1]), "rB");
 
     duration = 24 weeks;
     initialAmount = 1_000 ether;
@@ -73,8 +73,8 @@ contract StakedEXATest is Test {
     penaltyThreshold = 0.5e18;
 
     providerAsset = new MockERC20("Wrapped ETH", "WETH", 18);
-    vm.label(address(providerAsset), "WETH");
     market = Market(address(new MockMarket(providerAsset)));
+    vm.label(address(providerAsset), "WETH");
     vm.label(address(market), "Market");
     vm.label(PROVIDER, "provider");
     vm.label(SAVINGS, "savings");
@@ -93,7 +93,13 @@ contract StakedEXATest is Test {
       1 weeks,
       providerRatio
     );
-    vm.label(address(stEXA), "StakedEXA");
+    vm.label(address(stEXA), "stEXA");
+    vm.label(
+      address(
+        uint160(uint256(vm.load(address(stEXA), bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1))))
+      ),
+      "stEXA_Impl"
+    );
 
     providerAsset.mint(PROVIDER, 1_000e18);
 
@@ -111,9 +117,11 @@ contract StakedEXATest is Test {
     rewardsTokens[0].mint(address(stEXA), initialAmount);
     rewardsTokens[1].mint(address(stEXA), initialAmount);
 
+    stEXA.enableReward(exa);
     stEXA.enableReward(rewardsTokens[0]);
     stEXA.enableReward(rewardsTokens[1]);
 
+    stEXA.setRewardsDuration(exa, duration);
     stEXA.setRewardsDuration(rewardsTokens[0], duration);
     stEXA.setRewardsDuration(rewardsTokens[1], duration);
     stEXA.notifyRewardAmount(rewardsTokens[0], initialAmount);
@@ -121,6 +129,9 @@ contract StakedEXATest is Test {
 
     vm.label(BOB, "bob");
     exa.mint(BOB, exaBalance);
+
+    accounts.push(address(this));
+    accounts.push(BOB);
   }
 
   function testInitialValues() external view {
@@ -260,7 +271,6 @@ contract StakedEXATest is Test {
     assertApproxEqAbs(rewardsTokens[0].balanceOf(address(this)), thisClaimable, 1e6, "rewards != earned");
   }
 
-  // events
   function testDepositEvent(uint256 assets) external {
     assets = _bound(assets, 1, exaBalance);
 
@@ -297,11 +307,11 @@ contract StakedEXATest is Test {
 
     skip(time);
 
-    uint256 claimable = stEXA.claimable(rewardsTokens[0], address(this));
+    uint256 thisClaimable = stEXA.claimable(rewardsTokens[0], address(this));
 
-    if (claimable != 0) {
+    if (thisClaimable != 0) {
       vm.expectEmit(true, true, true, true, address(stEXA));
-      emit RewardPaid(rewardsTokens[0], address(this), claimable);
+      emit RewardPaid(rewardsTokens[0], address(this), thisClaimable);
     }
     stEXA.withdraw(assets, address(this), address(this));
   }
@@ -340,7 +350,6 @@ contract StakedEXATest is Test {
     assertEq(updatedAt, block.timestamp, "updatedAt != expected");
   }
 
-  // restricted functions
   function testOnlyAdminSetRewardsDuration() external {
     address nonAdmin = address(0x1);
     skip(duration + 1);
@@ -686,7 +695,7 @@ contract StakedEXATest is Test {
   }
 
   function testOnlyAdminEnableReward() external {
-    ERC20 notListed = new MockERC20("3.rewards token", "2.REW", 18);
+    ERC20 notListed = new MockERC20("reward C", "rC", 18);
 
     address nonAdmin = address(0x1);
     vm.prank(nonAdmin);
@@ -715,7 +724,7 @@ contract StakedEXATest is Test {
   }
 
   function testRewardNotListedError() external {
-    MockERC20 notListed = new MockERC20("3.rewards token", "2.REW", 18);
+    MockERC20 notListed = new MockERC20("reward C", "rC", 18);
     uint256 amount = 1;
     notListed.mint(address(stEXA), amount);
 
@@ -794,10 +803,10 @@ contract StakedEXATest is Test {
   function testClaimBeforeFirstHarvest() external {
     uint256 assets = market.maxWithdraw(PROVIDER);
     stEXA.deposit(assets, address(this));
-    uint256 claimable = stEXA.claimable(providerAsset, address(this));
+    uint256 thisClaimable = stEXA.claimable(providerAsset, address(this));
     providerAsset.balanceOf(address(stEXA));
     stEXA.withdraw(assets, address(this), address(this));
-    assertEq(providerAsset.balanceOf(address(this)), claimable);
+    assertEq(providerAsset.balanceOf(address(this)), thisClaimable);
   }
 
   function testClaimAfterHarvest() external {
@@ -806,18 +815,18 @@ contract StakedEXATest is Test {
     stEXA.harvest();
     stEXA.deposit(assets, address(this));
     skip(minTime);
-    uint256 claimable = stEXA.claimable(providerAsset, address(this));
-    assertEq(claimable, 0);
+    uint256 thisClaimable = stEXA.claimable(providerAsset, address(this));
+    assertEq(thisClaimable, 0);
     skip(1);
-    claimable = stEXA.claimable(providerAsset, address(this));
-    assertGt(claimable, 0);
+    thisClaimable = stEXA.claimable(providerAsset, address(this));
+    assertGt(thisClaimable, 0);
 
     skip(refTime - 1 weeks - 1);
 
-    claimable = stEXA.claimable(providerAsset, address(this));
+    thisClaimable = stEXA.claimable(providerAsset, address(this));
 
     stEXA.withdraw(assets, address(this), address(this));
-    assertEq(providerAsset.balanceOf(address(this)), claimable);
+    assertEq(providerAsset.balanceOf(address(this)), thisClaimable);
     assertApproxEqAbs(providerAsset.balanceOf(address(this)), harvested, 1e6); // no one else was in the program
   }
 
@@ -827,12 +836,12 @@ contract StakedEXATest is Test {
     stEXA.deposit(assets, BOB);
     skip(minTime + 1);
 
-    uint256 claimable = stEXA.claimable(rewardsTokens[0], address(this));
+    uint256 thisClaimable = stEXA.claimable(rewardsTokens[0], address(this));
     uint256 earned = stEXA.earned(rewardsTokens[0], address(this));
 
     stEXA.disableReward(rewardsTokens[0]);
     stEXA.withdraw(assets, address(this), address(this));
-    assertEq(rewardsTokens[0].balanceOf(address(this)), claimable);
+    assertEq(rewardsTokens[0].balanceOf(address(this)), thisClaimable);
 
     // stops emission
     skip(2 weeks);
@@ -852,14 +861,14 @@ contract StakedEXATest is Test {
     stEXA.deposit(assets, BOB);
     skip(minTime + 1);
 
-    uint256 claimable = stEXA.claimable(rewardsTokens[0], address(this));
+    uint256 thisClaimable = stEXA.claimable(rewardsTokens[0], address(this));
     uint256 earned = stEXA.earned(rewardsTokens[0], address(this));
 
     stEXA.disableReward(rewardsTokens[0]);
     uint256 newClaimable = stEXA.claimable(rewardsTokens[0], address(this));
-    assertEq(claimable, newClaimable);
+    assertEq(thisClaimable, newClaimable);
     stEXA.withdraw(assets, address(this), address(this));
-    assertEq(rewardsTokens[0].balanceOf(address(this)), claimable);
+    assertEq(rewardsTokens[0].balanceOf(address(this)), thisClaimable);
 
     // lets claim the unclaimed
     skip(2 weeks);
