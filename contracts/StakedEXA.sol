@@ -320,6 +320,10 @@ contract StakedEXA is
     _unpause();
   }
 
+  function totalAssets() public view override returns (uint256) {
+    return totalSupply();
+  }
+
   function decimals() public view override(ERC4626Upgradeable, ERC20Upgradeable) returns (uint8) {
     return ERC4626Upgradeable.decimals();
   }
