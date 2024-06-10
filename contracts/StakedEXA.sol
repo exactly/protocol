@@ -163,16 +163,23 @@ contract StakedEXA is
     emit RewardAmountNotified(reward, notifier, amount);
   }
 
+  // NOTE time with 18 decimals
   function discountFactor(uint256 time) internal view returns (uint256) {
-    uint256 memMinTime = minTime;
+    uint256 memMinTime = minTime * 1e18;
     if (time <= memMinTime) return 0;
-    if (time >= refTime) return (1e18 - excessFactor).mulWadDown((refTime * 1e18) / time) + excessFactor;
+    uint256 memRefTime = refTime * 1e18;
+    if (time >= memRefTime) {
+      uint256 memExcessFactor = excessFactor;
+      return (1e18 - memExcessFactor).mulWadDown((memRefTime * 1e18) / time) + memExcessFactor;
+    }
 
     uint256 penalties = uint256(
-      ((int256(penaltyGrowth) * int256(((time - memMinTime) * 1e18) / (refTime - memMinTime)).lnWad()) / 1e18).expWad()
+      ((int256(penaltyGrowth) * int256(((time - memMinTime) * 1e18) / (memRefTime - memMinTime)).lnWad()) / 1e18)
+        .expWad()
     );
 
-    return Math.min((1e18 - penaltyThreshold).mulWadDown(penalties) + penaltyThreshold, 1e18);
+    uint256 memPenaltyThreshold = penaltyThreshold;
+    return Math.min((1e18 - memPenaltyThreshold).mulWadDown(penalties) + memPenaltyThreshold, 1e18);
   }
 
   /// @dev Throws if the caller is not an `EMERGENCY_ADMIN_ROLE` or `PAUSER_ROLE`.
@@ -217,7 +224,7 @@ contract StakedEXA is
   }
 
   function claimable(ERC20 reward, address account, uint256 assets) public view returns (uint256) {
-    return earned(reward, account, assets).mulWadDown(discountFactor(block.timestamp - avgStart[account] / 1e18));
+    return earned(reward, account, assets).mulWadDown(discountFactor(block.timestamp * 1e18 - avgStart[account]));
   }
 
   function harvest() external {
