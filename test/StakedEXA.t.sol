@@ -624,32 +624,32 @@ contract StakedEXATest is Test {
     assertEq(stEXA.earned(rewardsTokens[0], BOB), 0);
   }
 
-  function testAvgTime(uint256[3] memory assets, uint256[2] memory times) external {
+  function testAvgStartTime(uint256[3] memory assets, uint256[2] memory times) external {
     assets[0] = _bound(assets[0], 1, exaBalance / 3);
     assets[1] = _bound(assets[1], 1, exaBalance / 3);
     assets[2] = _bound(assets[2], 1, exaBalance / 3);
     times[0] = _bound(times[0], 1, duration / 2);
     times[1] = _bound(times[1], 1, duration / 2);
 
-    uint256 avgTime = block.timestamp * 1e18;
+    uint256 avgStartTime = block.timestamp * 1e18;
     stEXA.deposit(assets[0], address(this));
-    assertEq(stEXA.avgStart(address(this)), avgTime);
+    assertEq(stEXA.avgStart(address(this)), avgStartTime);
 
     skip(times[0]);
 
     uint256 opWeight = assets[0].divWadDown(assets[0] + assets[1]);
-    avgTime = avgTime.mulWadDown(opWeight) + (block.timestamp) * (1e18 - opWeight);
+    avgStartTime = avgStartTime.mulWadUp(opWeight) + (block.timestamp) * (1e18 - opWeight);
     stEXA.deposit(assets[1], address(this));
-    assertEq(stEXA.avgStart(address(this)), avgTime);
+    assertEq(stEXA.avgStart(address(this)), avgStartTime);
 
     skip(times[1]);
 
     uint256 balance = assets[0] + assets[1];
     opWeight = balance.divWadDown(balance + assets[2]);
-    avgTime = avgTime.mulWadDown(opWeight) + (block.timestamp) * (1e18 - opWeight);
+    avgStartTime = avgStartTime.mulWadUp(opWeight) + (block.timestamp) * (1e18 - opWeight);
 
     stEXA.deposit(assets[2], address(this));
-    assertEq(stEXA.avgStart(address(this)), avgTime);
+    assertEq(stEXA.avgStart(address(this)), avgStartTime);
   }
 
   function testAvgIndex(uint256[3] memory assets, uint256[2] memory times) external {
@@ -667,19 +667,19 @@ contract StakedEXATest is Test {
 
     uint256 opWeight = assets[0].divWadDown(assets[0] + assets[1]);
     stEXA.deposit(assets[1], address(this));
-    avgIndex = avgIndex.mulWadDown(opWeight) + stEXA.globalIndex(rewardsTokens[0]).mulWadDown(1e18 - opWeight);
+    avgIndex = avgIndex.mulWadUp(opWeight) + stEXA.globalIndex(rewardsTokens[0]).mulWadUp(1e18 - opWeight);
     assertEq(stEXA.avgIndex(rewardsTokens[0], address(this)), avgIndex, "avgIndex.1 != globalIndex");
 
     skip(times[1]);
 
     uint256 balance = assets[0] + assets[1];
     opWeight = balance.divWadDown(balance + assets[2]);
-    avgIndex = avgIndex.mulWadDown(opWeight) + stEXA.globalIndex(rewardsTokens[0]).mulWadDown(1e18 - opWeight);
+    avgIndex = avgIndex.mulWadUp(opWeight) + stEXA.globalIndex(rewardsTokens[0]).mulWadUp(1e18 - opWeight);
     stEXA.deposit(assets[2], address(this));
     assertEq(stEXA.avgIndex(rewardsTokens[0], address(this)), avgIndex, "avgIndex.2 != globalIndex");
   }
 
-  function testDepositWithdrawAvgTimeAndIndex(
+  function testDepositWithdrawAvgStartTimeAndIndex(
     uint256[3] memory assets,
     uint256 partialWithdraw,
     uint256[5] memory times
@@ -697,13 +697,13 @@ contract StakedEXATest is Test {
     skip(times[0]);
     stEXA.deposit(assets[0], address(this));
 
-    uint256 avgTime = block.timestamp * 1e18;
+    uint256 avgStartTime = block.timestamp * 1e18;
     uint256 avgIndex = stEXA.globalIndex(rewardsTokens[0]);
 
     // skip + partial withdraw -> avg time and index shouldn't change
     skip(times[1]);
     stEXA.withdraw(partialWithdraw, address(this), address(this));
-    assertEq(stEXA.avgStart(address(this)), avgTime, "avgTime != expected");
+    assertEq(stEXA.avgStart(address(this)), avgStartTime, "avgStartTime != expected");
     assertEq(stEXA.avgIndex(rewardsTokens[0], address(this)), avgIndex, "avgIndex != expected");
 
     // skip + new deposit -> avg time and index should change
@@ -711,22 +711,22 @@ contract StakedEXATest is Test {
     stEXA.deposit(assets[1], address(this));
     uint256 balance = assets[0] - partialWithdraw;
     uint256 opWeight = balance.divWadDown(balance + assets[1]);
-    avgTime = avgTime.mulWadDown(opWeight) + (block.timestamp) * (1e18 - opWeight);
-    avgIndex = avgIndex.mulWadDown(opWeight) + stEXA.globalIndex(rewardsTokens[0]).mulWadDown(1e18 - opWeight);
+    avgStartTime = avgStartTime.mulWadUp(opWeight) + (block.timestamp) * (1e18 - opWeight);
+    avgIndex = avgIndex.mulWadUp(opWeight) + stEXA.globalIndex(rewardsTokens[0]).mulWadUp(1e18 - opWeight);
 
     // skip + full withdraw -> avg time and index shouldn't change
     skip(times[3]);
     uint256 fullWithdraw = assets[0] + assets[1] - partialWithdraw;
     stEXA.withdraw(fullWithdraw, address(this), address(this));
-    assertEq(stEXA.avgStart(address(this)), avgTime, "avgTime != expected");
+    assertEq(stEXA.avgStart(address(this)), avgStartTime, "avgStartTime != expected");
     assertEq(stEXA.avgIndex(rewardsTokens[0], address(this)), avgIndex, "avgIndex != expected");
 
     // skip + new deposit -> avg time and index should be restarted
     skip(times[4]);
     stEXA.deposit(assets[2], address(this));
-    avgTime = block.timestamp * 1e18;
+    avgStartTime = block.timestamp * 1e18;
     avgIndex = stEXA.globalIndex(rewardsTokens[0]);
-    assertEq(stEXA.avgStart(address(this)), avgTime, "avgTime != expected");
+    assertEq(stEXA.avgStart(address(this)), avgStartTime, "avgStartTime != expected");
     assertEq(stEXA.avgIndex(rewardsTokens[0], address(this)), avgIndex, "avgIndex != expected");
   }
 

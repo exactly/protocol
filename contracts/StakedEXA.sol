@@ -127,10 +127,10 @@ contract StakedEXA is
         ERC20 reward = rewardsTokens[i];
         updateIndex(reward);
         avgIndexes[to][reward] =
-          avgIndexes[to][reward].mulWadDown(weight) +
-          rewards[reward].index.mulWadDown(1e18 - weight);
+          avgIndexes[to][reward].mulWadUp(weight) +
+          rewards[reward].index.mulWadUp(1e18 - weight);
       }
-      avgStart[to] = avgStart[to].mulWadDown(weight) + (block.timestamp) * (1e18 - weight);
+      avgStart[to] = avgStart[to].mulWadUp(weight) + (block.timestamp) * (1e18 - weight);
     } else if (to == address(0)) {
       for (uint256 i = 0; i < rewardsTokens.length; ++i) {
         ERC20 reward = rewardsTokens[i];
@@ -220,7 +220,10 @@ contract StakedEXA is
   }
 
   function earned(ERC20 reward, address account, uint256 assets) public view returns (uint256) {
-    return assets.mulWadDown(globalIndex(reward) - avgIndexes[account][reward]);
+    uint256 index = globalIndex(reward);
+    uint256 accIndex = avgIndexes[account][reward];
+    if (index <= accIndex) return 0;
+    return assets.mulWadDown(index - accIndex);
   }
 
   function claimable(ERC20 reward, address account, uint256 assets) public view returns (uint256) {
