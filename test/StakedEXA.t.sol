@@ -17,6 +17,7 @@ import {
   ERC20,
   Market,
   StakedEXA,
+  ClaimableReward,
   AlreadyListed,
   InsufficientBalance,
   InvalidRatio,
@@ -1180,6 +1181,43 @@ contract StakedEXATest is Test {
   function testSetProviderRatioOverOneError() external {
     vm.expectRevert(InvalidRatio.selector);
     stEXA.setProviderRatio(1e18 + 1);
+  }
+
+  function testAllClaimable() external {
+    uint256 assets = 1_000e18;
+    stEXA.deposit(assets, address(this));
+    skip(minTime);
+
+    ClaimableReward[] memory claimableRewards = stEXA.allClaimable(address(this));
+    assertEq(claimableRewards.length, stEXA.allRewardsTokens().length);
+
+    for (uint256 i = 0; i < claimableRewards.length; i++) {
+      assertEq(claimableRewards[i].amount, 0);
+    }
+
+    skip(1);
+
+    claimableRewards = stEXA.allClaimable(address(this));
+    assertEq(claimableRewards.length, stEXA.allRewardsTokens().length);
+
+    for (uint256 i = 0; i < claimableRewards.length; i++) {
+      ClaimableReward memory claimableReward = claimableRewards[i];
+      assertEq(claimableRewards[i].amount, stEXA.claimable(ERC20(claimableReward.reward), address(this)));
+    }
+  }
+
+  function testAllEarned() external {
+    uint256 assets = 1_000e18;
+    stEXA.deposit(assets, address(this));
+    skip(minTime + 1);
+
+    ClaimableReward[] memory earnedRewards = stEXA.allEarned(address(this));
+    assertEq(earnedRewards.length, stEXA.allRewardsTokens().length);
+
+    for (uint256 i = 0; i < earnedRewards.length; i++) {
+      ClaimableReward memory earnedReward = earnedRewards[i];
+      assertEq(earnedRewards[i].amount, stEXA.earned(ERC20(earnedReward.reward), address(this)));
+    }
   }
 
   function minMaxWithdrawAllowance() internal view returns (uint256) {
