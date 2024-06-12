@@ -138,12 +138,13 @@ contract StakedEXATest is Test {
     accounts.push(BOB);
 
     targetContract(address(this));
-    bytes4[] memory selectors = new bytes4[](5);
+    bytes4[] memory selectors = new bytes4[](6);
     selectors[0] = this.handlerSkip.selector;
     selectors[1] = this.testHandlerDeposit.selector;
     selectors[2] = this.testHandlerWithdraw.selector;
     selectors[3] = this.testHandlerNotifyRewardAmount.selector;
     selectors[4] = this.testHandlerSetDuration.selector;
+    selectors[5] = this.testHandlerClaim.selector;
     targetSelector(FuzzSelector(address(this), selectors));
   }
 
@@ -271,6 +272,20 @@ contract StakedEXATest is Test {
     uint256 newRate;
     (, finishAt, , newRate, ) = stEXA.rewards(reward);
     assertEq(rate, newRate, "rate != new rate");
+  }
+
+  function testHandlerClaim(uint256 assets) external {
+    address account = accounts[uint256(keccak256(abi.encode(assets, block.timestamp))) % accounts.length];
+    assets = _bound(assets, 0, stEXA.maxWithdraw(account));
+
+    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+      MockERC20 reward = rewardsTokens[i];
+      uint256 balance = reward.balanceOf(account);
+      uint256 claimableAmount = stEXA.claimable(reward, account) - stEXA.claimedOf(account, reward);
+      vm.prank(account);
+      stEXA.claim(reward);
+      assertEq(reward.balanceOf(account), balance + claimableAmount, "missing rewards");
+    }
   }
 
   function testInitialValues() external view {
@@ -917,10 +932,6 @@ contract StakedEXATest is Test {
     assertEq(allowance.mulWadDown(providerRatio), harvested);
   }
 
-  function testHarvestSetters() external {
-    // TODO
-  }
-
   function testMultipleHarvests() external {
     uint256 assets = market.maxWithdraw(PROVIDER);
     stEXA.harvest();
@@ -1220,12 +1231,78 @@ contract StakedEXATest is Test {
     }
   }
 
+  function testClaimAndUnstake() external {
+    stEXA.harvest();
+    uint256 assets = 1_000e18;
+    stEXA.deposit(assets, address(this));
+    stEXA.deposit(assets, BOB);
+
+    skip(minTime + 2 weeks);
+
+    uint256 claimableThis = stEXA.claimable(providerAsset, address(this));
+    uint256 claimableBOB = stEXA.claimable(providerAsset, BOB);
+    assertEq(claimableThis, claimableBOB, "claimableThis != claimableBOB");
+
+    stEXA.withdraw(assets, address(this), address(this));
+    assertEq(providerAsset.balanceOf(address(this)), claimableThis, "balance != claimableThis");
+
+    vm.prank(BOB);
+    stEXA.claimAll();
+    assertEq(providerAsset.balanceOf(BOB), claimableBOB, "balanceBOB != claimableBOB");
+
+    assertEq(providerAsset.balanceOf(address(this)), providerAsset.balanceOf(BOB), "balances are not equal");
+  }
+
+  function testMultipleClaimsVsOne() external {
+    stEXA.harvest();
+    uint256 assets = 1_000e18;
+    stEXA.deposit(assets, address(this));
+    stEXA.deposit(assets, BOB);
+
+    uint256 claimableAcc = 0;
+    for (uint256 i = 0; i < refTime / 1 weeks; i++) {
+      skip(1 weeks);
+      harvest();
+      uint256 claimed = stEXA.claimedOf(address(this), providerAsset);
+      uint256 claimableAmount = stEXA.claimable(providerAsset, address(this));
+      claimableAcc += claimableAmount > claimed ? claimableAmount - claimed : 0;
+      stEXA.claimAll();
+    }
+    assertEq(providerAsset.balanceOf(address(this)), claimableAcc, "balance != claimableAcc");
+
+    uint256 claimableBOB = stEXA.claimable(providerAsset, BOB);
+    assertEq(claimableBOB, claimableAcc, "claimableBOB != claimableAcc");
+
+    vm.prank(BOB);
+    stEXA.claimAll();
+
+    assertEq(providerAsset.balanceOf(address(this)), providerAsset.balanceOf(BOB));
+
+    for (uint256 i = 0; i < 30; i++) {
+      skip(1 weeks);
+      harvest();
+      uint256 claimed = stEXA.claimedOf(address(this), providerAsset);
+      uint256 claimableAmount = stEXA.claimable(providerAsset, address(this));
+
+      claimableAcc += claimableAmount > claimed ? claimableAmount - claimed : 0;
+      stEXA.claimAll();
+    }
+
+    vm.prank(BOB);
+    stEXA.claimAll();
+
+    assertEq(providerAsset.balanceOf(BOB), providerAsset.balanceOf(address(this)), "balances are not equal");
+  }
+
   function minMaxWithdrawAllowance() internal view returns (uint256) {
     return Math.min(market.convertToAssets(market.allowance(PROVIDER, address(stEXA))), market.maxWithdraw(PROVIDER));
   }
 
   function harvest() internal {
-    providerAsset.mint(PROVIDER, 1_000e18);
+    uint256 assets = 1_000e18;
+    providerAsset.mint(address(this), assets);
+    providerAsset.approve(address(market), assets);
+    market.deposit(assets, PROVIDER);
     stEXA.harvest();
   }
 
