@@ -230,6 +230,48 @@ contract StakedEXA is
     return earned(reward, account, assets).mulWadDown(discountFactor(block.timestamp * 1e18 - avgStart[account]));
   }
 
+  /// @notice Calculates the amount of rewards that an account has earned.
+  /// @param account The address of the user for whom to calculate the rewards.
+  /// @return The total amount of earned rewards for the specified user.
+  /// @dev Computes earned rewards by taking the product of the account's balance and the difference between the
+  /// global reward per token and the reward per token already paid to the user.
+  /// This result is then added to any rewards that have already been accumulated but not yet paid out.
+  function earned(ERC20 reward, address account) external view returns (uint256) {
+    return earned(reward, account, balanceOf(account));
+  }
+
+  function claimable(ERC20 reward, address account) external view returns (uint256) {
+    return claimable(reward, account, balanceOf(account));
+  }
+
+  function allClaimable(address account) external view returns (ClaimableReward[] memory) {
+    ClaimableReward[] memory claimableRewards = new ClaimableReward[](rewardsTokens.length);
+    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+      ERC20 reward = rewardsTokens[i];
+      claimableRewards[i] = ClaimableReward({
+        reward: address(reward),
+        rewardName: reward.name(),
+        rewardSymbol: reward.symbol(),
+        amount: claimable(reward, account, balanceOf(account))
+      });
+    }
+    return claimableRewards;
+  }
+
+  function allEarned(address account) external view returns (ClaimableReward[] memory) {
+    ClaimableReward[] memory earnedRewards = new ClaimableReward[](rewardsTokens.length);
+    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+      ERC20 reward = rewardsTokens[i];
+      earnedRewards[i] = ClaimableReward({
+        reward: address(reward),
+        rewardName: reward.name(),
+        rewardSymbol: reward.symbol(),
+        amount: earned(reward, account, balanceOf(account))
+      });
+    }
+    return earnedRewards;
+  }
+
   function harvest() external {
     Market memMarket = market;
     address memProvider = provider;
@@ -244,20 +286,6 @@ contract StakedEXA is
     if (save != 0) memMarket.deposit(save, savings);
 
     if (amount != 0) notifyRewardAmount(memMarket.asset(), amount, address(this));
-  }
-
-  /// @notice Calculate the amount of rewards that an account has earned but not yet claimed.
-  /// @param account The address of the user for whom to calculate the rewards.
-  /// @return The total amount of earned rewards for the specified user.
-  /// @dev Computes earned rewards by taking the product of the account's balance and the difference between the
-  /// global reward per token and the reward per token already paid to the user.
-  /// This result is then added to any rewards that have already been accumulated but not yet paid out.
-  function earned(ERC20 reward, address account) external view returns (uint256) {
-    return earned(reward, account, balanceOf(account));
-  }
-
-  function claimable(ERC20 reward, address account) external view returns (uint256) {
-    return claimable(reward, account, balanceOf(account));
   }
 
   function allRewardsTokens() external view returns (ERC20[] memory) {
@@ -380,4 +408,11 @@ struct RewardData {
   uint256 index;
   uint256 rate;
   uint256 updatedAt;
+}
+
+struct ClaimableReward {
+  address reward;
+  string rewardName;
+  string rewardSymbol;
+  uint256 amount;
 }
