@@ -59,6 +59,8 @@ contract StakedEXA is
   mapping(address account => uint256 time) public avgStart;
   /// @notice Accounts average indexes per reward token
   mapping(address account => mapping(ERC20 reward => uint256 index)) public avgIndexes;
+  mapping(address account => mapping(ERC20 reward => uint256 claimed)) public claimed;
+  mapping(address account => mapping(ERC20 reward => uint256 saved)) public saved;
 
   Market public market;
   address public provider;
@@ -135,13 +137,37 @@ contract StakedEXA is
       for (uint256 i = 0; i < rewardsTokens.length; ++i) {
         ERC20 reward = rewardsTokens[i];
         updateIndex(reward);
-        uint256 claimableAmount = claimable(reward, from, amount);
-        if (claimableAmount != 0) {
-          reward.transfer(from, claimableAmount);
-          emit RewardPaid(reward, from, claimableAmount);
-        }
+        claimWithdraw(reward, from, amount);
       }
     } else revert Untransferable();
+  }
+
+  function claimWithdraw(ERC20 reward, address account, uint256 amount) internal {
+    uint256 time = block.timestamp * 1e18 - avgStart[account];
+    uint256 rawEarned = earned(reward, account, amount);
+    uint256 claimedAmount = claimed[account][reward];
+    uint256 proportion = amount.divWadDown(balanceOf(account));
+
+    saved[account][reward] = saved[account][reward].mulWadDown(1e18 - proportion);
+    uint256 claimedProportionAmount = claimedAmount.mulWadDown(proportion);
+    claimed[account][reward] = claimedAmount - claimedProportionAmount;
+
+    if (time <= minTime * 1e18) {
+      uint256 save = rawEarned - claimedProportionAmount;
+      if (save != 0) reward.transfer(savings, save);
+      return;
+    }
+
+    uint256 claimableAmount = claimable(reward, account, amount);
+    uint256 claimAmount = claimableAmount - claimedProportionAmount;
+    if (claimAmount != 0) {
+      reward.transfer(account, claimAmount);
+      emit RewardPaid(reward, account, claimAmount);
+    }
+    {
+      uint256 save = rawEarned - claimableAmount;
+      if (save != 0) reward.transfer(savings, save);
+    }
   }
 
   function notifyRewardAmount(ERC20 reward, uint256 amount, address notifier) internal onlyReward(reward) {
@@ -272,6 +298,28 @@ contract StakedEXA is
     return earnedRewards;
   }
 
+  function claimedOf(address account, ERC20 reward) external view returns (uint256) {
+    return claimed[account][reward];
+  }
+
+  function savedOf(address account, ERC20 reward) external view returns (uint256) {
+    return saved[account][reward];
+  }
+
+  function allClaimed(address account) external view returns (ClaimableReward[] memory) {
+    ClaimableReward[] memory claimedRewards = new ClaimableReward[](rewardsTokens.length);
+    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+      ERC20 reward = rewardsTokens[i];
+      claimedRewards[i] = ClaimableReward({
+        reward: address(reward),
+        rewardName: reward.name(),
+        rewardSymbol: reward.symbol(),
+        amount: claimed[account][reward]
+      });
+    }
+    return claimedRewards;
+  }
+
   function harvest() external {
     Market memMarket = market;
     address memProvider = provider;
@@ -290,6 +338,38 @@ contract StakedEXA is
 
   function allRewardsTokens() external view returns (ERC20[] memory) {
     return rewardsTokens;
+  }
+
+  function claim_(ERC20 reward) internal {
+    uint256 time = block.timestamp * 1e18 - avgStart[msg.sender];
+    if (time <= minTime * 1e18) return;
+
+    uint256 claimedAmount = claimed[msg.sender][reward];
+    uint256 claimableAmount = claimable(reward, msg.sender, balanceOf(msg.sender));
+
+    uint256 amount = claimableAmount > claimedAmount ? claimableAmount - claimedAmount : 0;
+    if (amount != 0) claimed[msg.sender][reward] = claimedAmount + amount;
+    if (time > refTime * 1e18) {
+      uint256 savedAmount = saved[msg.sender][reward];
+      uint256 save = earned(reward, msg.sender, balanceOf(msg.sender)) - claimedAmount - amount - savedAmount;
+      saved[msg.sender][reward] = savedAmount + save;
+
+      if (save != 0) reward.transfer(savings, save);
+    }
+    if (amount != 0) {
+      reward.transfer(msg.sender, amount);
+      emit RewardPaid(reward, msg.sender, amount);
+    }
+  }
+
+  function claim(ERC20 reward) external {
+    claim_(reward);
+  }
+
+  function claimAll() external {
+    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+      claim_(rewardsTokens[i]);
+    }
   }
 
   // restricted functions
