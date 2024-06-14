@@ -181,7 +181,10 @@ contract StakedEXA is
     }
 
     if (rewardData.rate == 0) revert ZeroRate();
-    if (rewardData.rate * rewardData.duration > reward.balanceOf(address(this))) revert InsufficientBalance();
+    if (
+      rewardData.rate * rewardData.duration >
+      reward.balanceOf(address(this)) - (address(reward) == asset() ? totalAssets() : 0)
+    ) revert InsufficientBalance();
 
     rewardData.finishAt = block.timestamp + rewardData.duration;
     rewardData.updatedAt = block.timestamp;
