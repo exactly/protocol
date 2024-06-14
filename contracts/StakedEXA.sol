@@ -96,11 +96,11 @@ contract StakedEXA is
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-    minTime = minTime_;
-    refTime = refTime_;
-    excessFactor = excessFactor_;
-    penaltyGrowth = penaltyGrowth_;
-    penaltyThreshold = penaltyThreshold_;
+    setMinTime(minTime_);
+    setRefTime(refTime_);
+    setExcessFactor(excessFactor_);
+    setPenaltyGrowth(penaltyGrowth_);
+    setPenaltyThreshold(penaltyThreshold_);
 
     market = market_;
 
@@ -439,6 +439,29 @@ contract StakedEXA is
     emit SavingsSet(savings_, msg.sender);
   }
 
+  function setMinTime(uint256 minTime_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    minTime = minTime_;
+    emit MinTimeSet(minTime_, msg.sender);
+  }
+
+  function setRefTime(uint256 refTime_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    refTime = refTime_;
+    emit RefTimeSet(refTime_, msg.sender);
+  }
+
+  function setExcessFactor(uint256 excessFactor_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    excessFactor = excessFactor_;
+    emit ExcessFactorSet(excessFactor_, msg.sender);
+  }
+  function setPenaltyGrowth(uint256 penaltyGrowth_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    penaltyGrowth = penaltyGrowth_;
+    emit PenaltyGrowthSet(penaltyGrowth_, msg.sender);
+  }
+  function setPenaltyThreshold(uint256 penaltyThreshold_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    penaltyThreshold = penaltyThreshold_;
+    emit PenaltyThresholdSet(penaltyThreshold_, msg.sender);
+  }
+
   /// @notice Sets the pause state to true in case of emergency, triggered by an authorized account.
   function pause() external onlyPausingRoles {
     _pause();
@@ -466,9 +489,14 @@ contract StakedEXA is
     return "mode=timestamp";
   }
 
+  event ExcessFactorSet(uint256 excessFactor, address indexed account);
   event MarketSet(Market indexed market, address indexed account);
+  event MinTimeSet(uint256 minTime, address indexed account);
+  event PenaltyGrowthSet(uint256 penaltyGrowth, address indexed account);
+  event PenaltyThresholdSet(uint256 penaltyThreshold, address indexed account);
   event ProviderRatioSet(uint256 providerRatio, address indexed account);
   event ProviderSet(address indexed provider, address indexed account);
+  event RefTimeSet(uint256 refTime, address indexed account);
   event RewardAmountNotified(ERC20 indexed reward, address indexed notifier, uint256 amount);
   event RewardDisabled(ERC20 indexed reward, address indexed account);
   event RewardPaid(ERC20 indexed reward, address indexed account, uint256 amount);
