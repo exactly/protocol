@@ -281,7 +281,7 @@ contract StakedEXATest is Test {
     for (uint256 i = 0; i < rewardsTokens.length; ++i) {
       MockERC20 reward = rewardsTokens[i];
       uint256 balance = reward.balanceOf(account);
-      uint256 claimableAmount = stEXA.claimable(reward, account) - stEXA.claimedOf(account, reward);
+      uint256 claimableAmount = stEXA.claimable(reward, account);
       vm.prank(account);
       stEXA.claim(reward);
       assertEq(reward.balanceOf(account), balance + claimableAmount, "missing rewards");
@@ -1263,9 +1263,8 @@ contract StakedEXATest is Test {
     for (uint256 i = 0; i < refTime / 1 weeks; i++) {
       skip(1 weeks);
       harvest();
-      uint256 claimed = stEXA.claimedOf(address(this), providerAsset);
       uint256 claimableAmount = stEXA.claimable(providerAsset, address(this));
-      claimableAcc += claimableAmount > claimed ? claimableAmount - claimed : 0;
+      claimableAcc += claimableAmount;
       stEXA.claimAll();
     }
     assertEq(providerAsset.balanceOf(address(this)), claimableAcc, "balance != claimableAcc");
