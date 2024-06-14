@@ -1293,6 +1293,17 @@ contract StakedEXATest is Test {
     assertEq(providerAsset.balanceOf(BOB), providerAsset.balanceOf(address(this)), "balances are not equal");
   }
 
+  function testNotifyRewardWithUnderlyingAsset() external {
+    uint256 assets = 1_000e18;
+    stEXA.deposit(assets, address(this));
+
+    vm.expectRevert(InsufficientBalance.selector);
+    stEXA.notifyRewardAmount(exa, assets);
+
+    exa.mint(address(stEXA), 1_000e18);
+    stEXA.notifyRewardAmount(exa, assets);
+  }
+
   function minMaxWithdrawAllowance() internal view returns (uint256) {
     return Math.min(market.convertToAssets(market.allowance(PROVIDER, address(stEXA))), market.maxWithdraw(PROVIDER));
   }
