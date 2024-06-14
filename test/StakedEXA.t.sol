@@ -1304,6 +1304,76 @@ contract StakedEXATest is Test {
     stEXA.notifyRewardAmount(exa, assets);
   }
 
+  function testSetExcessFactor() external {
+    uint256 factor = 0.7e18;
+
+    address nonAdmin = address(0x1);
+    vm.prank(nonAdmin);
+    vm.expectRevert(bytes(""));
+    stEXA.setExcessFactor(factor);
+
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit ExcessFactorSet(factor, address(this));
+    stEXA.setExcessFactor(factor);
+    assertEq(stEXA.excessFactor(), factor);
+  }
+
+  function testSetMinTime() external {
+    uint256 time = 1 days;
+
+    address nonAdmin = address(0x1);
+    vm.prank(nonAdmin);
+    vm.expectRevert(bytes(""));
+    stEXA.setMinTime(time);
+
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit MinTimeSet(time, address(this));
+    stEXA.setMinTime(time);
+    assertEq(stEXA.minTime(), time);
+  }
+
+  function testSetPenaltyGrowth() external {
+    uint256 growth = 1e18;
+
+    address nonAdmin = address(0x1);
+    vm.prank(nonAdmin);
+    vm.expectRevert(bytes(""));
+    stEXA.setPenaltyGrowth(growth);
+
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit PenaltyGrowthSet(growth, address(this));
+    stEXA.setPenaltyGrowth(growth);
+    assertEq(stEXA.penaltyGrowth(), growth);
+  }
+
+  function testSetPenaltyThreshold() external {
+    uint256 threshold = 0.7e18;
+
+    address nonAdmin = address(0x1);
+    vm.prank(nonAdmin);
+    vm.expectRevert(bytes(""));
+    stEXA.setPenaltyThreshold(threshold);
+
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit PenaltyThresholdSet(threshold, address(this));
+    stEXA.setPenaltyThreshold(threshold);
+    assertEq(stEXA.penaltyThreshold(), threshold);
+  }
+
+  function testSetRefTime() external {
+    uint256 time = 2 weeks;
+
+    address nonAdmin = address(0x1);
+    vm.prank(nonAdmin);
+    vm.expectRevert(bytes(""));
+    stEXA.setRefTime(time);
+
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit RefTimeSet(time, address(this));
+    stEXA.setRefTime(time);
+    assertEq(stEXA.refTime(), time);
+  }
+
   function minMaxWithdrawAllowance() internal view returns (uint256) {
     return Math.min(market.convertToAssets(market.allowance(PROVIDER, address(stEXA))), market.maxWithdraw(PROVIDER));
   }
@@ -1324,9 +1394,15 @@ contract StakedEXATest is Test {
     uint256 assets,
     uint256 shares
   );
+
+  event ExcessFactorSet(uint256 excessFactor, address indexed account);
   event MarketSet(Market indexed market, address indexed account);
+  event MinTimeSet(uint256 minTime, address indexed account);
+  event PenaltyGrowthSet(uint256 penaltyGrowth, address indexed account);
+  event PenaltyThresholdSet(uint256 penaltyThreshold, address indexed account);
   event ProviderRatioSet(uint256 providerRatio, address indexed account);
   event ProviderSet(address indexed provider, address indexed account);
+  event RefTimeSet(uint256 refTime, address indexed account);
   event RewardAmountNotified(ERC20 indexed reward, address indexed account, uint256 amount);
   event RewardDisabled(ERC20 indexed reward, address indexed account);
   event RewardPaid(ERC20 indexed reward, address indexed account, uint256 amount);
