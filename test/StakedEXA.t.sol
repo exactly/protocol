@@ -118,6 +118,7 @@ contract StakedEXATest is Test {
 
     exa.approve(address(stEXA), type(uint256).max);
 
+    exa.mint(address(stEXA), initialAmount);
     rewardsTokens[0].mint(address(stEXA), initialAmount);
     rewardsTokens[1].mint(address(stEXA), initialAmount);
 
@@ -128,6 +129,7 @@ contract StakedEXATest is Test {
     stEXA.setRewardsDuration(exa, duration);
     stEXA.setRewardsDuration(rewardsTokens[0], duration);
     stEXA.setRewardsDuration(rewardsTokens[1], duration);
+    stEXA.notifyRewardAmount(exa, initialAmount);
     stEXA.notifyRewardAmount(rewardsTokens[0], initialAmount);
     stEXA.notifyRewardAmount(rewardsTokens[1], initialAmount);
 
@@ -1372,6 +1374,26 @@ contract StakedEXATest is Test {
     emit RefTimeSet(time, address(this));
     stEXA.setRefTime(time);
     assertEq(stEXA.refTime(), time);
+  }
+
+  function testResetDepositAfterRefTime(uint256 assets) external {
+    assets = _bound(assets, 1, exaBalance / 2);
+    uint256 start = block.timestamp * 1e18;
+    stEXA.deposit(assets, address(this));
+
+    skip(refTime + 1);
+
+    uint256 expectedClaim = stEXA.claimable(exa, address(this));
+
+    assertEq(stEXA.avgStart(address(this)), start);
+
+    uint256 balance = exa.balanceOf(address(this));
+
+    start = block.timestamp * 1e18;
+    stEXA.deposit(assets, address(this));
+
+    assertEq(exa.balanceOf(address(this)), balance + expectedClaim - assets);
+    assertEq(stEXA.avgStart(address(this)), start);
   }
 
   function minMaxWithdrawAllowance() internal view returns (uint256) {

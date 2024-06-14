@@ -123,16 +123,23 @@ contract StakedEXA is
   function _beforeTokenTransfer(address from, address to, uint256 amount) internal override whenNotPaused {
     if (amount == 0) revert ZeroAmount();
     if (from == address(0)) {
+      uint256 start = avgStart[to];
+      uint256 time = start != 0 ? block.timestamp * 1e18 - start : 0;
+      uint256 memRefTime = refTime * 1e18;
+
       uint256 balance = balanceOf(to);
-      uint256 weight = balance.divWadDown(balance + amount);
+      uint256 weight = time <= memRefTime ? balance.divWadDown(balance + amount) : 0;
+
       for (uint256 i = 0; i < rewardsTokens.length; ++i) {
         ERC20 reward = rewardsTokens[i];
         updateIndex(reward);
+        if (time > memRefTime && balance != 0) claimWithdraw(reward, to, balance);
+
         avgIndexes[to][reward] =
           avgIndexes[to][reward].mulWadUp(weight) +
           rewards[reward].index.mulWadUp(1e18 - weight);
       }
-      avgStart[to] = avgStart[to].mulWadUp(weight) + (block.timestamp) * (1e18 - weight);
+      avgStart[to] = start.mulWadUp(weight) + (block.timestamp) * (1e18 - weight);
     } else if (to == address(0)) {
       for (uint256 i = 0; i < rewardsTokens.length; ++i) {
         ERC20 reward = rewardsTokens[i];
