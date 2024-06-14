@@ -253,7 +253,11 @@ contract StakedEXA is
   }
 
   function claimable(ERC20 reward, address account, uint256 assets) public view returns (uint256) {
-    return earned(reward, account, assets).mulWadDown(discountFactor(block.timestamp * 1e18 - avgStart[account]));
+    uint256 rawClaimable = earned(reward, account, assets).mulWadDown(
+      discountFactor(block.timestamp * 1e18 - avgStart[account])
+    );
+    uint256 claimedAmount = claimed[account][reward];
+    return rawClaimable > claimedAmount ? rawClaimable - claimedAmount : 0;
   }
 
   /// @notice Calculates the amount of rewards that an account has earned.
@@ -347,18 +351,18 @@ contract StakedEXA is
     uint256 claimedAmount = claimed[msg.sender][reward];
     uint256 claimableAmount = claimable(reward, msg.sender, balanceOf(msg.sender));
 
-    uint256 amount = claimableAmount > claimedAmount ? claimableAmount - claimedAmount : 0;
-    if (amount != 0) claimed[msg.sender][reward] = claimedAmount + amount;
+    if (claimableAmount != 0) claimed[msg.sender][reward] = claimedAmount + claimableAmount;
+
     if (time > refTime * 1e18) {
       uint256 savedAmount = saved[msg.sender][reward];
-      uint256 save = earned(reward, msg.sender, balanceOf(msg.sender)) - claimedAmount - amount - savedAmount;
+      uint256 save = earned(reward, msg.sender, balanceOf(msg.sender)) - claimableAmount - claimedAmount - savedAmount;
       saved[msg.sender][reward] = savedAmount + save;
 
       if (save != 0) reward.transfer(savings, save);
     }
-    if (amount != 0) {
-      reward.transfer(msg.sender, amount);
-      emit RewardPaid(reward, msg.sender, amount);
+    if (claimableAmount != 0) {
+      reward.transfer(msg.sender, claimableAmount);
+      emit RewardPaid(reward, msg.sender, claimableAmount);
     }
   }
 
