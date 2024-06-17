@@ -329,13 +329,16 @@ contract StakedEXA is
       memMarket.convertToAssets(memMarket.allowance(memProvider, address(this))),
       memMarket.maxWithdraw(memProvider)
     );
+    uint256 amount = assets.mulWadDown(providerRatio);
+    IERC20 providerAsset = IERC20(address(memMarket.asset()));
+    uint256 duration = rewards[providerAsset].duration;
+    if (duration == 0 || amount < rewards[providerAsset].duration) return;
 
     memMarket.withdraw(assets, address(this), memProvider);
-    uint256 amount = assets.mulWadDown(providerRatio);
     uint256 save = assets - amount;
     if (save != 0) memMarket.deposit(save, savings);
 
-    if (amount != 0) notifyRewardAmount(IERC20(address(memMarket.asset())), amount, address(this));
+    notifyRewardAmount(providerAsset, amount, address(this));
   }
 
   function allRewardsTokens() external view returns (IERC20[] memory) {

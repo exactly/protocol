@@ -29,6 +29,7 @@ import {
 
 contract StakedEXATest is Test {
   using FixedPointMathLib for uint256;
+  using FixedPointMathLib for uint64;
 
   address internal constant BOB = address(0x420);
   StakedEXA internal stEXA;
@@ -137,13 +138,14 @@ contract StakedEXATest is Test {
     accounts.push(BOB);
 
     targetContract(address(this));
-    bytes4[] memory selectors = new bytes4[](6);
+    bytes4[] memory selectors = new bytes4[](7);
     selectors[0] = this.handlerSkip.selector;
     selectors[1] = this.testHandlerDeposit.selector;
     selectors[2] = this.testHandlerWithdraw.selector;
-    selectors[3] = this.testHandlerNotifyRewardAmount.selector;
-    selectors[4] = this.testHandlerSetDuration.selector;
-    selectors[5] = this.testHandlerClaim.selector;
+    selectors[3] = this.testHandlerClaim.selector;
+    selectors[4] = this.testHandlerHarvest.selector;
+    selectors[5] = this.testHandlerNotifyRewardAmount.selector;
+    selectors[6] = this.testHandlerSetDuration.selector;
     targetSelector(FuzzSelector(address(this), selectors));
   }
 
@@ -277,18 +279,35 @@ contract StakedEXATest is Test {
     assertEq(rate, newRate, "rate != new rate");
   }
 
-  function testHandlerClaim(uint256 assets) external {
-    address account = accounts[uint256(keccak256(abi.encode(assets, block.timestamp))) % accounts.length];
-    assets = _bound(assets, 0, stEXA.maxWithdraw(account));
+  function testHandlerClaim(uint8 index) external {
+    address account = accounts[index % accounts.length];
 
     IERC20[] memory rewards = stEXA.allRewardsTokens();
+    vm.startPrank(account);
     for (uint256 i = 0; i < rewards.length; ++i) {
       IERC20 reward = rewards[i];
       uint256 balance = reward.balanceOf(account);
       uint256 claimableAmount = stEXA.claimable(reward, account);
-      vm.prank(account);
       stEXA.claim(reward);
       assertEq(reward.balanceOf(account), balance + claimableAmount, "missing rewards");
+    }
+    vm.stopPrank();
+  }
+
+  function testHandlerHarvest(uint64 assets) external {
+    uint256 provider = market.maxWithdraw(PROVIDER);
+    if (assets != 0) {
+      providerAsset.mint(address(this), assets);
+      providerAsset.approve(address(market), assets);
+      market.deposit(assets, PROVIDER);
+      provider += assets;
+    }
+    uint256 savings = market.maxWithdraw(SAVINGS);
+    stEXA.harvest();
+    (uint256 rDuration, , , , ) = stEXA.rewards(providerAsset);
+    if (rDuration != 0 && assets.mulWadDown(providerRatio) >= rDuration) {
+      assertEq(market.balanceOf(PROVIDER), 0, "assets left");
+      assertEq(market.maxWithdraw(SAVINGS), savings + provider.mulWadUp(1e18 - providerRatio), "missing savings");
     }
   }
 
