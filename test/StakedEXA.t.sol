@@ -1391,6 +1391,16 @@ contract StakedEXATest is Test {
     assertEq(stEXA.avgStart(address(this)), start);
   }
 
+  function testClaimAndWithdrawAfterRefTime() external {
+    uint256 assets = 1_000e18;
+    stEXA.deposit(assets, address(this));
+
+    skip(refTime + 1_000);
+
+    stEXA.claimAll();
+    stEXA.withdraw(assets, address(this), address(this));
+  }
+
   function minMaxWithdrawAllowance() internal view returns (uint256) {
     return Math.min(market.convertToAssets(market.allowance(PROVIDER, address(stEXA))), market.maxWithdraw(PROVIDER));
   }

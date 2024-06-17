@@ -158,12 +158,12 @@ contract StakedEXA is
     uint256 claimedAmount = claimed[account][reward];
     uint256 proportion = amount.divWadDown(balanceOf(account));
 
-    saved[account][reward] = saved[account][reward].mulWadDown(1e18 - proportion);
+    saved[account][reward] = saved[account][reward].mulWadDown(proportion);
     uint256 claimedProportionAmount = claimedAmount.mulWadDown(proportion);
     claimed[account][reward] = claimedAmount - claimedProportionAmount;
 
     if (time <= minTime * 1e18) {
-      uint256 save = rawEarned - claimedProportionAmount;
+      uint256 save = rawEarned - claimedProportionAmount - saved[account][reward];
       if (save != 0) reward.transfer(savings, save);
       return;
     }
@@ -175,7 +175,7 @@ contract StakedEXA is
       emit RewardPaid(reward, account, claimAmount);
     }
     {
-      uint256 save = rawEarned - claimableAmount;
+      uint256 save = rawEarned - claimableAmount - saved[account][reward];
       if (save != 0) reward.transfer(savings, save);
     }
   }
