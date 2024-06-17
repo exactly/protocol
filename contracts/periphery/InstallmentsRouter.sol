@@ -5,7 +5,7 @@ import { WETH, SafeTransferLib } from "solmate/src/tokens/WETH.sol";
 import {
   SafeERC20Upgradeable as SafeERC20,
   IERC20PermitUpgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+} from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { Auditor, MarketNotListed } from "../Auditor.sol";
 import { Market, ERC20, FixedLib } from "../Market.sol";
 

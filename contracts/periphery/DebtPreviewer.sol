@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
+import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable-v4/utils/math/MathUpgradeable.sol";
 import { Previewer, IPriceFeed, FixedLib } from "./Previewer.sol";
 import { ERC20, Market, Auditor, DebtManager } from "./DebtManager.sol";
 

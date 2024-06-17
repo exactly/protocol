@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17; // solhint-disable-line one-contract-per-file
 
 import { Test, stdError } from "forge-std/Test.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { WETH } from "solmate/src/tokens/WETH.sol";

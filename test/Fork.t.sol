@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import { Test, stdError, stdJson } from "forge-std/Test.sol"; // solhint-disable-line no-unused-import
-import { ITransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import { ITransparentUpgradeableProxy } from "@openzeppelin/contracts-v4/proxy/transparent/ProxyAdmin.sol";
 
 abstract contract ForkTest is Test {
   using stdJson for string;

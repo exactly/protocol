@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17; // solhint-disable-line one-contract-per-file
 
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
 import { Test, stdError } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
@@ -2412,7 +2412,7 @@ contract MarketTest is Test {
     vm.warp(273.75 days);
     vm.prank(ALICE);
     market.borrow(1 ether, ALICE, ALICE);
-    // TODO: check rounding
+    // TODO check rounding
     (, , floatingBorrowShares) = market.accounts(ALICE);
     assertEq(market.previewRefund(1 ether), floatingBorrowShares + 1);
     (, , floatingBorrowShares) = market.accounts(BOB);

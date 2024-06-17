@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import { ForkTest } from "./Fork.t.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
 import { Pool, Limit, Rates, Leverage, DebtPreviewer } from "../contracts/periphery/DebtPreviewer.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
 import { Market, ERC20, IPermit2, DebtManager, IBalancerVault } from "../contracts/periphery/DebtManager.sol";

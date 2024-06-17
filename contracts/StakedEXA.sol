@@ -2,20 +2,20 @@
 pragma solidity ^0.8.0;
 
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { ERC20, SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
+
+import { IERC6372 } from "@openzeppelin/contracts/interfaces/IERC6372.sol";
+import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import { IERC6372Upgradeable } from "@openzeppelin/contracts-upgradeable/interfaces/IERC6372Upgradeable.sol";
-import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {
   ERC20PermitUpgradeable,
-  ERC20Upgradeable,
-  IERC20Upgradeable as IERC20
+  ERC20Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import { ERC4626Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { Market } from "./Market.sol";
 
@@ -25,11 +25,11 @@ contract StakedEXA is
   PausableUpgradeable,
   ERC4626Upgradeable,
   ERC20PermitUpgradeable,
-  IERC6372Upgradeable
+  IERC6372
 {
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for int256;
-  using SafeTransferLib for ERC20;
+  using SafeERC20 for IERC20;
   using SafeCast for int256;
 
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -39,10 +39,10 @@ contract StakedEXA is
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IERC20 public immutable exa;
   /// @notice Rewards tokens
-  ERC20[] public rewardsTokens;
+  IERC20[] public rewardsTokens;
 
   /// @notice Rewards data per token
-  mapping(ERC20 reward => RewardData data) public rewards;
+  mapping(IERC20 reward => RewardData data) public rewards;
 
   /// @notice Minimum time to stake and get rewards
   uint256 public minTime;
@@ -58,9 +58,9 @@ contract StakedEXA is
   /// @notice Average starting time with the tokens staked per account
   mapping(address account => uint256 time) public avgStart;
   /// @notice Accounts average indexes per reward token
-  mapping(address account => mapping(ERC20 reward => uint256 index)) public avgIndexes;
-  mapping(address account => mapping(ERC20 reward => uint256 claimed)) public claimed;
-  mapping(address account => mapping(ERC20 reward => uint256 saved)) public saved;
+  mapping(address account => mapping(IERC20 reward => uint256 index)) public avgIndexes;
+  mapping(address account => mapping(IERC20 reward => uint256 claimed)) public claimed;
+  mapping(address account => mapping(IERC20 reward => uint256 saved)) public saved;
 
   Market public market;
   address public provider;
@@ -104,23 +104,24 @@ contract StakedEXA is
 
     market = market_;
 
-    enableReward(market_.asset());
-    setRewardsDuration(market_.asset(), duration_);
+    IERC20 asset_ = IERC20(address(market_.asset()));
+    enableReward(asset_);
+    setRewardsDuration(asset_, duration_);
 
-    market_.asset().approve(address(market), type(uint256).max);
+    asset_.approve(address(market), type(uint256).max);
 
     setProvider(provider_);
     setProviderRatio(providerRatio_);
     setSavings(savings_);
   }
 
-  function updateIndex(ERC20 reward) internal {
+  function updateIndex(IERC20 reward) internal {
     RewardData storage rewardData = rewards[reward];
     rewardData.index = globalIndex(reward);
     rewardData.updatedAt = lastTimeRewardApplicable(rewardData.finishAt);
   }
 
-  function _beforeTokenTransfer(address from, address to, uint256 amount) internal override whenNotPaused {
+  function _update(address from, address to, uint256 amount) internal override whenNotPaused {
     if (amount == 0) revert ZeroAmount();
     if (from == address(0)) {
       uint256 start = avgStart[to];
@@ -131,7 +132,7 @@ contract StakedEXA is
       uint256 weight = time <= memRefTime ? balance.divWadDown(balance + amount) : 0;
 
       for (uint256 i = 0; i < rewardsTokens.length; ++i) {
-        ERC20 reward = rewardsTokens[i];
+        IERC20 reward = rewardsTokens[i];
         updateIndex(reward);
         if (time > memRefTime && balance != 0) claimWithdraw(reward, to, balance);
 
@@ -142,14 +143,16 @@ contract StakedEXA is
       avgStart[to] = start.mulWadUp(weight) + (block.timestamp) * (1e18 - weight);
     } else if (to == address(0)) {
       for (uint256 i = 0; i < rewardsTokens.length; ++i) {
-        ERC20 reward = rewardsTokens[i];
+        IERC20 reward = rewardsTokens[i];
         updateIndex(reward);
         claimWithdraw(reward, from, amount);
       }
     } else revert Untransferable();
+
+    super._update(from, to, amount);
   }
 
-  function claimWithdraw(ERC20 reward, address account, uint256 amount) internal {
+  function claimWithdraw(IERC20 reward, address account, uint256 amount) internal {
     uint256 time = block.timestamp * 1e18 - avgStart[account];
     uint256 rawEarned = earned(reward, account, amount);
     uint256 claimedAmount = claimed[account][reward];
@@ -177,7 +180,7 @@ contract StakedEXA is
     }
   }
 
-  function notifyRewardAmount(ERC20 reward, uint256 amount, address notifier) internal onlyReward(reward) {
+  function notifyRewardAmount(IERC20 reward, uint256 amount, address notifier) internal onlyReward(reward) {
     updateIndex(reward);
     RewardData storage rewardData = rewards[reward];
     if (block.timestamp >= rewardData.finishAt) {
@@ -231,7 +234,7 @@ contract StakedEXA is
     _;
   }
 
-  modifier onlyReward(ERC20 reward) {
+  modifier onlyReward(IERC20 reward) {
     if (rewards[reward].finishAt == 0) revert RewardNotListed();
     _;
   }
@@ -240,7 +243,7 @@ contract StakedEXA is
     return Math.min(finishAt, block.timestamp);
   }
 
-  function globalIndex(ERC20 reward) public view returns (uint256) {
+  function globalIndex(IERC20 reward) public view returns (uint256) {
     RewardData memory rewardData = rewards[reward];
     if (totalSupply() == 0) return rewardData.index;
 
@@ -251,18 +254,18 @@ contract StakedEXA is
       );
   }
 
-  function avgIndex(ERC20 reward, address account) public view returns (uint256) {
+  function avgIndex(IERC20 reward, address account) public view returns (uint256) {
     return avgIndexes[account][reward];
   }
 
-  function earned(ERC20 reward, address account, uint256 assets) public view returns (uint256) {
+  function earned(IERC20 reward, address account, uint256 assets) public view returns (uint256) {
     uint256 index = globalIndex(reward);
     uint256 accIndex = avgIndexes[account][reward];
     if (index <= accIndex) return 0;
     return assets.mulWadDown(index - accIndex);
   }
 
-  function claimable(ERC20 reward, address account, uint256 assets) public view returns (uint256) {
+  function claimable(IERC20 reward, address account, uint256 assets) public view returns (uint256) {
     uint256 rawClaimable = earned(reward, account, assets).mulWadDown(
       discountFactor(block.timestamp * 1e18 - avgStart[account])
     );
@@ -276,24 +279,19 @@ contract StakedEXA is
   /// @dev Computes earned rewards by taking the product of the account's balance and the difference between the
   /// global reward per token and the reward per token already paid to the user.
   /// This result is then added to any rewards that have already been accumulated but not yet paid out.
-  function earned(ERC20 reward, address account) external view returns (uint256) {
+  function earned(IERC20 reward, address account) external view returns (uint256) {
     return earned(reward, account, balanceOf(account));
   }
 
-  function claimable(ERC20 reward, address account) external view returns (uint256) {
+  function claimable(IERC20 reward, address account) external view returns (uint256) {
     return claimable(reward, account, balanceOf(account));
   }
 
   function allClaimable(address account) external view returns (ClaimableReward[] memory) {
     ClaimableReward[] memory claimableRewards = new ClaimableReward[](rewardsTokens.length);
     for (uint256 i = 0; i < rewardsTokens.length; ++i) {
-      ERC20 reward = rewardsTokens[i];
-      claimableRewards[i] = ClaimableReward({
-        reward: address(reward),
-        rewardName: reward.name(),
-        rewardSymbol: reward.symbol(),
-        amount: claimable(reward, account, balanceOf(account))
-      });
+      IERC20 reward = rewardsTokens[i];
+      claimableRewards[i] = ClaimableReward({ reward: reward, amount: claimable(reward, account, balanceOf(account)) });
     }
     return claimableRewards;
   }
@@ -301,35 +299,25 @@ contract StakedEXA is
   function allEarned(address account) external view returns (ClaimableReward[] memory) {
     ClaimableReward[] memory earnedRewards = new ClaimableReward[](rewardsTokens.length);
     for (uint256 i = 0; i < rewardsTokens.length; ++i) {
-      ERC20 reward = rewardsTokens[i];
-      earnedRewards[i] = ClaimableReward({
-        reward: address(reward),
-        rewardName: reward.name(),
-        rewardSymbol: reward.symbol(),
-        amount: earned(reward, account, balanceOf(account))
-      });
+      IERC20 reward = rewardsTokens[i];
+      earnedRewards[i] = ClaimableReward({ reward: reward, amount: earned(reward, account, balanceOf(account)) });
     }
     return earnedRewards;
   }
 
-  function claimedOf(address account, ERC20 reward) external view returns (uint256) {
+  function claimedOf(address account, IERC20 reward) external view returns (uint256) {
     return claimed[account][reward];
   }
 
-  function savedOf(address account, ERC20 reward) external view returns (uint256) {
+  function savedOf(address account, IERC20 reward) external view returns (uint256) {
     return saved[account][reward];
   }
 
   function allClaimed(address account) external view returns (ClaimableReward[] memory) {
     ClaimableReward[] memory claimedRewards = new ClaimableReward[](rewardsTokens.length);
     for (uint256 i = 0; i < rewardsTokens.length; ++i) {
-      ERC20 reward = rewardsTokens[i];
-      claimedRewards[i] = ClaimableReward({
-        reward: address(reward),
-        rewardName: reward.name(),
-        rewardSymbol: reward.symbol(),
-        amount: claimed[account][reward]
-      });
+      IERC20 reward = rewardsTokens[i];
+      claimedRewards[i] = ClaimableReward({ reward: reward, amount: claimed[account][reward] });
     }
     return claimedRewards;
   }
@@ -347,14 +335,14 @@ contract StakedEXA is
     uint256 save = assets - amount;
     if (save != 0) memMarket.deposit(save, savings);
 
-    if (amount != 0) notifyRewardAmount(memMarket.asset(), amount, address(this));
+    if (amount != 0) notifyRewardAmount(IERC20(address(memMarket.asset())), amount, address(this));
   }
 
-  function allRewardsTokens() external view returns (ERC20[] memory) {
+  function allRewardsTokens() external view returns (IERC20[] memory) {
     return rewardsTokens;
   }
 
-  function claim_(ERC20 reward) internal {
+  function claim_(IERC20 reward) internal {
     uint256 time = block.timestamp * 1e18 - avgStart[msg.sender];
     if (time <= minTime * 1e18) return;
 
@@ -376,7 +364,7 @@ contract StakedEXA is
     }
   }
 
-  function claim(ERC20 reward) external {
+  function claim(IERC20 reward) external {
     claim_(reward);
   }
 
@@ -387,7 +375,7 @@ contract StakedEXA is
   }
 
   // restricted functions
-  function enableReward(ERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) {
+  function enableReward(IERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (rewards[reward].finishAt != 0) revert AlreadyListed();
 
     rewards[reward].finishAt = block.timestamp;
@@ -396,7 +384,7 @@ contract StakedEXA is
     emit RewardListed(reward, msg.sender);
   }
 
-  function disableReward(ERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) onlyReward(reward) {
+  function disableReward(IERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) onlyReward(reward) {
     updateIndex(reward);
 
     if (block.timestamp < rewards[reward].finishAt) {
@@ -409,7 +397,7 @@ contract StakedEXA is
   }
 
   // notice - can only change the duration if the reward is finished
-  function setRewardsDuration(ERC20 reward, uint256 duration) public onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setRewardsDuration(IERC20 reward, uint256 duration) public onlyRole(DEFAULT_ADMIN_ROLE) {
     RewardData storage rewardData = rewards[reward];
     if (rewardData.finishAt > block.timestamp) revert NotFinished();
 
@@ -418,7 +406,7 @@ contract StakedEXA is
     emit RewardsDurationSet(reward, msg.sender, duration);
   }
 
-  function notifyRewardAmount(ERC20 reward, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function notifyRewardAmount(IERC20 reward, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
     updateIndex(reward);
     notifyRewardAmount(reward, amount, msg.sender);
   }
@@ -504,11 +492,11 @@ contract StakedEXA is
   event ProviderRatioSet(uint256 providerRatio, address indexed account);
   event ProviderSet(address indexed provider, address indexed account);
   event RefTimeSet(uint256 refTime, address indexed account);
-  event RewardAmountNotified(ERC20 indexed reward, address indexed notifier, uint256 amount);
-  event RewardDisabled(ERC20 indexed reward, address indexed account);
-  event RewardPaid(ERC20 indexed reward, address indexed account, uint256 amount);
-  event RewardListed(ERC20 indexed reward, address indexed account);
-  event RewardsDurationSet(ERC20 indexed reward, address indexed account, uint256 duration);
+  event RewardAmountNotified(IERC20 indexed reward, address indexed notifier, uint256 amount);
+  event RewardDisabled(IERC20 indexed reward, address indexed account);
+  event RewardPaid(IERC20 indexed reward, address indexed account, uint256 amount);
+  event RewardListed(IERC20 indexed reward, address indexed account);
+  event RewardsDurationSet(IERC20 indexed reward, address indexed account, uint256 duration);
   event SavingsSet(address indexed savings, address indexed account);
 }
 
@@ -523,7 +511,7 @@ error ZeroAddress();
 error ZeroRate();
 error ZeroAmount();
 
-// TODO: optimize size
+// TODO optimize
 struct RewardData {
   uint256 duration;
   uint256 finishAt;
@@ -532,9 +520,8 @@ struct RewardData {
   uint256 updatedAt;
 }
 
+// TODO
 struct ClaimableReward {
-  address reward;
-  string rewardName;
-  string rewardSymbol;
+  IERC20 reward;
   uint256 amount;
 }
