@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
 import { ForkTest, stdError } from "./Fork.t.sol";
 import { Airdrop, ISablierV2LockupLinear } from "../contracts/periphery/Airdrop.sol";
 

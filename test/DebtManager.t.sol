@@ -3,7 +3,7 @@ pragma solidity ^0.8.17; // solhint-disable-line one-contract-per-file
 
 import { ForkTest, stdJson, stdError } from "./Fork.t.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
 import { ERC4626 } from "solmate/src/mixins/ERC4626.sol";
 import {
   ERC20,

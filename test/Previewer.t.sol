@@ -2,9 +2,9 @@
 pragma solidity ^0.8.17;
 
 import { Test } from "forge-std/Test.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { Math } from "@openzeppelin/contracts-v4/utils/math/Math.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Market, InsufficientProtocolLiquidity } from "../contracts/Market.sol";
 import { InterestRateModel, AlreadyMatured, Parameters } from "../contracts/InterestRateModel.sol";

@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import {
   ERC20VotesUpgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+} from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 
 contract EXA is ERC20VotesUpgradeable {
   function initialize() external initializer {

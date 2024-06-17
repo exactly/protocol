@@ -3,11 +3,11 @@ pragma solidity ^0.8.17;
 
 import { WETH, ERC20 } from "solmate/src/tokens/WETH.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
-import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/utils/AddressUpgradeable.sol";
 import {
   SafeERC20Upgradeable,
   IERC20PermitUpgradeable as IERC20Permit
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+} from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 contract Swapper {
   using SafeERC20Upgradeable for IERC20Permit;

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { TimelockController } from "@openzeppelin/contracts/governance/TimelockController.sol";
+import { IERC20 } from "@openzeppelin/contracts-v4/token/ERC20/IERC20.sol";
+import { Strings } from "@openzeppelin/contracts-v4/utils/Strings.sol";
+import { TimelockController } from "@openzeppelin/contracts-v4/governance/TimelockController.sol";
 import { BaseScript } from "./Base.s.sol";
 
 contract EXAIP3Script is BaseScript {

@@ -3,12 +3,12 @@ pragma solidity ^0.8.17;
 
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { AddressUpgradeable as Address } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol";
+import { AddressUpgradeable as Address } from "@openzeppelin/contracts-upgradeable-v4/utils/AddressUpgradeable.sol";
 import {
   SafeERC20Upgradeable as SafeERC20,
   IERC20PermitUpgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+} from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { Market, ERC20, FixedLib, Disagreement } from "../Market.sol";
 import { Auditor, MarketNotListed } from "../Auditor.sol";
 
