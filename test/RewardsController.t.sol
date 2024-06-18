@@ -10,7 +10,7 @@ import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { Auditor, IPriceFeed } from "../contracts/Auditor.sol";
 import { Market } from "../contracts/Market.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
-import { ERC20, RewardsController, ClaimPermit, InvalidConfig } from "../contracts/RewardsController.sol";
+import { ERC20, RewardsController, ClaimPermit, InvalidConfig, NotKeeper } from "../contracts/RewardsController.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
 
 contract RewardsControllerTest is Test {
@@ -1557,6 +1557,57 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
     (, , lastUndistributed) = rewardsController.rewardIndexes(marketUSDC, opRewardAsset);
     assertApproxEqAbs(opRewardAsset.balanceOf(address(this)) + lastUndistributed, releaseRate * 12 weeks, 1e6);
+  }
+
+  function testAccountKeeperClaimOnBehalfOf() external {
+    vm.startPrank(BOB);
+    marketUSDC.deposit(10_000e6, BOB);
+    marketUSDC.borrow(3_000e6, BOB, BOB);
+    vm.stopPrank();
+
+    vm.warp(6 weeks);
+    uint256 bobRewards = rewardsController.allClaimable(BOB, opRewardAsset);
+    assertGt(bobRewards, 0);
+
+    rewardsController.setKeeper(BOB, address(this));
+
+    RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
+    bool[] memory ops = new bool[](2);
+    ops[0] = true;
+    ops[1] = false;
+    marketOps[0] = RewardsController.MarketOperation({ market: marketUSDC, operations: ops });
+    ERC20[] memory rewardList = new ERC20[](2);
+    rewardList[0] = opRewardAsset;
+    rewardsController.claimOnBehalfOf(marketOps, BOB, rewardList);
+    assertEq(bobRewards, opRewardAsset.balanceOf(BOB));
+    bobRewards = rewardsController.allClaimable(BOB, opRewardAsset);
+    assertEq(bobRewards, 0);
+
+    rewardsController.setKeeper(BOB, address(0));
+  }
+
+  function testNotKeeperClaimOnBehalfOf() external {
+    RewardsController.MarketOperation[] memory marketOps;
+    ERC20[] memory rewardList;
+
+    vm.expectRevert(NotKeeper.selector);
+    rewardsController.claimOnBehalfOf(marketOps, BOB, rewardList);
+
+    rewardsController.setKeeper(BOB, address(this));
+    rewardsController.claimOnBehalfOf(marketOps, BOB, rewardList);
+
+    rewardsController.setKeeper(BOB, address(0));
+    vm.expectRevert(NotKeeper.selector);
+    rewardsController.claimOnBehalfOf(marketOps, BOB, rewardList);
+  }
+
+  function testSetKeeperOnlyAdminRole() external {
+    vm.expectRevert(bytes(""));
+    vm.prank(BOB);
+    rewardsController.setKeeper(BOB, address(this));
+
+    // setKeeper call from contract should not revert
+    rewardsController.setKeeper(BOB, address(this));
   }
 
   function testSetDistributionConfigWithDifferentDecimals() external {

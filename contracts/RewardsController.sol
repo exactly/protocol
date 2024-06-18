@@ -27,6 +27,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   ERC20[] public rewardList;
   /// @notice Stores Markets with distributions set.
   Market[] public marketList;
+  /// @notice Tracks the allowed `keeper` to claim on behalf of `account`.
+  mapping(address account => address keeper) public accountKeepers;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor() {
@@ -82,6 +84,21 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
+  /// @notice Claims `account` rewards for the given operations and reward assets.
+  /// @param marketOps The operations to claim rewards for.
+  /// @param account The account to claim the rewards for.
+  /// @param rewardsList The list of rewards assets to claim.
+  /// @return rewardsList The list of rewards assets.
+  /// @return claimedAmounts The list of claimed amounts.
+  function claimOnBehalfOf(
+    MarketOperation[] memory marketOps,
+    address account,
+    ERC20[] memory rewardsList
+  ) external returns (ERC20[] memory, uint256[] memory) {
+    if (accountKeepers[account] != msg.sender) revert NotKeeper();
+    return claim(marketOps, account, account, rewardsList);
+  }
+
   /// @notice Claims all `msg.sender` rewards to the given account.
   /// @param to The address to send the rewards to.
   /// @return rewardsList The list of rewards assets.
@@ -100,23 +117,29 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     MarketOperation[] memory marketOps,
     address to,
     ERC20[] memory rewardsList
-  ) public claimSender returns (ERC20[] memory, uint256[] memory claimedAmounts) {
-    uint256 rewardsCount = rewardsList.length;
-    claimedAmounts = new uint256[](rewardsCount);
-    address sender = _claimSender;
+  ) public claimSender returns (ERC20[] memory, uint256[] memory) {
+    return claim(marketOps, _claimSender, to, rewardsList);
+  }
+
+  function claim(
+    MarketOperation[] memory marketOps,
+    address account,
+    address to,
+    ERC20[] memory rewardsList
+  ) internal returns (ERC20[] memory, uint256[] memory claimedAmounts) {
+    claimedAmounts = new uint256[](rewardsList.length);
     for (uint256 i = 0; i < marketOps.length; ) {
       MarketOperation memory marketOperation = marketOps[i];
       Distribution storage dist = distribution[marketOperation.market];
-      uint256 availableRewards = dist.availableRewardsCount;
-      for (uint128 r = 0; r < availableRewards; ) {
+      for (uint128 r = 0; r < dist.availableRewardsCount; ) {
         update(
-          sender,
+          account,
           marketOperation.market,
           dist.availableRewards[r],
           accountBalanceOperations(
             marketOperation.market,
             marketOperation.operations,
-            sender,
+            account,
             dist.rewards[dist.availableRewards[r]].start
           )
         );
@@ -124,13 +147,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           ++r;
         }
       }
-      for (uint256 r = 0; r < rewardsCount; ) {
+      for (uint256 r = 0; r < rewardsList.length; ) {
         RewardData storage rewardData = dist.rewards[rewardsList[r]];
         for (uint256 o = 0; o < marketOperation.operations.length; ) {
-          uint256 rewardAmount = rewardData.accounts[sender][marketOperation.operations[o]].accrued;
+          uint256 rewardAmount = rewardData.accounts[account][marketOperation.operations[o]].accrued;
           if (rewardAmount != 0) {
             claimedAmounts[r] += rewardAmount;
-            rewardData.accounts[sender][marketOperation.operations[o]].accrued = 0;
+            rewardData.accounts[account][marketOperation.operations[o]].accrued = 0;
           }
           unchecked {
             ++o;
@@ -148,7 +171,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       uint256 claimedAmount = claimedAmounts[r];
       if (claimedAmount > 0) {
         rewardsList[r].safeTransfer(to, claimedAmount);
-        emit Claim(sender, rewardsList[r], to, claimedAmount);
+        emit Claim(account, rewardsList[r], to, claimedAmount);
       }
       unchecked {
         ++r;
@@ -622,6 +645,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
+  /// @notice Sets the `keeper` address for the given `account`.
+  /// @param account The account to set the `keeper` for.
+  /// @param keeper The address to set as the `keeper`.
+  function setKeeper(address account, address keeper) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    accountKeepers[account] = keeper;
+  }
+
   /// @notice Withdraws the contract's balance of the given asset to the given address.
   /// @param asset The asset to withdraw.
   /// @param to The address to withdraw the asset to.
@@ -927,6 +957,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
 error IndexOverflow();
 error InvalidConfig();
+error NotKeeper();
 
 struct ClaimPermit {
   address owner;

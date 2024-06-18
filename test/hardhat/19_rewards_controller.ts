@@ -75,6 +75,13 @@ describe("RewardsController", function () {
         rewardsController.allClaimable(alice.address, alice.address, { gasLimit: 1_000_000 }),
       ).to.be.revertedWithoutReason();
     });
+
+    it("AND setting a keeper enables claiming on behalf of an account", async () => {
+      await timelockExecute(multisig, rewardsController, "setKeeper", [alice.address, alice.address]);
+
+      const marketOps = [{ market: marketUSDC.target, operations: [false, true] }];
+      await rewardsController.connect(alice).claimOnBehalfOf(marketOps, alice.address, [op.target]);
+    });
   });
 
   describe("GIVEN a zero utilization level", () => {
