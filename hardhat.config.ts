@@ -149,7 +149,7 @@ const hardhatConfig: Config = {
                 debt: 7_000_000,
                 start: "2024-04-24",
                 period: 8 * 7 * 86_400,
-                undistributedFactor: 1,
+                undistributedFactor: 50,
                 transitionFactor: 0.1,
                 compensationFactor: 0,
                 depositAllocationWeightAddend: 0.06,
