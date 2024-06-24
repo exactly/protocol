@@ -27,8 +27,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   ERC20[] public rewardList;
   /// @notice Stores Markets with distributions set.
   Market[] public marketList;
+  /// @notice Tracks the owner nonces for the claim permit.
+  mapping(address => uint256) public nonces;
+  /// @notice Temporarily stores the claim permit owner or `msg.sender` of the claim call.
+  address private _claimSender;
   /// @notice Tracks the allowed `keeper` to claim on behalf of `account`.
-  mapping(address account => address keeper) public accountKeepers;
+  mapping(address account => address keeper) public keepers;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor() {
@@ -95,7 +99,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     address account,
     ERC20[] memory rewardsList
   ) external returns (ERC20[] memory, uint256[] memory) {
-    if (accountKeepers[account] != msg.sender) revert NotKeeper();
+    if (keepers[account] != msg.sender) revert NotKeeper();
     return claim(marketOps, account, account, rewardsList);
   }
 
@@ -649,7 +653,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @param account The account to set the `keeper` for.
   /// @param keeper The address to set as the `keeper`.
   function setKeeper(address account, address keeper) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    accountKeepers[account] = keeper;
+    keepers[account] = keeper;
   }
 
   /// @notice Withdraws the contract's balance of the given asset to the given address.
@@ -747,8 +751,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
-  mapping(address => uint256) public nonces;
-
   // solhint-disable-next-line func-name-mixedcase
   function DOMAIN_SEPARATOR() public view returns (bytes32) {
     return
@@ -763,7 +765,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       );
   }
 
-  address private _claimSender;
   modifier claimSender() {
     if (_claimSender == address(0)) _claimSender = msg.sender;
     _;
