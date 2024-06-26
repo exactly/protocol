@@ -258,27 +258,27 @@ contract StakedEXA is
     return avgIndexes[account][reward];
   }
 
-  function earned(IERC20 reward, address account, uint256 assets) public view returns (uint256) {
-    return assets.mulWadDown(globalIndex(reward) - avgIndexes[account][reward]);
+  function earned(IERC20 reward, address account, uint256 shares) public view returns (uint256) {
+    return shares.mulWadDown(globalIndex(reward) - avgIndexes[account][reward]);
   }
 
-  function rawClaimable(IERC20 reward, address account, uint256 assets) internal view returns (uint256) {
+  function rawClaimable(IERC20 reward, address account, uint256 shares) internal view returns (uint256) {
     uint256 start = avgStart[account];
     if (start == 0) return 0;
 
-    return earned(reward, account, assets).mulWadDown(discountFactor(block.timestamp * 1e18 - start));
+    return earned(reward, account, shares).mulWadDown(discountFactor(block.timestamp * 1e18 - start));
   }
 
   // NOTE - returns the amount of rewards that can be claimed by an account
-  function claimable(IERC20 reward, address account, uint256 assets) public view returns (uint256) {
+  function claimable(IERC20 reward, address account, uint256 shares) public view returns (uint256) {
     uint256 start = avgStart[account];
     if (start == 0 || block.timestamp * 1e18 - start <= minTime * 1e18) return 0;
 
-    uint256 rawClaimable_ = rawClaimable(reward, account, assets);
+    uint256 rawClaimable_ = rawClaimable(reward, account, shares);
     uint256 balance = balanceOf(account);
     if (balance == 0) return 0;
 
-    uint256 claimedAmountProportion = claimed[account][reward].mulWadDown(assets.divWadDown(balance));
+    uint256 claimedAmountProportion = claimed[account][reward].mulWadDown(shares.divWadDown(balance));
     return rawClaimable_ > claimedAmountProportion ? rawClaimable_ - claimedAmountProportion : 0;
   }
 
