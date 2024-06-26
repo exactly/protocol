@@ -269,6 +269,7 @@ contract StakedEXATest is Test {
     address account = accounts[uint256(keccak256(abi.encode(assets, block.timestamp))) % accounts.length];
     assets = _bound(assets, 0, stEXA.maxWithdraw(account));
     uint256 prevAssets = stEXA.totalAssets();
+    uint256 prevShares = stEXA.balanceOf(account);
 
     vm.prank(account);
     if (assets == 0) vm.expectRevert(ZeroAmount.selector);
@@ -280,6 +281,14 @@ contract StakedEXATest is Test {
     address shadow = address(uint160(account) + 1);
     vm.prank(shadow);
     stEXA.withdraw(assets, shadow, shadow);
+
+    IERC20[] memory rewards = stEXA.allRewardsTokens();
+    uint256 shares = prevShares - assets;
+    for (uint256 i = 0; i < rewards.length; ++i) {
+      globalIndex[rewards[i]] = stEXA.globalIndex(rewards[i]);
+      claimable[rewards[i]][account] = shares.mulWadDown(globalIndex[rewards[i]] - avgIndexes[account][rewards[i]]);
+      assertEq(claimable[rewards[i]][account], stEXA.claimable(rewards[i], account, shares), "claimable != expected");
+    }
   }
 
   function testHandlerClaim(uint8 index) external {
