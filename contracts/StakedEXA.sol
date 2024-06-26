@@ -159,7 +159,7 @@ contract StakedEXA is
   }
 
   function claimWithdraw(IERC20 reward, address account, uint256 amount) internal {
-    uint256 withdrawProportion = amount.divWadDown(balanceOf(account));
+    uint256 withdrawProportion = amount.divWadUp(balanceOf(account));
     uint256 claimedAmount = claimed[account][reward].mulWadUp(withdrawProportion);
     uint256 savedAmount = saved[account][reward].mulWadUp(withdrawProportion);
     uint256 rawEarned = earned(reward, account, amount);
