@@ -55,6 +55,7 @@ contract StakedEXATest is Test {
   mapping(IERC20 reward => uint256 index) internal globalIndex;
   mapping(address account => mapping(IERC20 reward => uint256 index)) public avgIndexes;
   mapping(IERC20 reward => mapping(address account => uint256 amount)) internal claimable;
+  mapping(IERC20 reward => mapping(address account => uint256 amount)) internal claimed;
 
   function setUp() external {
     vm.warp(1_704_067_200); // 01/01/2024 @ 00:00 (UTC)
@@ -288,9 +289,14 @@ contract StakedEXATest is Test {
 
     IERC20[] memory rewards = stEXA.allRewardsTokens();
     uint256 shares = prevShares - assets;
+    uint256 withdrawProportion = assets.divWadUp(prevShares);
+
     for (uint256 i = 0; i < rewards.length; ++i) {
       globalIndex[rewards[i]] = stEXA.globalIndex(rewards[i]);
-      claimable[rewards[i]][account] = shares.mulWadDown(globalIndex[rewards[i]] - avgIndexes[account][rewards[i]]);
+      claimed[rewards[i]][account] -= claimed[rewards[i]][account].mulWadUp(withdrawProportion);
+      claimable[rewards[i]][account] =
+        shares.mulWadDown(globalIndex[rewards[i]] - avgIndexes[account][rewards[i]]) -
+        claimed[rewards[i]][account];
       assertEq(claimable[rewards[i]][account], stEXA.claimable(rewards[i], account, shares), "claimable != expected");
     }
   }
@@ -305,6 +311,7 @@ contract StakedEXATest is Test {
       uint256 claimableAmount = stEXA.claimable(reward, account);
       stEXA.claim(reward);
       assertEq(reward.balanceOf(account), balance + claimableAmount, "missing rewards");
+      claimed[reward][account] += claimableAmount;
     }
     vm.stopPrank();
   }
@@ -1384,10 +1391,10 @@ contract StakedEXATest is Test {
     for (uint256 i = 0; i < 30; i++) {
       skip(1 weeks);
       harvest();
-      uint256 claimed = stEXA.claimedOf(address(this), providerAsset);
+      uint256 claimedAmount = stEXA.claimedOf(address(this), providerAsset);
       uint256 claimableAmount = stEXA.claimable(providerAsset, address(this));
 
-      claimableAcc += claimableAmount > claimed ? claimableAmount - claimed : 0;
+      claimableAcc += claimableAmount > claimedAmount ? claimableAmount - claimedAmount : 0;
       stEXA.claimAll();
     }
 
