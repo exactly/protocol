@@ -153,31 +153,25 @@ contract StakedEXA is
   }
 
   function claimWithdraw(IERC20 reward, address account, uint256 amount) internal {
-    uint256 time = block.timestamp * 1e18 - avgStart[account];
+    uint256 withdrawProportion = amount.divWadDown(balanceOf(account));
+    uint256 claimedAmount = claimed[account][reward].mulWadUp(withdrawProportion);
+    uint256 savedAmount = saved[account][reward].mulWadUp(withdrawProportion);
     uint256 rawEarned = earned(reward, account, amount);
-    uint256 claimedAmount = claimed[account][reward];
-    uint256 proportion = amount.divWadDown(balanceOf(account));
 
-    saved[account][reward] = saved[account][reward].mulWadDown(proportion);
-    uint256 claimedProportionAmount = claimedAmount.mulWadDown(proportion);
-    claimed[account][reward] = claimedAmount - claimedProportionAmount;
+    uint256 claimableAmount = rawClaimable(reward, account, amount);
 
-    if (time <= minTime * 1e18) {
-      uint256 save = rawEarned - claimedProportionAmount - saved[account][reward];
-      if (save != 0) reward.transfer(savings, save);
-      return;
-    }
+    uint256 max = Math.max(claimableAmount, claimedAmount); // due to excess exposure
+    uint256 claimAmount = max - claimedAmount;
+    claimed[account][reward] -= claimedAmount;
+    saved[account][reward] -= savedAmount;
 
-    uint256 claimableAmount = claimable(reward, account, amount);
-    uint256 claimAmount = claimableAmount - claimedProportionAmount;
     if (claimAmount != 0) {
       reward.transfer(account, claimAmount);
       emit RewardPaid(reward, account, claimAmount);
     }
-    {
-      uint256 save = rawEarned - claimableAmount - saved[account][reward];
-      if (save != 0) reward.transfer(savings, save);
-    }
+    uint256 saveAmount = rawEarned <= max + savedAmount ? 0 : rawEarned - max - savedAmount;
+    // FIXME - rawEarned shouldn't be less than max + savedAmount
+    if (saveAmount != 0) reward.transfer(savings, saveAmount);
   }
 
   function notifyRewardAmount(IERC20 reward, uint256 amount, address notifier) internal onlyReward(reward) {
@@ -265,12 +259,24 @@ contract StakedEXA is
     return assets.mulWadDown(index - accIndex);
   }
 
+  function rawClaimable(IERC20 reward, address account, uint256 assets) internal view returns (uint256) {
+    uint256 start = avgStart[account];
+    if (start == 0) return 0;
+
+    return earned(reward, account, assets).mulWadDown(discountFactor(block.timestamp * 1e18 - start));
+  }
+
+  // NOTE - returns the amount of rewards that can be claimed by an account
   function claimable(IERC20 reward, address account, uint256 assets) public view returns (uint256) {
-    uint256 rawClaimable = earned(reward, account, assets).mulWadDown(
-      discountFactor(block.timestamp * 1e18 - avgStart[account])
-    );
-    uint256 claimedAmount = claimed[account][reward];
-    return rawClaimable > claimedAmount ? rawClaimable - claimedAmount : 0;
+    uint256 start = avgStart[account];
+    if (start == 0 || block.timestamp * 1e18 - start <= minTime * 1e18) return 0;
+
+    uint256 rawClaimable_ = rawClaimable(reward, account, assets);
+    uint256 balance = balanceOf(account);
+    if (balance == 0) return 0;
+
+    uint256 claimedAmountProportion = claimed[account][reward].mulWadDown(assets.divWadDown(balance));
+    return rawClaimable_ > claimedAmountProportion ? rawClaimable_ - claimedAmountProportion : 0;
   }
 
   /// @notice Calculates the amount of rewards that an account has earned.
@@ -350,20 +356,21 @@ contract StakedEXA is
     if (time <= minTime * 1e18) return;
 
     uint256 claimedAmount = claimed[msg.sender][reward];
-    uint256 claimableAmount = claimable(reward, msg.sender, balanceOf(msg.sender));
+    uint256 claimableAmount = rawClaimable(reward, msg.sender, balanceOf(msg.sender));
+    uint256 max = Math.max(claimableAmount, claimedAmount); // due to excess exposure
+    uint256 claimAmount = max - claimedAmount;
 
-    if (claimableAmount != 0) claimed[msg.sender][reward] = claimedAmount + claimableAmount;
+    if (claimAmount != 0) claimed[msg.sender][reward] = claimedAmount + claimAmount;
 
     if (time > refTime * 1e18) {
-      uint256 savedAmount = saved[msg.sender][reward];
-      uint256 save = earned(reward, msg.sender, balanceOf(msg.sender)) - claimableAmount - claimedAmount - savedAmount;
-      saved[msg.sender][reward] = savedAmount + save;
+      uint256 saveAmount = earned(reward, msg.sender, balanceOf(msg.sender)) - max - saved[msg.sender][reward];
+      saved[msg.sender][reward] += saveAmount;
 
-      if (save != 0) reward.transfer(savings, save);
+      if (saveAmount != 0) reward.transfer(savings, saveAmount);
     }
-    if (claimableAmount != 0) {
-      reward.transfer(msg.sender, claimableAmount);
-      emit RewardPaid(reward, msg.sender, claimableAmount);
+    if (claimAmount != 0) {
+      reward.transfer(msg.sender, claimAmount);
+      emit RewardPaid(reward, msg.sender, claimAmount);
     }
   }
 
