@@ -233,9 +233,6 @@ contract StakedEXATest is Test {
     IERC20[] memory rewards = stEXA.allRewardsTokens();
     for (uint256 i = 0; i < rewards.length; ++i) {
       for (uint256 a = 0; a < accounts.length; ++a) {
-        avgStart[accounts[a]] = stEXA.avgStart(accounts[a]);
-        globalIndex[rewards[i]] = stEXA.globalIndex(rewards[i]);
-        avgIndexes[accounts[a]][rewards[i]] = stEXA.avgIndex(rewards[i], accounts[a]);
         claimable[rewards[i]][accounts[a]] = stEXA.claimable(rewards[i], accounts[a]);
       }
     }
@@ -263,6 +260,13 @@ contract StakedEXATest is Test {
     exa.approve(address(stEXA), assets);
     stEXA.deposit(assets, shadow);
     vm.stopPrank();
+
+    IERC20[] memory rewards = stEXA.allRewardsTokens();
+    for (uint256 i = 0; i < rewards.length; ++i) {
+      globalIndex[rewards[i]] = stEXA.globalIndex(rewards[i]);
+      avgIndexes[account][rewards[i]] = stEXA.avgIndex(rewards[i], account); // TODO calculate and assert
+    }
+    avgStart[account] = stEXA.avgStart(account); // TODO calculate and assert
   }
 
   function testHandlerWithdraw(uint256 assets) external {
