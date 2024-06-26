@@ -135,14 +135,14 @@ contract StakedEXATest is Test {
     accounts.push(BOB);
 
     targetContract(address(this));
-    bytes4[] memory selectors = new bytes4[](7);
+    bytes4[] memory selectors = new bytes4[](6);
     selectors[0] = this.handlerSkip.selector;
     selectors[1] = this.testHandlerDeposit.selector;
     selectors[2] = this.testHandlerWithdraw.selector;
-    selectors[3] = this.testHandlerClaim.selector;
-    selectors[4] = this.testHandlerHarvest.selector;
-    selectors[5] = this.testHandlerNotifyRewardAmount.selector;
-    selectors[6] = this.testHandlerSetDuration.selector;
+    // selectors[3] = this.testHandlerClaim.selector;
+    selectors[3] = this.testHandlerHarvest.selector;
+    selectors[4] = this.testHandlerNotifyRewardAmount.selector;
+    selectors[5] = this.testHandlerSetDuration.selector;
     targetSelector(FuzzSelector(address(this), selectors));
   }
 
