@@ -127,20 +127,26 @@ contract StakedEXA is
       uint256 start = avgStart[to];
       uint256 time = start != 0 ? block.timestamp * 1e18 - start : 0;
       uint256 memRefTime = refTime * 1e18;
-
       uint256 balance = balanceOf(to);
-      uint256 weight = time <= memRefTime ? balance.divWadDown(balance + amount) : 0;
+      uint256 total = amount + balance;
 
       for (uint256 i = 0; i < rewardsTokens.length; ++i) {
         IERC20 reward = rewardsTokens[i];
         updateIndex(reward);
-        if (time > memRefTime && balance != 0) claimWithdraw(reward, to, balance);
 
-        avgIndexes[to][reward] =
-          avgIndexes[to][reward].mulWadUp(weight) +
-          rewards[reward].index.mulWadUp(1e18 - weight);
+        if (time > memRefTime) {
+          if (balance != 0) claimWithdraw(reward, to, balance);
+          avgIndexes[to][reward] = rewards[reward].index;
+        } else {
+          uint256 numerator = avgIndexes[to][reward] * balance + rewards[reward].index * amount;
+          avgIndexes[to][reward] = numerator == 0 ? 0 : (numerator - 1) / total + 1;
+        }
       }
-      avgStart[to] = start.mulWadUp(weight) + (block.timestamp) * (1e18 - weight);
+      if (time > memRefTime) avgStart[to] = block.timestamp * 1e18;
+      else {
+        uint256 numerator = start * balance + block.timestamp * 1e18 * amount;
+        avgStart[to] = numerator == 0 ? 0 : (numerator - 1) / total + 1;
+      }
     } else if (to == address(0)) {
       for (uint256 i = 0; i < rewardsTokens.length; ++i) {
         IERC20 reward = rewardsTokens[i];
@@ -253,10 +259,7 @@ contract StakedEXA is
   }
 
   function earned(IERC20 reward, address account, uint256 assets) public view returns (uint256) {
-    uint256 index = globalIndex(reward);
-    uint256 accIndex = avgIndexes[account][reward];
-    if (index <= accIndex) return 0;
-    return assets.mulWadDown(index - accIndex);
+    return assets.mulWadDown(globalIndex(reward) - avgIndexes[account][reward]);
   }
 
   function rawClaimable(IERC20 reward, address account, uint256 assets) internal view returns (uint256) {
