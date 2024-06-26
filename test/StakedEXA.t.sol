@@ -442,8 +442,8 @@ contract StakedEXATest is Test {
 
     (uint256 duration0, , , , ) = stEXA.rewards(rA);
 
-    if (skipTime <= duration) assertEq(duration0, duration);
-    else assertEq(duration0, duration_);
+    if (skipTime < duration) assertEq(duration0, duration, "duration changed");
+    else assertEq(duration0, duration_, "duration != expected");
   }
 
   function testTotalSupplyDeposit(uint80 assets) external {
