@@ -51,11 +51,11 @@ contract StakedEXATest is Test {
   uint256 internal providerRatio;
 
   address[] internal accounts;
-  mapping(address account => uint256 start) public avgStart;
   mapping(IERC20 reward => uint256 index) internal globalIndex;
-  mapping(address account => mapping(IERC20 reward => uint256 index)) public avgIndexes;
-  mapping(IERC20 reward => mapping(address account => uint256 amount)) internal claimable;
-  mapping(IERC20 reward => mapping(address account => uint256 amount)) internal claimed;
+  mapping(address account => uint256 start) internal avgStart;
+  mapping(address account => mapping(IERC20 reward => uint256 index)) internal avgIndexes;
+  mapping(address account => mapping(IERC20 reward => uint256 amount)) internal claimable;
+  mapping(address account => mapping(IERC20 reward => uint256 amount)) internal claimed;
 
   function setUp() external {
     vm.warp(1_704_067_200); // 01/01/2024 @ 00:00 (UTC)
@@ -153,7 +153,7 @@ contract StakedEXATest is Test {
       for (uint256 a = 0; a < accounts.length; ++a) {
         // TODO assert excess exposure
         if (refTime * 1e18 + stEXA.avgStart(accounts[a]) > block.timestamp * 1e18) continue;
-        assertGe(stEXA.claimable(rewards[i], accounts[a]), claimable[rewards[i]][accounts[a]]);
+        assertGe(stEXA.claimable(rewards[i], accounts[a]), claimable[accounts[a]][rewards[i]]);
       }
     }
   }
@@ -234,7 +234,7 @@ contract StakedEXATest is Test {
     IERC20[] memory rewards = stEXA.allRewardsTokens();
     for (uint256 i = 0; i < rewards.length; ++i) {
       for (uint256 a = 0; a < accounts.length; ++a) {
-        claimable[rewards[i]][accounts[a]] = stEXA.claimable(rewards[i], accounts[a]);
+        claimable[accounts[a]][rewards[i]] = stEXA.claimable(rewards[i], accounts[a]);
       }
     }
     skip(time);
@@ -293,11 +293,11 @@ contract StakedEXATest is Test {
 
     for (uint256 i = 0; i < rewards.length; ++i) {
       globalIndex[rewards[i]] = stEXA.globalIndex(rewards[i]);
-      claimed[rewards[i]][account] -= claimed[rewards[i]][account].mulWadUp(withdrawProportion);
-      claimable[rewards[i]][account] =
+      claimed[account][rewards[i]] -= claimed[account][rewards[i]].mulWadUp(withdrawProportion);
+      claimable[account][rewards[i]] =
         shares.mulWadDown(globalIndex[rewards[i]] - avgIndexes[account][rewards[i]]) -
-        claimed[rewards[i]][account];
-      assertEq(claimable[rewards[i]][account], stEXA.claimable(rewards[i], account, shares), "claimable != expected");
+        claimed[account][rewards[i]];
+      assertEq(claimable[account][rewards[i]], stEXA.claimable(rewards[i], account, shares), "claimable != expected");
     }
   }
 
@@ -311,7 +311,7 @@ contract StakedEXATest is Test {
       uint256 claimableAmount = stEXA.claimable(reward, account);
       stEXA.claim(reward);
       assertEq(reward.balanceOf(account), balance + claimableAmount, "missing rewards");
-      claimed[reward][account] += claimableAmount;
+      claimed[account][reward] += claimableAmount;
     }
     vm.stopPrank();
   }
