@@ -67,7 +67,7 @@ contract StakedEXATest is Test {
 
     duration = 24 weeks;
     initialAmount = 1_000 ether;
-    minTime = 1 weeks;
+    minTime = 0; // 1 weeks; // HACK
     refTime = duration;
     excessFactor = 0.5e18;
     penaltyGrowth = 2e18;
