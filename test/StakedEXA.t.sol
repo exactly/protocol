@@ -198,6 +198,37 @@ contract StakedEXATest is Test {
     }
   }
 
+  function afterInvariant() external {
+    if (stEXA.totalSupply() == 0) return;
+
+    IERC20[] memory rewards = stEXA.allRewardsTokens();
+    for (uint256 a = 0; a < accounts.length; ++a) {
+      address account = accounts[a];
+      address shadow = address(uint160(account) + 1);
+
+      {
+        uint256 balance = stEXA.balanceOf(account);
+        assertEq(balance, stEXA.balanceOf(shadow), "balance != shadow");
+
+        if (balance != 0) {
+          vm.prank(account);
+          stEXA.withdraw(balance, account, account);
+
+          vm.prank(shadow);
+          stEXA.withdraw(balance, shadow, shadow);
+        }
+      }
+
+      for (uint256 i = 0; i < rewards.length; ++i) {
+        IERC20 reward = rewards[i];
+        uint256 balance = reward.balanceOf(account);
+        uint256 shadowBalance = reward.balanceOf(shadow);
+        assertLe(balance, shadowBalance, "rewards > shadow");
+        assertApproxEqRel(balance, shadowBalance, 1, "balance != shadow");
+      }
+    }
+  }
+
   function handlerSkip(uint24 time) external {
     IERC20[] memory rewards = stEXA.allRewardsTokens();
     for (uint256 i = 0; i < rewards.length; ++i) {
