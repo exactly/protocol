@@ -265,10 +265,9 @@ contract StakedEXA is
     return shares.mulWadDown(globalIndex(reward) - avgIndexes[account][reward]);
   }
 
-  function rawClaimable(IERC20 reward, address account, uint256 shares) internal view returns (uint256) {
+  function rawClaimable(IERC20 reward, address account, uint256 shares) public view returns (uint256) {
     uint256 start = avgStart[account];
     if (start == 0) return 0;
-
     return earned(reward, account, shares).mulWadDown(discountFactor(block.timestamp * 1e18 - start));
   }
 
