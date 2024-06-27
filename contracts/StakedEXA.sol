@@ -362,14 +362,14 @@ contract StakedEXA is
     if (time <= minTime * 1e18) return;
 
     uint256 claimedAmount = claimed[msg.sender][reward];
-    uint256 claimableAmount = rawClaimable(reward, msg.sender, balanceOf(msg.sender));
-    uint256 max = Math.max(claimableAmount, claimedAmount); // due to excess exposure
-    uint256 claimAmount = max - claimedAmount;
+    uint256 claimableAmount = Math.max(rawClaimable(reward, msg.sender, balanceOf(msg.sender)), claimedAmount); // due to excess exposure
+    uint256 claimAmount = claimableAmount - claimedAmount;
 
     if (claimAmount != 0) claimed[msg.sender][reward] = claimedAmount + claimAmount;
 
     if (time > refTime * 1e18) {
-      uint256 saveAmount = earned(reward, msg.sender, balanceOf(msg.sender)) - max - saved[msg.sender][reward];
+      uint256 rawEarned = earned(reward, msg.sender, balanceOf(msg.sender));
+      uint256 saveAmount = rawEarned - Math.min(rawEarned, claimableAmount) - saved[msg.sender][reward];
       saved[msg.sender][reward] += saveAmount;
 
       if (saveAmount != 0) reward.transfer(savings, saveAmount);
