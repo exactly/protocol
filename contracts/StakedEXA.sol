@@ -159,9 +159,11 @@ contract StakedEXA is
   }
 
   function claimWithdraw(IERC20 reward, address account, uint256 amount) internal {
-    uint256 withdrawProportion = amount.divWadUp(balanceOf(account));
-    uint256 claimedAmount = claimed[account][reward].mulWadUp(withdrawProportion);
-    uint256 savedAmount = saved[account][reward].mulWadUp(withdrawProportion);
+    uint256 balance = balanceOf(account);
+    uint256 numerator = claimed[account][reward] * amount;
+    uint256 claimedAmount = numerator == 0 ? 0 : (numerator - 1) / balance + 1;
+    numerator = saved[account][reward] * amount;
+    uint256 savedAmount = numerator == 0 ? 0 : (numerator - 1) / balance + 1;
     uint256 rawEarned = earned(reward, account, amount);
 
     uint256 claimableAmount = rawClaimable(reward, account, amount);
@@ -279,7 +281,8 @@ contract StakedEXA is
     uint256 balance = balanceOf(account);
     if (balance == 0) return 0;
 
-    uint256 claimedAmountProportion = claimed[account][reward].mulWadDown(shares.divWadDown(balance));
+    uint256 numerator = claimed[account][reward] * shares;
+    uint256 claimedAmountProportion = numerator == 0 ? 0 : (numerator - 1) / balance + 1;
     return rawClaimable_ > claimedAmountProportion ? rawClaimable_ - claimedAmountProportion : 0;
   }
 
