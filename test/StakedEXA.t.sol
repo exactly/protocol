@@ -152,8 +152,7 @@ contract StakedEXATest is Test {
     for (uint256 a = 0; a < accounts.length; ++a) {
       uint256 shares = stEXA.balanceOf(accounts[a]);
       for (uint256 i = 0; i < rewards.length; ++i) {
-        // TODO assert excess exposure
-        if (refTime * 1e18 + stEXA.avgStart(accounts[a]) > block.timestamp * 1e18) continue;
+        // TODO assert with discount factor
         assertGe(stEXA.rawClaimable(rewards[i], accounts[a], shares), claimable[accounts[a]][rewards[i]]);
       }
     }
@@ -175,7 +174,7 @@ contract StakedEXATest is Test {
       for (uint256 a = 0; a < accounts.length; ++a) {
         address account = accounts[a];
         IERC20 reward = rewards[i];
-        assertGe(stEXA.avgIndex(reward, account) + 10, avgIndexes[account][reward]); // TODO precision issue
+        assertGe(stEXA.avgIndex(reward, account), avgIndexes[account][reward]);
       }
     }
   }
@@ -231,10 +230,10 @@ contract StakedEXATest is Test {
     }
   }
 
-  function handlerSkip(uint24 time) external {
+  function handlerSkip(uint32 time) external {
     IERC20[] memory rewards = stEXA.allRewardsTokens();
-    for (uint256 i = 0; i < rewards.length; ++i) {
-      for (uint256 a = 0; a < accounts.length; ++a) {
+    for (uint256 a = 0; a < accounts.length; ++a) {
+      for (uint256 i = 0; i < rewards.length; ++i) {
         claimable[accounts[a]][rewards[i]] = stEXA.claimable(rewards[i], accounts[a]);
       }
     }
@@ -368,7 +367,7 @@ contract StakedEXATest is Test {
     stEXA.notifyRewardAmount(reward, assets);
   }
 
-  function testHandlerSetDuration(uint24 period) external {
+  function testHandlerSetDuration(uint32 period) external {
     IERC20[] memory rewards = stEXA.allRewardsTokens();
     IERC20 reward = rewards[uint256(keccak256(abi.encode(period, block.timestamp))) % rewards.length];
 
