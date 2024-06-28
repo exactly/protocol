@@ -307,12 +307,15 @@ contract StakedEXATest is Test {
 
     IERC20[] memory rewards = stEXA.allRewardsTokens();
     uint256 shares = prevShares - assets;
-    uint256 withdrawProportion = assets.divWadUp(prevShares);
 
     for (uint256 i = 0; i < rewards.length; ++i) {
-      globalIndex[rewards[i]] = stEXA.globalIndex(rewards[i]);
-      claimed[account][rewards[i]] = stEXA.claimed(account, rewards[i]);
-      // claimed[account][rewards[i]] -= claimed[account][rewards[i]].mulWadUp(withdrawProportion); // TODO calculate and assert
+      IERC20 reward = rewards[i];
+      uint256 numerator = claimed[account][reward] * assets;
+      uint256 claimedAmount = numerator == 0 ? 0 : (numerator - 1) / prevShares + 1;
+      claimed[account][reward] -= claimedAmount;
+
+      assertApproxEqAbs(claimed[account][reward], stEXA.claimed(account, reward), 10, "claimed != expected");
+      globalIndex[reward] = stEXA.globalIndex(reward);
     }
   }
 
@@ -327,6 +330,7 @@ contract StakedEXATest is Test {
       stEXA.claim(reward);
       assertEq(reward.balanceOf(account), balance + claimableAmount, "missing rewards");
       claimed[account][reward] += claimableAmount;
+      assertEq(claimed[account][reward], stEXA.claimed(account, reward), "claimed != expected");
     }
     vm.stopPrank();
   }
