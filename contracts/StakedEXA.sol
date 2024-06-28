@@ -162,23 +162,21 @@ contract StakedEXA is
     uint256 balance = balanceOf(account);
     uint256 numerator = claimed[account][reward] * amount;
     uint256 claimedAmount = numerator == 0 ? 0 : (numerator - 1) / balance + 1;
+    claimed[account][reward] -= claimedAmount;
+
     numerator = saved[account][reward] * amount;
     uint256 savedAmount = numerator == 0 ? 0 : (numerator - 1) / balance + 1;
-    uint256 rawEarned = earned(reward, account, amount);
-
-    uint256 claimableAmount = rawClaimable(reward, account, amount);
-
-    uint256 max = Math.max(claimableAmount, claimedAmount); // due to excess exposure
-    uint256 claimAmount = max - claimedAmount;
-    claimed[account][reward] -= claimedAmount;
     saved[account][reward] -= savedAmount;
 
+    uint256 claimableAmount = Math.max(rawClaimable(reward, account, amount), claimedAmount); // due to excess exposure
+    uint256 claimAmount = claimableAmount - claimedAmount;
     if (claimAmount != 0) {
       reward.transfer(account, claimAmount);
       emit RewardPaid(reward, account, claimAmount);
     }
-    uint256 saveAmount = rawEarned <= max + savedAmount ? 0 : rawEarned - max - savedAmount;
-    // FIXME - rawEarned shouldn't be less than max + savedAmount
+
+    uint256 rawEarned = earned(reward, account, amount);
+    uint256 saveAmount = rawEarned <= claimableAmount + savedAmount ? 0 : rawEarned - claimableAmount - savedAmount; // due to rounding
     if (saveAmount != 0) reward.transfer(savings, saveAmount);
   }
 
