@@ -248,7 +248,6 @@ contract StakedEXATest is Test {
     exa.mint(account, assets);
     vm.startPrank(account);
     exa.approve(address(stEXA), assets);
-    exa.mint(address(this), assets);
     if (assets == 0) vm.expectRevert(ZeroAmount.selector);
     // TODO assert after-refTime properties
     stEXA.deposit(assets, account);
@@ -263,12 +262,30 @@ contract StakedEXATest is Test {
     stEXA.deposit(assets, shadow);
     vm.stopPrank();
 
+    uint256 timestamp = block.timestamp * 1e18;
+    uint256 time = timestamp - avgStart[account];
+
     IERC20[] memory rewards = stEXA.allRewardsTokens();
     for (uint256 i = 0; i < rewards.length; ++i) {
-      globalIndex[rewards[i]] = stEXA.globalIndex(rewards[i]);
-      avgIndexes[account][rewards[i]] = stEXA.avgIndex(rewards[i], account); // TODO calculate and assert
+      IERC20 reward = rewards[i];
+      globalIndex[reward] = stEXA.globalIndex(reward);
+      if (time > refTime * 1e18) {
+        // position restarts
+        claimed[account][reward] = 0;
+        claimable[account][reward] = 0;
+        avgIndexes[account][reward] = globalIndex[reward];
+      } else {
+        avgIndexes[account][reward] = stEXA.avgIndex(reward, account); // TODO calculate and assert
+      }
+      assertEq(claimed[account][reward], stEXA.claimed(account, reward), "claimed != expected");
+      assertEq(avgIndexes[account][reward], stEXA.avgIndex(reward, account), "avgIndex != expected");
     }
-    avgStart[account] = stEXA.avgStart(account); // TODO calculate and assert
+    if (time > refTime * 1e18) {
+      avgStart[account] = timestamp;
+    } else {
+      avgStart[account] = stEXA.avgStart(account); // TODO calculate and assert
+    }
+    assertEq(avgStart[account], stEXA.avgStart(account), "avgStart != expected");
   }
 
   function testHandlerWithdraw(uint256 assets) external {
