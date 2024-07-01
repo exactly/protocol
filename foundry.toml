@@ -16,6 +16,9 @@ verbosity = 3
 
 [invariant]
 fail_on_revert = true
+runs = 6_666
+depth = 16
+shrink_run_limit = 4_200_000_000
 
 [fmt]
 tab_width = 2

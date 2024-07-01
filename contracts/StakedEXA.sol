@@ -18,6 +18,7 @@ import { ERC4626Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ER
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import { Market } from "./Market.sol";
+import { console } from "forge-std/console.sol";
 
 contract StakedEXA is
   Initializable,
