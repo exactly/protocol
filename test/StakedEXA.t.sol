@@ -244,6 +244,9 @@ contract StakedEXATest is Test {
     uint256 prevAssets = stEXA.totalAssets();
 
     address account = accounts[uint256(keccak256(abi.encode(assets, block.timestamp))) % accounts.length];
+    uint256 prevShares = stEXA.balanceOf(account);
+    uint256 total = prevShares + assets;
+
     exa.mint(account, assets);
     vm.startPrank(account);
     exa.approve(address(stEXA), assets);
@@ -274,7 +277,9 @@ contract StakedEXATest is Test {
         claimable[account][reward] = 0;
         avgIndexes[account][reward] = globalIndex[reward];
       } else {
-        avgIndexes[account][reward] = stEXA.avgIndex(reward, account); // TODO calculate and assert
+        (, , uint256 index, , ) = stEXA.rewards(reward);
+        uint256 numerator = avgIndexes[account][reward] * prevShares + index * assets;
+        avgIndexes[account][reward] = numerator == 0 ? 0 : (numerator - 1) / total + 1;
       }
       assertEq(claimed[account][reward], stEXA.claimed(account, reward), "claimed != expected");
       assertEq(avgIndexes[account][reward], stEXA.avgIndex(reward, account), "avgIndex != expected");
@@ -282,7 +287,8 @@ contract StakedEXATest is Test {
     if (time > refTime * 1e18) {
       avgStart[account] = timestamp;
     } else {
-      avgStart[account] = stEXA.avgStart(account); // TODO calculate and assert
+      uint256 numerator = avgStart[account] * prevShares + block.timestamp * 1e18 * assets;
+      avgStart[account] = numerator == 0 ? 0 : (numerator - 1) / total + 1;
     }
     assertEq(avgStart[account], stEXA.avgStart(account), "avgStart != expected");
   }
