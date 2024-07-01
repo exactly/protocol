@@ -153,7 +153,11 @@ contract StakedEXATest is Test {
       uint256 shares = stEXA.balanceOf(accounts[a]);
       for (uint256 i = 0; i < rewards.length; ++i) {
         // TODO assert with discount factor
-        assertGe(stEXA.rawClaimable(rewards[i], accounts[a], shares), claimable[accounts[a]][rewards[i]]);
+        assertGe(
+          stEXA.rawClaimable(rewards[i], accounts[a], shares),
+          claimable[accounts[a]][rewards[i]],
+          "claimable went down"
+        );
       }
     }
   }
@@ -280,6 +284,7 @@ contract StakedEXATest is Test {
         (, , uint256 index, , ) = stEXA.rewards(reward);
         uint256 numerator = avgIndexes[account][reward] * prevShares + index * assets;
         avgIndexes[account][reward] = numerator == 0 ? 0 : (numerator - 1) / total + 1;
+        claimable[account][reward] = stEXA.claimable(reward, account);
       }
       assertEq(claimed[account][reward], stEXA.claimed(account, reward), "claimed != expected");
       assertEq(avgIndexes[account][reward], stEXA.avgIndex(reward, account), "avgIndex != expected");
@@ -313,14 +318,30 @@ contract StakedEXATest is Test {
     IERC20[] memory rewards = stEXA.allRewardsTokens();
     uint256 shares = prevShares - assets;
 
+    uint256 time = avgStart[account] == 0 ? 0 : block.timestamp * 1e18 - avgStart[account];
     for (uint256 i = 0; i < rewards.length; ++i) {
       IERC20 reward = rewards[i];
       uint256 numerator = claimed[account][reward] * assets;
       uint256 claimedAmount = numerator == 0 ? 0 : (numerator - 1) / prevShares + 1;
       claimed[account][reward] -= claimedAmount;
+      globalIndex[reward] = stEXA.globalIndex(reward);
+      claimable[account][reward] = claimed[account][reward] <
+        shares.mulWadDown(globalIndex[reward] - avgIndexes[account][reward])
+        ? shares.mulWadDown(globalIndex[reward] - avgIndexes[account][reward]) - claimed[account][reward]
+        : 0;
 
       assertApproxEqAbs(claimed[account][reward], stEXA.claimed(account, reward), 10, "claimed != expected");
-      globalIndex[reward] = stEXA.globalIndex(reward);
+      assertApproxEqAbs(
+        time <= minTime ? 0 : claimable[account][reward],
+        stEXA.claimable(reward, account, shares),
+        10,
+        "claimable != expected"
+      );
+      assertEq(
+        shares.mulWadDown(globalIndex[reward] - avgIndexes[account][reward]),
+        stEXA.rawClaimable(reward, account, shares),
+        "rawClaimable != expected"
+      );
     }
   }
 
