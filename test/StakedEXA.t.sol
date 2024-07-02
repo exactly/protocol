@@ -281,11 +281,19 @@ contract StakedEXATest is Test {
         claimable[account][reward] = 0;
         avgIndexes[account][reward] = globalIndex[reward];
       } else {
-        (, , uint256 index, , ) = stEXA.rewards(reward);
-        uint256 numerator = avgIndexes[account][reward] * prevShares + index * assets;
+        if (prevShares != 0) {
+          // sum the claimable to claimed before updating the user index
+          uint256 prevClaimable = prevShares.mulWadDown(globalIndex[reward] - avgIndexes[account][reward]) >
+            claimed[account][reward]
+            ? prevShares.mulWadDown(globalIndex[reward] - avgIndexes[account][reward]) - claimed[account][reward]
+            : 0;
+          claimable[account][reward] = 0;
+          claimed[account][reward] += prevClaimable;
+        }
+        uint256 numerator = avgIndexes[account][reward] * prevShares + globalIndex[reward] * assets;
         avgIndexes[account][reward] = numerator == 0 ? 0 : (numerator - 1) / total + 1;
-        claimable[account][reward] = stEXA.claimable(reward, account);
       }
+      assertEq(claimable[account][reward], stEXA.claimable(reward, account), "claimable != expected");
       assertEq(claimed[account][reward], stEXA.claimed(account, reward), "claimed != expected");
       assertEq(avgIndexes[account][reward], stEXA.avgIndex(reward, account), "avgIndex != expected");
     }
@@ -1561,6 +1569,26 @@ contract StakedEXATest is Test {
 
     stEXA.claimAll();
     stEXA.withdraw(assets, address(this), address(this));
+  }
+
+  function testDepositShouldClaim(uint256[2] memory assets, uint32 time) external {
+    assets[0] = _bound(assets[0], 1, type(uint80).max);
+    assets[1] = _bound(assets[1], 1, type(uint80).max);
+
+    exa.mint(address(this), assets[0]);
+    stEXA.deposit(assets[0], address(this));
+
+    skip(time);
+
+    uint256 rClaimable = stEXA.claimable(rA, address(this));
+    uint256 balanceBefore = rA.balanceOf(address(this));
+
+    exa.mint(address(this), assets[1]);
+    stEXA.deposit(assets[1], address(this));
+
+    if (time != 0) assertTrue(rClaimable > 0, "rClaimable == 0");
+
+    assertEq(rA.balanceOf(address(this)) - balanceBefore, rClaimable, "balanceBefore != rClaimable");
   }
 
   function minMaxWithdrawAllowance() internal view returns (uint256) {
