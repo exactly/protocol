@@ -138,6 +138,7 @@ contract StakedEXA is
           if (balance != 0) claimWithdraw(reward, to, balance);
           avgIndexes[to][reward] = rewards[reward].index;
         } else {
+          if (balance != 0) claim_(reward);
           uint256 numerator = avgIndexes[to][reward] * balance + rewards[reward].index * amount;
           avgIndexes[to][reward] = numerator == 0 ? 0 : (numerator - 1) / total + 1;
         }
