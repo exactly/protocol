@@ -177,7 +177,8 @@ contract StakedEXA is
     }
 
     uint256 rawEarned = earned(reward, account, amount);
-    uint256 saveAmount = rawEarned <= claimableAmount + savedAmount ? 0 : rawEarned - claimableAmount - savedAmount; // due to rounding
+    // due to rounding
+    uint256 saveAmount = rawEarned <= claimableAmount + savedAmount ? 0 : rawEarned - claimableAmount - savedAmount;
     if (saveAmount != 0) reward.transfer(savings, saveAmount);
   }
 
@@ -361,7 +362,8 @@ contract StakedEXA is
     if (time <= minTime * 1e18) return;
 
     uint256 claimedAmount = claimed[msg.sender][reward];
-    uint256 claimableAmount = Math.max(rawClaimable(reward, msg.sender, balanceOf(msg.sender)), claimedAmount); // due to excess exposure
+    // due to excess exposure
+    uint256 claimableAmount = Math.max(rawClaimable(reward, msg.sender, balanceOf(msg.sender)), claimedAmount);
     uint256 claimAmount = claimableAmount - claimedAmount;
 
     if (claimAmount != 0) claimed[msg.sender][reward] = claimedAmount + claimAmount;
