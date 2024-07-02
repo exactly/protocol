@@ -1445,7 +1445,7 @@ contract StakedEXATest is Test {
     for (uint256 i = 0; i < 30; i++) {
       skip(1 weeks);
       harvest();
-      uint256 claimedAmount = stEXA.claimedOf(address(this), providerAsset);
+      uint256 claimedAmount = stEXA.claimed(address(this), providerAsset);
       uint256 claimableAmount = stEXA.claimable(providerAsset, address(this));
 
       claimableAcc += claimableAmount > claimedAmount ? claimableAmount - claimedAmount : 0;

@@ -317,14 +317,6 @@ contract StakedEXA is
     return earnedRewards;
   }
 
-  function claimedOf(address account, IERC20 reward) external view returns (uint256) {
-    return claimed[account][reward];
-  }
-
-  function savedOf(address account, IERC20 reward) external view returns (uint256) {
-    return saved[account][reward];
-  }
-
   function allClaimed(address account) external view returns (ClaimableReward[] memory) {
     ClaimableReward[] memory claimedRewards = new ClaimableReward[](rewardsTokens.length);
     for (uint256 i = 0; i < rewardsTokens.length; ++i) {
