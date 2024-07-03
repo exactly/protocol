@@ -206,7 +206,6 @@ contract StakedEXA is
 
   // NOTE time with 18 decimals
   function discountFactor(uint256 time) internal view returns (uint256) {
-    return 1e18; // HACK
     uint256 memMinTime = minTime * 1e18;
     if (time <= memMinTime) return 0;
     uint256 memRefTime = refTime * 1e18;
@@ -362,10 +361,14 @@ contract StakedEXA is
 
     if (time > refTime * 1e18) {
       uint256 rawEarned = earned(reward, msg.sender, balanceOf(msg.sender));
-      uint256 saveAmount = rawEarned - Math.min(rawEarned, claimableAmount) - saved[msg.sender][reward];
-      saved[msg.sender][reward] += saveAmount;
+      uint256 savedAmount = saved[msg.sender][reward];
+      uint256 maxClaimed = Math.min(rawEarned, claimableAmount);
+      uint256 saveAmount = rawEarned > maxClaimed + savedAmount ? rawEarned - maxClaimed - savedAmount : 0;
 
-      if (saveAmount != 0) reward.transfer(savings, saveAmount);
+      if (saveAmount != 0) {
+        saved[msg.sender][reward] = savedAmount + saveAmount;
+        reward.transfer(savings, saveAmount);
+      }
     }
     if (claimAmount != 0) {
       reward.transfer(msg.sender, claimAmount);
