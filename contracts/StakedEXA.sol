@@ -215,10 +215,10 @@ contract StakedEXA is
       return (1e18 - memExcessFactor).mulWadDown((memRefTime * 1e18) / time) + memExcessFactor;
     }
 
-    uint256 penalties = uint256(
-      ((int256(penaltyGrowth) * int256(((time - memMinTime) * 1e18) / (memRefTime - memMinTime)).lnWad()) / 1e18)
-        .expWad()
-    );
+    uint256 timeRatio = ((time - memMinTime) * 1e18) / (memRefTime - memMinTime);
+    if (timeRatio == 0) return 0;
+
+    uint256 penalties = uint256(((int256(penaltyGrowth) * int256(timeRatio).lnWad()) / 1e18).expWad());
 
     uint256 memPenaltyThreshold = penaltyThreshold;
     return Math.min((1e18 - memPenaltyThreshold).mulWadDown(penalties) + memPenaltyThreshold, 1e18);
