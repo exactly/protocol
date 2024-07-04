@@ -19,6 +19,7 @@ import {
   Math,
   NotFinished,
   NotPausingRole,
+  Parameters,
   RewardNotListed,
   StakedEXA,
   Untransferable,
@@ -83,18 +84,21 @@ contract StakedEXATest is Test {
     vm.label(SAVINGS, "savings");
 
     providerRatio = 0.1e18;
-    stEXA = StakedEXA(address(new ERC1967Proxy(address(new StakedEXA(exa)), "")));
+    stEXA = StakedEXA(address(new ERC1967Proxy(address(new StakedEXA()), "")));
     stEXA.initialize(
-      minTime,
-      refTime,
-      excessFactor,
-      penaltyGrowth,
-      penaltyThreshold,
-      market,
-      PROVIDER,
-      SAVINGS,
-      1 weeks,
-      providerRatio
+      Parameters({
+        asset: exa,
+        minTime: minTime,
+        refTime: refTime,
+        excessFactor: excessFactor,
+        penaltyGrowth: penaltyGrowth,
+        penaltyThreshold: penaltyThreshold,
+        market: market,
+        provider: PROVIDER,
+        savings: SAVINGS,
+        duration: 1 weeks,
+        providerRatio: providerRatio
+      })
     );
     vm.label(address(stEXA), "stEXA");
     vm.label(

@@ -35,9 +35,6 @@ contract StakedEXA is
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
   bytes32 public constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN_ROLE");
 
-  /// @notice Staking token
-  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-  IERC20 public immutable exa;
   /// @notice Rewards tokens
   IERC20[] public rewardsTokens;
 
@@ -68,51 +65,38 @@ contract StakedEXA is
   uint256 public providerRatio;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(IERC20 exa_) {
-    exa = exa_;
-
+  constructor() {
     _disableInitializers();
   }
 
   /// @notice Initializes the contract.
   /// @dev can only be called once.
-  function initialize(
-    uint256 minTime_,
-    uint256 refTime_,
-    uint256 excessFactor_,
-    uint256 penaltyGrowth_,
-    uint256 penaltyThreshold_,
-    Market market_,
-    address provider_,
-    address savings_,
-    uint256 duration_,
-    uint256 providerRatio_
-  ) external initializer {
+  function initialize(Parameters memory p) external initializer {
     __ERC20_init("staked EXA", "stEXA");
-    __ERC4626_init(exa);
+    __ERC4626_init(p.asset);
     __ERC20Permit_init("staked EXA");
 
     __AccessControl_init();
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-    setMinTime(minTime_);
-    setRefTime(refTime_);
-    setExcessFactor(excessFactor_);
-    setPenaltyGrowth(penaltyGrowth_);
-    setPenaltyThreshold(penaltyThreshold_);
+    setMinTime(p.minTime);
+    setRefTime(p.refTime);
+    setExcessFactor(p.excessFactor);
+    setPenaltyGrowth(p.penaltyGrowth);
+    setPenaltyThreshold(p.penaltyThreshold);
 
-    market = market_;
+    market = p.market;
 
-    IERC20 asset_ = IERC20(address(market_.asset()));
-    enableReward(asset_);
-    setRewardsDuration(asset_, duration_);
+    IERC20 providerAsset = IERC20(address(p.market.asset()));
+    enableReward(providerAsset);
+    setRewardsDuration(providerAsset, p.duration);
 
-    asset_.approve(address(market), type(uint256).max);
+    providerAsset.approve(address(market), type(uint256).max);
 
-    setProvider(provider_);
-    setProviderRatio(providerRatio_);
-    setSavings(savings_);
+    setProvider(p.provider);
+    setProviderRatio(p.providerRatio);
+    setSavings(p.savings);
   }
 
   function updateIndex(IERC20 reward) internal {
@@ -522,6 +506,20 @@ error Untransferable();
 error ZeroAddress();
 error ZeroRate();
 error ZeroAmount();
+
+struct Parameters {
+  IERC20 asset;
+  uint256 minTime;
+  uint256 refTime;
+  uint256 excessFactor;
+  uint256 penaltyGrowth;
+  uint256 penaltyThreshold;
+  Market market;
+  address provider;
+  address savings;
+  uint256 duration;
+  uint256 providerRatio;
+}
 
 // TODO optimize
 struct RewardData {
