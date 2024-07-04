@@ -268,47 +268,6 @@ contract StakedEXA is
     return rawClaimable_ > claimedAmountProportion ? rawClaimable_ - claimedAmountProportion : 0;
   }
 
-  /// @notice Calculates the amount of rewards that an account has earned.
-  /// @param account The address of the user for whom to calculate the rewards.
-  /// @return The total amount of earned rewards for the specified user.
-  /// @dev Computes earned rewards by taking the product of the account's balance and the difference between the
-  /// global reward per token and the reward per token already paid to the user.
-  /// This result is then added to any rewards that have already been accumulated but not yet paid out.
-  function earned(IERC20 reward, address account) external view returns (uint256) {
-    return earned(reward, account, balanceOf(account));
-  }
-
-  function claimable(IERC20 reward, address account) external view returns (uint256) {
-    return claimable(reward, account, balanceOf(account));
-  }
-
-  function allClaimable(address account) external view returns (ClaimableReward[] memory) {
-    ClaimableReward[] memory claimableRewards = new ClaimableReward[](rewardsTokens.length);
-    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
-      IERC20 reward = rewardsTokens[i];
-      claimableRewards[i] = ClaimableReward({ reward: reward, amount: claimable(reward, account, balanceOf(account)) });
-    }
-    return claimableRewards;
-  }
-
-  function allEarned(address account) external view returns (ClaimableReward[] memory) {
-    ClaimableReward[] memory earnedRewards = new ClaimableReward[](rewardsTokens.length);
-    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
-      IERC20 reward = rewardsTokens[i];
-      earnedRewards[i] = ClaimableReward({ reward: reward, amount: earned(reward, account, balanceOf(account)) });
-    }
-    return earnedRewards;
-  }
-
-  function allClaimed(address account) external view returns (ClaimableReward[] memory) {
-    ClaimableReward[] memory claimedRewards = new ClaimableReward[](rewardsTokens.length);
-    for (uint256 i = 0; i < rewardsTokens.length; ++i) {
-      IERC20 reward = rewardsTokens[i];
-      claimedRewards[i] = ClaimableReward({ reward: reward, amount: claimed[account][reward] });
-    }
-    return claimedRewards;
-  }
-
   function harvest() external {
     Market memMarket = market;
     address memProvider = provider;
@@ -528,10 +487,4 @@ struct RewardData {
   uint256 index;
   uint256 rate;
   uint256 updatedAt;
-}
-
-// TODO
-struct ClaimableReward {
-  IERC20 reward;
-  uint256 amount;
 }
