@@ -132,6 +132,7 @@ contract StakedEXA is
         uint256 numerator = start * balance + block.timestamp * 1e18 * amount;
         avgStart[to] = numerator == 0 ? 0 : (numerator - 1) / total + 1;
       }
+      harvest();
     } else if (to == address(0)) {
       for (uint256 i = 0; i < rewardsTokens.length; ++i) {
         IERC20 reward = rewardsTokens[i];
@@ -268,7 +269,7 @@ contract StakedEXA is
     return rawClaimable_ > claimedAmountProportion ? rawClaimable_ - claimedAmountProportion : 0;
   }
 
-  function harvest() external {
+  function harvest() public {
     Market memMarket = market;
     address memProvider = provider;
     uint256 assets = Math.min(
