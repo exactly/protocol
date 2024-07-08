@@ -14,6 +14,7 @@ import {
   IERC20,
   InsufficientBalance,
   InvalidRatio,
+  InvalidRange,
   Market,
   Math,
   NotFinished,
@@ -1576,6 +1577,29 @@ contract StakedEXATest is Test {
     if (time > minTime) assertTrue(rClaimable > 0, "rClaimable == 0");
 
     assertEq(rA.balanceOf(address(this)) - balanceBefore, rClaimable, "balanceBefore != rClaimable");
+  }
+
+  function testRefTimeRange() external {
+    vm.expectRevert(InvalidRange.selector);
+    stEXA.setRefTime(minTime - 1);
+  }
+
+  function testExcessFactorRange() external {
+    vm.expectRevert(InvalidRange.selector);
+    stEXA.setExcessFactor(1e18 + 1);
+  }
+
+  function testPenaltyGrowthRange() external {
+    vm.expectRevert(InvalidRange.selector);
+    stEXA.setPenaltyGrowth(100e18 + 1);
+
+    vm.expectRevert(InvalidRange.selector);
+    stEXA.setPenaltyGrowth(0.1e18 - 1);
+  }
+
+  function testPenaltyThresholdRange() external {
+    vm.expectRevert(InvalidRange.selector);
+    stEXA.setPenaltyThreshold(1e18 + 1);
   }
 
   function minMaxWithdrawAllowance() internal view returns (uint256) {

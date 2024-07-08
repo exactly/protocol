@@ -395,19 +395,23 @@ contract StakedEXA is
   }
 
   function setRefTime(uint256 refTime_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (refTime_ < minTime || refTime_ == 0) revert InvalidRange();
     refTime = refTime_;
     emit RefTimeSet(refTime_, msg.sender);
   }
 
   function setExcessFactor(uint256 excessFactor_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (excessFactor_ > 1e18) revert InvalidRange();
     excessFactor = excessFactor_;
     emit ExcessFactorSet(excessFactor_, msg.sender);
   }
   function setPenaltyGrowth(uint256 penaltyGrowth_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (penaltyGrowth_ < 0.1e18 || penaltyGrowth_ > 100e18) revert InvalidRange();
     penaltyGrowth = penaltyGrowth_;
     emit PenaltyGrowthSet(penaltyGrowth_, msg.sender);
   }
   function setPenaltyThreshold(uint256 penaltyThreshold_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (penaltyThreshold_ > 1e18) revert InvalidRange();
     penaltyThreshold = penaltyThreshold_;
     emit PenaltyThresholdSet(penaltyThreshold_, msg.sender);
   }
@@ -456,8 +460,9 @@ contract StakedEXA is
 }
 
 error AlreadyListed();
-error InvalidRatio();
 error InsufficientBalance();
+error InvalidRange();
+error InvalidRatio();
 error NotFinished();
 error NotPausingRole();
 error RewardNotListed();
