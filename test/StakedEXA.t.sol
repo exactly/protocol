@@ -6,8 +6,9 @@ import { Test, stdError } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import { ERC20, ERC4626, IERC4626 } from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {
   AlreadyListed,
@@ -20,6 +21,7 @@ import {
   NotFinished,
   NotPausingRole,
   Parameters,
+  Permit,
   RewardNotListed,
   StakedEXA,
   Untransferable,
@@ -33,7 +35,8 @@ contract StakedEXATest is Test {
   using FixedPointMathLib for int256;
   using FixedPointMathLib for uint64;
 
-  address internal constant BOB = address(0x420);
+  uint256 internal constant BOB_KEY = 0x420;
+  address internal BOB;
   StakedEXA internal stEXA;
   MockERC20 internal exa;
   MockERC20 internal rA;
@@ -133,6 +136,7 @@ contract StakedEXATest is Test {
     stEXA.notifyRewardAmount(rA, initialAmount);
     stEXA.notifyRewardAmount(rB, initialAmount);
 
+    BOB = vm.addr(BOB_KEY);
     vm.label(BOB, "bob");
     vm.label(address(uint160(BOB) + 1), "shadowBob");
     vm.label(address(uint160(address(this)) + 1), "shadowTest");
@@ -1602,6 +1606,34 @@ contract StakedEXATest is Test {
     stEXA.setPenaltyThreshold(1e18 + 1);
   }
 
+  function testPermitAndDeposit() external {
+    uint256 assets = 1_000e18;
+    exa.mint(BOB, assets);
+
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          exa.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              BOB,
+              address(stEXA),
+              assets,
+              exa.nonces(BOB),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
+
+    vm.prank(BOB);
+    stEXA.permitAndDeposit(assets, BOB, Permit(assets, block.timestamp, v, r, s));
+  }
+
   function minMaxWithdrawAllowance() internal view returns (uint256) {
     return Math.min(market.convertToAssets(market.allowance(PROVIDER, address(stEXA))), market.maxWithdraw(PROVIDER));
   }
@@ -1656,10 +1688,10 @@ contract MockMarket is ERC4626 {
   }
 }
 
-contract MockERC20 is ERC20 {
+contract MockERC20 is ERC20Permit {
   uint8 internal immutable d;
 
-  constructor(string memory name, string memory symbol, uint8 decimals_) ERC20(name, symbol) {
+  constructor(string memory name_, string memory symbol_, uint8 decimals_) ERC20(name_, symbol_) ERC20Permit(name_) {
     d = decimals_;
   }
 

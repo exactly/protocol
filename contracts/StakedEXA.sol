@@ -12,7 +12,8 @@ import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/ac
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {
   ERC20PermitUpgradeable,
-  ERC20Upgradeable
+  ERC20Upgradeable,
+  IERC20Permit
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import { ERC4626Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -142,6 +143,11 @@ contract StakedEXA is
     } else revert Untransferable();
 
     super._update(from, to, amount);
+  }
+
+  function permitAndDeposit(uint256 assets, address receiver, Permit calldata p) external returns (uint256) {
+    IERC20Permit(asset()).permit(msg.sender, address(this), p.value, p.deadline, p.v, p.r, p.s);
+    return deposit(assets, receiver);
   }
 
   function claimWithdraw(IERC20 reward, address account, uint256 amount) internal {
@@ -493,4 +499,12 @@ struct RewardData {
   uint256 index;
   uint256 rate;
   uint256 updatedAt;
+}
+
+struct Permit {
+  uint256 value;
+  uint256 deadline;
+  uint8 v;
+  bytes32 r;
+  bytes32 s;
 }
