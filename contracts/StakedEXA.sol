@@ -103,7 +103,7 @@ contract StakedEXA is
   function updateIndex(IERC20 reward) internal {
     RewardData storage rewardData = rewards[reward];
     rewardData.index = globalIndex(reward);
-    rewardData.updatedAt = lastTimeRewardApplicable(rewardData.finishAt);
+    rewardData.updatedAt = uint40(lastTimeRewardApplicable(rewardData.finishAt));
   }
 
   function _update(address from, address to, uint256 amount) internal override whenNotPaused {
@@ -189,8 +189,8 @@ contract StakedEXA is
       reward.balanceOf(address(this)) - (address(reward) == asset() ? totalAssets() : 0)
     ) revert InsufficientBalance();
 
-    rewardData.finishAt = block.timestamp + rewardData.duration;
-    rewardData.updatedAt = block.timestamp;
+    rewardData.finishAt = uint40(block.timestamp) + rewardData.duration;
+    rewardData.updatedAt = uint40(block.timestamp);
 
     emit RewardAmountNotified(reward, notifier, amount);
   }
@@ -233,7 +233,7 @@ contract StakedEXA is
   }
 
   function lastTimeRewardApplicable(uint256 finishAt) public view returns (uint256) {
-    return Math.min(finishAt, block.timestamp);
+    return uint40(Math.min(finishAt, block.timestamp));
   }
 
   function globalIndex(IERC20 reward) public view returns (uint256) {
@@ -340,7 +340,7 @@ contract StakedEXA is
   function enableReward(IERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (rewards[reward].finishAt != 0) revert AlreadyListed();
 
-    rewards[reward].finishAt = block.timestamp;
+    rewards[reward].finishAt = uint40(block.timestamp);
     rewardsTokens.push(reward);
 
     emit RewardListed(reward, msg.sender);
@@ -351,7 +351,7 @@ contract StakedEXA is
 
     if (block.timestamp < rewards[reward].finishAt) {
       uint256 finishAt = rewards[reward].finishAt;
-      rewards[reward].finishAt = block.timestamp;
+      rewards[reward].finishAt = uint40(block.timestamp);
       reward.transfer(savings, (finishAt - block.timestamp) * rewards[reward].rate);
     }
 
@@ -359,7 +359,7 @@ contract StakedEXA is
   }
 
   // notice - can only change the duration if the reward is finished
-  function setRewardsDuration(IERC20 reward, uint256 duration) public onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setRewardsDuration(IERC20 reward, uint40 duration) public onlyRole(DEFAULT_ADMIN_ROLE) {
     RewardData storage rewardData = rewards[reward];
     if (rewardData.finishAt > block.timestamp) revert NotFinished();
 
@@ -488,17 +488,16 @@ struct Parameters {
   Market market;
   address provider;
   address savings;
-  uint256 duration;
+  uint40 duration;
   uint256 providerRatio;
 }
 
-// TODO optimize
 struct RewardData {
-  uint256 duration;
-  uint256 finishAt;
+  uint40 duration;
+  uint40 finishAt;
+  uint40 updatedAt;
   uint256 index;
   uint256 rate;
-  uint256 updatedAt;
 }
 
 struct Permit {

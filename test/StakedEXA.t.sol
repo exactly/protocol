@@ -42,7 +42,7 @@ contract StakedEXATest is Test {
   MockERC20 internal rA;
   MockERC20 internal rB;
   uint256 internal initialAmount;
-  uint256 internal duration;
+  uint40 internal duration;
   uint256 internal minTime;
   uint256 internal refTime;
   uint256 internal excessFactor;
@@ -424,7 +424,7 @@ contract StakedEXATest is Test {
 
     MockERC20(address(reward)).mint(address(stEXA), assets);
 
-    (uint256 rDuration, uint256 finishAt, , uint256 rate, ) = stEXA.rewards(reward);
+    (uint40 rDuration, uint40 finishAt, , , uint256 rate) = stEXA.rewards(reward);
     if (rDuration == 0) vm.expectRevert(stdError.divisionError);
     else if (
       (
@@ -440,7 +440,7 @@ contract StakedEXATest is Test {
 
     uint256 savingsBalance = reward.balanceOf(SAVINGS);
 
-    (, uint256 finishAt, , uint256 rate, ) = stEXA.rewards(reward);
+    (, uint40 finishAt, , , uint256 rate) = stEXA.rewards(reward);
 
     if (finishAt > block.timestamp) {
       uint256 remainingRewards = rate * (finishAt - block.timestamp);
@@ -453,12 +453,12 @@ contract StakedEXATest is Test {
 
     stEXA.setRewardsDuration(reward, period);
     uint256 newRate;
-    (, finishAt, , newRate, ) = stEXA.rewards(reward);
+    (, finishAt, , , newRate) = stEXA.rewards(reward);
     assertEq(rate, newRate, "rate != new rate");
   }
 
   function testInitialValues() external view {
-    (uint256 duration0, uint256 finishAt0, uint256 index0, uint256 rate0, uint256 updatedAt0) = stEXA.rewards(rA);
+    (uint256 duration0, uint256 finishAt0, uint256 updatedAt0, uint256 index0, uint256 rate0) = stEXA.rewards(rA);
 
     assertEq(duration0, duration);
     assertEq(finishAt0, block.timestamp + duration);
@@ -466,7 +466,7 @@ contract StakedEXATest is Test {
     assertEq(rate0, initialAmount / duration);
     assertEq(updatedAt0, block.timestamp);
 
-    (uint256 duration1, uint256 finishAt1, uint256 index1, uint256 rate1, uint256 updatedAt1) = stEXA.rewards(rB);
+    (uint256 duration1, uint256 finishAt1, uint256 updatedAt1, uint256 index1, uint256 rate1) = stEXA.rewards(rB);
 
     assertEq(duration1, duration);
     assertEq(finishAt1, block.timestamp + duration);
@@ -484,7 +484,7 @@ contract StakedEXATest is Test {
 
     assertFalse(stEXA.paused());
 
-    (uint256 providerDuration, uint256 finishAt, uint256 index, uint256 rate, uint256 updatedAt) = stEXA.rewards(
+    (uint256 providerDuration, uint256 finishAt, uint256 updatedAt, uint256 index, uint256 rate) = stEXA.rewards(
       providerAsset
     );
     assertEq(providerDuration, 1 weeks);
@@ -517,9 +517,9 @@ contract StakedEXATest is Test {
     stEXA.transfer(address(0x1), shares);
   }
 
-  function testSetDuration(uint256 skipTime, uint256 duration_) external {
-    skipTime = _bound(skipTime, 1, duration * 2);
-    duration_ = _bound(duration_, 1, 200 weeks);
+  function testSetDuration(uint256 skipTime, uint40 duration_) external {
+    skipTime = uint40(_bound(skipTime, 1, duration * 2));
+    duration_ = uint40(_bound(duration_, 1, type(uint40).max));
 
     skip(skipTime);
     if (skipTime < duration) vm.expectRevert(NotFinished.selector);
@@ -642,10 +642,10 @@ contract StakedEXATest is Test {
     stEXA.withdraw(assets, address(this), address(this));
   }
 
-  function testRewardsDurationSetEvent(uint256 duration_) external {
+  function testRewardsDurationSetEvent(uint40 duration_) external {
     skip(duration + 1);
 
-    duration_ = _bound(duration_, 1, 200 weeks);
+    duration_ = uint40(_bound(duration_, 1, type(uint40).max));
     vm.expectEmit(true, true, true, true, address(stEXA));
     emit StakedEXA.RewardsDurationSet(rA, address(this), duration_);
     stEXA.setRewardsDuration(rA, duration_);
@@ -656,7 +656,7 @@ contract StakedEXATest is Test {
     time = _bound(time, 1, duration * 2);
 
     vm.warp(block.timestamp + time);
-    (, uint256 finishAt, , uint256 rate, uint256 updatedAt) = stEXA.rewards(rA);
+    (, uint256 finishAt, uint256 updatedAt, , uint256 rate) = stEXA.rewards(rA);
 
     uint256 expectedRate = 0;
     if (block.timestamp >= finishAt) {
@@ -670,7 +670,7 @@ contract StakedEXATest is Test {
     emit StakedEXA.RewardAmountNotified(rA, address(this), amount);
     stEXA.notifyRewardAmount(rA, amount);
 
-    (, finishAt, , rate, updatedAt) = stEXA.rewards(rA);
+    (, finishAt, updatedAt, , rate) = stEXA.rewards(rA);
     assertEq(rate, expectedRate, "rate != expected");
     assertEq(finishAt, block.timestamp + duration, "finishAt != expected");
     assertEq(updatedAt, block.timestamp, "updatedAt != expected");
@@ -715,7 +715,7 @@ contract StakedEXATest is Test {
     emit StakedEXA.RewardAmountNotified(rA, admin, amount);
     stEXA.notifyRewardAmount(rA, amount);
 
-    (uint256 duration0, uint256 finishAt, , , uint256 updatedAt) = stEXA.rewards(rA);
+    (uint256 duration0, uint256 finishAt, uint256 updatedAt, , ) = stEXA.rewards(rA);
     assertEq(finishAt, block.timestamp + duration0);
     assertEq(updatedAt, block.timestamp);
   }
@@ -725,7 +725,7 @@ contract StakedEXATest is Test {
 
     uint256 time = 10 days;
 
-    (, , , uint256 rate, ) = stEXA.rewards(rA);
+    (, , , , uint256 rate) = stEXA.rewards(rA);
     exa.mint(address(this), assets);
     stEXA.deposit(assets, address(this));
 
@@ -1085,7 +1085,7 @@ contract StakedEXATest is Test {
   function testHarvestEffectOnRewardData() external {
     uint256 assets = market.maxWithdraw(PROVIDER);
     stEXA.harvest();
-    (uint256 providerDuration, uint256 finishAt, uint256 index, uint256 rate, uint256 updatedAt) = stEXA.rewards(
+    (uint256 providerDuration, uint256 finishAt, uint256 updatedAt, uint256 index, uint256 rate) = stEXA.rewards(
       providerAsset
     );
     assertEq(providerDuration, 1 weeks);
@@ -1264,7 +1264,7 @@ contract StakedEXATest is Test {
   function testDisableRewardTransfersRemainingToSavings() external {
     uint256 savingsBalance = rA.balanceOf(SAVINGS);
 
-    (, uint256 finishAt, , uint256 rate, ) = stEXA.rewards(rA);
+    (, uint256 finishAt, , , uint256 rate) = stEXA.rewards(rA);
     uint256 remainingRewards = rate * (finishAt - block.timestamp);
 
     stEXA.disableReward(rA);
@@ -1282,7 +1282,7 @@ contract StakedEXATest is Test {
 
     uint256 savingsBalance = rA.balanceOf(SAVINGS);
 
-    (, uint256 finishAt, , uint256 rate, ) = stEXA.rewards(rA);
+    (, uint256 finishAt, , , uint256 rate) = stEXA.rewards(rA);
 
     uint256 remainingRewards = finishAt > block.timestamp ? rate * (finishAt - block.timestamp) : 0;
 

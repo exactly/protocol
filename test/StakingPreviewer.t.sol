@@ -52,7 +52,7 @@ contract StakingPreviewerTest is Test {
     exa.approve(address(stEXA), type(uint256).max);
 
     // configure multiple rewards
-    uint256 duration = p.refTime;
+    uint40 duration = uint40(p.refTime);
     uint256 initialAmount = 1_000e18;
     exa.mint(address(stEXA), initialAmount);
     rA.mint(address(stEXA), initialAmount);

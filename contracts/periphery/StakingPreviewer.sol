@@ -93,7 +93,7 @@ contract StakingPreviewer {
 
   /// @notice Returns the staking model parameters.
   function parameters() public view returns (Parameters memory) {
-    (uint256 duration, , , , ) = stEXA.rewards(IERC20(address(stEXA.market().asset())));
+    (uint40 duration, , , , ) = stEXA.rewards(IERC20(address(stEXA.market().asset())));
     return
       Parameters({
         asset: IERC20(stEXA.asset()),
