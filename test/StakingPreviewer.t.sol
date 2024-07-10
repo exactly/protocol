@@ -4,8 +4,10 @@ pragma solidity ^0.8.17;
 import { Test } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {
+  IERC20,
   StakingPreviewer,
   StakedEXA,
+  RewardAccount,
   RewardAmount,
   Parameters,
   StakingAccount
@@ -69,7 +71,6 @@ contract StakingPreviewerTest is Test {
     stEXA.notifyRewardAmount(rA, initialAmount);
     stEXA.notifyRewardAmount(rB, initialAmount);
 
-    //
     previewer = new StakingPreviewer(stEXA);
   }
 
@@ -156,13 +157,33 @@ contract StakingPreviewerTest is Test {
     }
   }
 
-  function testExactly() external {
+  function testAllRewards() external {
     uint256 assets = 1_000e18;
     exa.mint(address(this), assets);
     stEXA.deposit(assets, address(this));
     skip(p.minTime * 2);
 
-    StakingAccount memory data = previewer.exactly();
+    RewardAccount[] memory rewards = previewer.allRewards(address(this));
+    assertEq(rewards.length, stEXA.allRewardsTokens().length);
+
+    for (uint256 i = 0; i < rewards.length; i++) {
+      IERC20 reward = rewards[i].reward;
+      (, uint40 finishAt, , , uint256 rate) = stEXA.rewards(reward);
+      assertEq(rewards[i].finishAt, finishAt);
+      assertEq(rewards[i].rate, rate);
+      assertEq(rewards[i].claimable, stEXA.claimable(reward, address(this), stEXA.balanceOf(address(this))));
+      assertEq(rewards[i].claimed, stEXA.claimed(address(this), reward));
+      assertEq(rewards[i].earned, stEXA.earned(reward, address(this), stEXA.balanceOf(address(this))));
+    }
+  }
+
+  function testStaking() external {
+    uint256 assets = 1_000e18;
+    exa.mint(address(this), assets);
+    stEXA.deposit(assets, address(this));
+    skip(p.minTime * 2);
+
+    StakingAccount memory data = previewer.staking();
 
     assertEq(address(data.parameters.asset), address(p.asset));
     assertEq(data.parameters.minTime, p.minTime);
@@ -182,25 +203,15 @@ contract StakingPreviewerTest is Test {
     assertEq(data.start, stEXA.avgStart(address(this)));
     assertEq(data.time, block.timestamp * 1e18 - data.start);
 
-    assertEq(data.claimableRewards.length, 4);
-    for (uint256 i = 0; i < data.claimableRewards.length; i++) {
-      assertEq(
-        data.claimableRewards[i].amount,
-        stEXA.claimable(data.claimableRewards[i].reward, address(this), stEXA.balanceOf(address(this)))
-      );
-    }
-
-    assertEq(data.claimedRewards.length, 4);
-    for (uint256 i = 0; i < data.claimedRewards.length; i++) {
-      assertEq(data.claimedRewards[i].amount, stEXA.claimed(address(this), data.claimedRewards[i].reward));
-    }
-
-    assertEq(data.earnedRewards.length, 4);
-    for (uint256 i = 0; i < data.earnedRewards.length; i++) {
-      assertEq(
-        data.earnedRewards[i].amount,
-        stEXA.earned(data.earnedRewards[i].reward, address(this), stEXA.balanceOf(address(this)))
-      );
+    assertEq(data.rewards.length, 4);
+    for (uint256 i = 0; i < data.rewards.length; i++) {
+      IERC20 reward = data.rewards[i].reward;
+      (, uint40 finishAt, , , uint256 rate) = stEXA.rewards(reward);
+      assertEq(data.rewards[i].finishAt, finishAt);
+      assertEq(data.rewards[i].rate, rate);
+      assertEq(data.rewards[i].claimable, stEXA.claimable(reward, address(this), stEXA.balanceOf(address(this))));
+      assertEq(data.rewards[i].claimed, stEXA.claimed(address(this), reward));
+      assertEq(data.rewards[i].earned, stEXA.earned(reward, address(this), stEXA.balanceOf(address(this))));
     }
   }
 }

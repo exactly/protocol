@@ -13,7 +13,7 @@ contract StakingPreviewer {
   }
 
   /// @notice Returns the staking model parameters and account details for a given account.
-  function exactly() external view returns (StakingAccount memory) {
+  function staking() external view returns (StakingAccount memory) {
     uint256 start = stEXA.avgStart(msg.sender);
     return
       StakingAccount({
@@ -22,10 +22,25 @@ contract StakingPreviewer {
         balance: stEXA.balanceOf(msg.sender),
         start: start,
         time: start != 0 ? block.timestamp * 1e18 - start : 0,
-        claimableRewards: allClaimable(msg.sender),
-        claimedRewards: allClaimed(msg.sender),
-        earnedRewards: allEarned(msg.sender)
+        rewards: allRewards(msg.sender)
       });
+  }
+
+  function allRewards(address account) public view returns (RewardAccount[] memory rewards) {
+    IERC20[] memory rewardTokens = stEXA.allRewardsTokens();
+    rewards = new RewardAccount[](rewardTokens.length);
+    for (uint256 i = 0; i < rewardTokens.length; ++i) {
+      IERC20 reward = rewardTokens[i];
+      (, uint40 finishAt, , , uint256 rate) = stEXA.rewards(reward);
+      rewards[i] = RewardAccount({
+        reward: reward,
+        rate: rate,
+        finishAt: finishAt,
+        claimable: claimable(reward, account),
+        claimed: stEXA.claimed(account, reward),
+        earned: earned(reward, account)
+      });
+    }
   }
 
   /// @notice Returns the rewards and amounts that an account can currently claim.
@@ -116,12 +131,19 @@ struct StakingAccount {
   Parameters parameters;
   uint256 totalAssets;
   // account
+  RewardAccount[] rewards;
   uint256 balance;
   uint256 start;
   uint256 time;
-  RewardAmount[] claimableRewards;
-  RewardAmount[] claimedRewards;
-  RewardAmount[] earnedRewards;
+}
+
+struct RewardAccount {
+  IERC20 reward;
+  uint256 rate;
+  uint256 finishAt;
+  uint256 claimable;
+  uint256 claimed;
+  uint256 earned;
 }
 
 struct RewardAmount {
