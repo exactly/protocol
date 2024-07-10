@@ -15,16 +15,16 @@ contract StakingPreviewer {
   }
 
   /// @notice Returns the staking model parameters and account details for a given account.
-  function staking() external view returns (StakingAccount memory) {
-    uint256 start = stEXA.avgStart(msg.sender);
+  function staking(address account) external view returns (StakingAccount memory) {
+    uint256 start = stEXA.avgStart(account);
     return
       StakingAccount({
         parameters: parameters(),
         totalAssets: stEXA.totalAssets(),
-        balance: stEXA.balanceOf(msg.sender),
+        balance: stEXA.balanceOf(account),
         start: start,
         time: start != 0 ? block.timestamp * 1e18 - start : 0,
-        rewards: allRewards(msg.sender)
+        rewards: allRewards(account)
       });
   }
 

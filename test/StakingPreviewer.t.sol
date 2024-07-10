@@ -183,7 +183,7 @@ contract StakingPreviewerTest is Test {
     stEXA.deposit(assets, address(this));
     skip(p.minTime * 2);
 
-    StakingAccount memory data = previewer.staking();
+    StakingAccount memory data = previewer.staking(address(this));
 
     assertEq(address(data.parameters.asset), address(p.asset));
     assertEq(data.parameters.minTime, p.minTime);
