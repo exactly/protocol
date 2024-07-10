@@ -26,5 +26,12 @@ number_underscore = "thousands"
 [profile.production.fuzz]
 runs = 66_666
 
+[profile.production.invariant]
+runs = 666
+
 [profile.overkill.fuzz]
 runs = 6_666_666
+
+[profile.overkill.invariant]
+runs = 66_666
+depth = 666
