@@ -275,7 +275,7 @@ contract StakedEXA is
     return rawClaimable_ > claimedAmountProportion ? rawClaimable_ - claimedAmountProportion : 0;
   }
 
-  function harvest() public {
+  function harvest() public whenNotPaused {
     Market memMarket = market;
     address memProvider = provider;
     uint256 assets = Math.min(
@@ -298,7 +298,7 @@ contract StakedEXA is
     return rewardsTokens;
   }
 
-  function claim_(IERC20 reward) internal {
+  function claim_(IERC20 reward) internal whenNotPaused {
     uint256 time = block.timestamp * 1e18 - avgStart[msg.sender];
     if (time <= minTime * 1e18) return;
 

@@ -1634,6 +1634,46 @@ contract StakedEXATest is Test {
     stEXA.permitAndDeposit(assets, BOB, Permit(assets, block.timestamp, v, r, s));
   }
 
+  function testPausableClaim() external {
+    uint256 assets = 1_000e18;
+    exa.mint(address(this), assets);
+    stEXA.deposit(assets, address(this));
+
+    address pauser = address(0x1);
+    stEXA.grantRole(stEXA.PAUSER_ROLE(), pauser);
+
+    vm.prank(pauser);
+    stEXA.pause();
+
+    vm.expectRevert(Pausable.EnforcedPause.selector);
+    stEXA.claimAll();
+
+    vm.expectRevert(Pausable.EnforcedPause.selector);
+    stEXA.claim(providerAsset);
+
+    vm.prank(pauser);
+    stEXA.unpause();
+
+    stEXA.claimAll();
+    stEXA.claim(providerAsset);
+  }
+
+  function testPausableHarvest() external {
+    address pauser = address(0x1);
+    stEXA.grantRole(stEXA.PAUSER_ROLE(), pauser);
+
+    vm.prank(pauser);
+    stEXA.pause();
+
+    vm.expectRevert(Pausable.EnforcedPause.selector);
+    stEXA.harvest();
+
+    vm.prank(pauser);
+    stEXA.unpause();
+
+    stEXA.harvest();
+  }
+
   function minMaxWithdrawAllowance() internal view returns (uint256) {
     return Math.min(market.convertToAssets(market.allowance(PROVIDER, address(stEXA))), market.maxWithdraw(PROVIDER));
   }
