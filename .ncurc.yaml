@@ -1,6 +1,6 @@
 reject:
-  - "@openzeppelin/contracts"
-  - "@openzeppelin/contracts-upgradeable"
+  - "@openzeppelin/contracts-v4"
+  - "@openzeppelin/contracts-upgradeable-v4"
   - chai
   - eslint
   - hardhat
