@@ -6,8 +6,10 @@ import { IERC20, Parameters, StakedEXA } from "../StakedEXA.sol";
 /// @title StakingPreviewer
 /// @notice Contract to be consumed as a helper for `StakedEXA`
 contract StakingPreviewer {
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   StakedEXA public immutable stEXA;
 
+  /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(StakedEXA stEXA_) {
     stEXA = stEXA_;
   }
