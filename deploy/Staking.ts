@@ -17,7 +17,7 @@ const func: DeployFunction = async ({
   const [{ address: exa }, { address: market }, { address: timelock }, { deployer, treasury, savings }] =
     await Promise.all([get("EXA"), get(`Market${staking.market}`), get("TimelockController"), getNamedAccounts()]);
 
-  await validateUpgrade("stEXA", { contract: "StakedEXA", args: [exa], envKey: "STAKED_EXA" }, async (name, opts) =>
+  await validateUpgrade("stEXA", { contract: "StakedEXA", envKey: "STAKED_EXA" }, async (name, opts) =>
     deploy(name, {
       ...opts,
       proxy: {
@@ -28,16 +28,19 @@ const func: DeployFunction = async ({
           init: {
             methodName: "initialize",
             args: [
-              staking.minTime,
-              staking.refTime,
-              parseUnits(String(staking.excessFactor)),
-              parseUnits(String(staking.penaltyGrowth)),
-              parseUnits(String(staking.penaltyThreshold)),
-              market,
-              treasury,
-              savings,
-              staking.duration,
-              parseUnits(String(staking.penaltyThreshold)),
+              {
+                asset: exa,
+                minTime: staking.minTime,
+                refTime: staking.refTime,
+                excessFactor: parseUnits(String(staking.excessFactor)),
+                penaltyGrowth: parseUnits(String(staking.penaltyGrowth)),
+                penaltyThreshold: parseUnits(String(staking.penaltyThreshold)),
+                market,
+                provider: treasury,
+                savings,
+                duration: staking.duration,
+                providerRatio: parseUnits(String(staking.penaltyThreshold)),
+              },
             ],
           },
         },
@@ -49,6 +52,15 @@ const func: DeployFunction = async ({
 
   const stEXA = await getContract<StakedEXA>("stEXA", await getSigner(deployer));
   await transferOwnership(stEXA, deployer, timelock);
+
+  await validateUpgrade("StakingPreviewer", { args: [stEXA.target], envKey: "STAKING_PREVIEWER" }, async (name, opts) =>
+    deploy(name, {
+      ...opts,
+      proxy: { proxyContract: "TransparentUpgradeableProxy" },
+      from: deployer,
+      log: true,
+    }),
+  );
 };
 
 func.tags = ["Staking"];
