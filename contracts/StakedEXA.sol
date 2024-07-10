@@ -237,7 +237,7 @@ contract StakedEXA is
   }
 
   function globalIndex(IERC20 reward) public view returns (uint256) {
-    RewardData memory rewardData = rewards[reward];
+    RewardData storage rewardData = rewards[reward];
     if (totalSupply() == 0) return rewardData.index;
 
     return
