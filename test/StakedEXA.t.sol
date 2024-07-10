@@ -445,7 +445,7 @@ contract StakedEXATest is Test {
     if (finishAt > block.timestamp) {
       uint256 remainingRewards = rate * (finishAt - block.timestamp);
 
-      stEXA.disableReward(reward);
+      stEXA.finishDistribution(reward);
       assertEq(reward.balanceOf(SAVINGS), savingsBalance + remainingRewards, "missing remaining savings");
       (, finishAt, , , ) = stEXA.rewards(reward);
       assertEq(finishAt, block.timestamp, "finish != block timestamp");
@@ -1169,7 +1169,7 @@ contract StakedEXATest is Test {
     assertApproxEqAbs(providerAsset.balanceOf(address(this)), harvested, 1e6); // no one else was in the program
   }
 
-  function testDisableRewardStopsEmission() external {
+  function testFinishDistributionStopsEmission() external {
     uint256 assets = 1_000e18;
     exa.mint(address(this), assets * 2);
     stEXA.deposit(assets, address(this));
@@ -1179,7 +1179,7 @@ contract StakedEXATest is Test {
     uint256 thisClaimable = claimable(rA, address(this));
     uint256 earned_ = earned(rA, address(this));
 
-    stEXA.disableReward(rA);
+    stEXA.finishDistribution(rA);
     stEXA.withdraw(assets, address(this), address(this));
     assertEq(rA.balanceOf(address(this)), thisClaimable);
 
@@ -1195,7 +1195,7 @@ contract StakedEXATest is Test {
     assertEq(rA.balanceOf(BOB), bobClaimable);
   }
 
-  function testDisableRewardLetsClaimUnclaimed() external {
+  function testFinishDistributionLetsClaimUnclaimed() external {
     uint256 assets = 1_000e18;
     exa.mint(address(this), assets * 2);
     stEXA.deposit(assets, address(this));
@@ -1205,7 +1205,7 @@ contract StakedEXATest is Test {
     uint256 thisClaimable = claimable(rA, address(this));
     uint256 earned_ = earned(rA, address(this));
 
-    stEXA.disableReward(rA);
+    stEXA.finishDistribution(rA);
     uint256 newClaimable = claimable(rA, address(this));
     assertEq(thisClaimable, newClaimable);
     stEXA.withdraw(assets, address(this), address(this));
@@ -1222,18 +1222,18 @@ contract StakedEXATest is Test {
     assertEq(rA.balanceOf(BOB), bobClaimable);
   }
 
-  function testDisableRewardEmitEvent() external {
+  function testFinishDistributionEmitEvent() external {
     harvest();
     vm.expectEmit(true, true, true, true, address(stEXA));
-    emit StakedEXA.RewardDisabled(providerAsset, address(this));
-    stEXA.disableReward(providerAsset);
+    emit StakedEXA.DistributionFinished(providerAsset, address(this));
+    stEXA.finishDistribution(providerAsset);
   }
 
-  function testOnlyAdminDisableReward() external {
+  function testOnlyAdminFinishDistribution() external {
     address nonAdmin = address(0x1);
     vm.prank(nonAdmin);
     vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonAdmin, 0));
-    stEXA.disableReward(rA);
+    stEXA.finishDistribution(rA);
 
     address admin = address(0x2);
     stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
@@ -1241,8 +1241,8 @@ contract StakedEXATest is Test {
 
     vm.prank(admin);
     vm.expectEmit(true, true, true, true, address(stEXA));
-    emit StakedEXA.RewardDisabled(rA, admin);
-    stEXA.disableReward(rA);
+    emit StakedEXA.DistributionFinished(rA, admin);
+    stEXA.finishDistribution(rA);
 
     (, uint256 finishAt, , , ) = stEXA.rewards(rA);
     assertNotEq(finishAt, 0);
@@ -1252,7 +1252,7 @@ contract StakedEXATest is Test {
     vm.expectRevert(NotFinished.selector);
     stEXA.setRewardsDuration(rA, 1);
 
-    stEXA.disableReward(rA);
+    stEXA.finishDistribution(rA);
     stEXA.setRewardsDuration(rA, 1 weeks);
 
     (uint256 duration0, uint256 finishAt, , , ) = stEXA.rewards(rA);
@@ -1261,20 +1261,20 @@ contract StakedEXATest is Test {
     assertEq(finishAt, block.timestamp);
   }
 
-  function testDisableRewardTransfersRemainingToSavings() external {
+  function testFinishDistributionTransfersRemainingToSavings() external {
     uint256 savingsBalance = rA.balanceOf(SAVINGS);
 
     (, uint256 finishAt, , , uint256 rate) = stEXA.rewards(rA);
     uint256 remainingRewards = rate * (finishAt - block.timestamp);
 
-    stEXA.disableReward(rA);
+    stEXA.finishDistribution(rA);
     assertEq(rA.balanceOf(SAVINGS), savingsBalance + remainingRewards);
 
     (, finishAt, , , ) = stEXA.rewards(rA);
     assertEq(finishAt, block.timestamp);
   }
 
-  function testDisableRewardThatAlreadyFinished() external {
+  function testFinishDistributionThatAlreadyFinished() external {
     uint256 assets = 1_000e18;
     exa.mint(address(this), assets);
     stEXA.deposit(assets, address(this));
@@ -1288,7 +1288,7 @@ contract StakedEXATest is Test {
 
     assertEq(remainingRewards, 0);
 
-    stEXA.disableReward(rA);
+    stEXA.finishDistribution(rA);
     assertEq(rA.balanceOf(SAVINGS), savingsBalance);
 
     (, uint256 newFinishAt, , , ) = stEXA.rewards(rA);

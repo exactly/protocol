@@ -346,7 +346,7 @@ contract StakedEXA is
     emit RewardListed(reward, msg.sender);
   }
 
-  function disableReward(IERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) onlyReward(reward) {
+  function finishDistribution(IERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) onlyReward(reward) {
     updateIndex(reward);
 
     if (block.timestamp < rewards[reward].finishAt) {
@@ -355,7 +355,7 @@ contract StakedEXA is
       reward.transfer(savings, (finishAt - block.timestamp) * rewards[reward].rate);
     }
 
-    emit RewardDisabled(reward, msg.sender);
+    emit DistributionFinished(reward, msg.sender);
   }
 
   // notice - can only change the duration if the reward is finished
@@ -459,7 +459,7 @@ contract StakedEXA is
   event ProviderSet(address indexed provider, address indexed account);
   event RefTimeSet(uint256 refTime, address indexed account);
   event RewardAmountNotified(IERC20 indexed reward, address indexed notifier, uint256 amount);
-  event RewardDisabled(IERC20 indexed reward, address indexed account);
+  event DistributionFinished(IERC20 indexed reward, address indexed account);
   event RewardPaid(IERC20 indexed reward, address indexed account, uint256 amount);
   event RewardListed(IERC20 indexed reward, address indexed account);
   event RewardsDurationSet(IERC20 indexed reward, address indexed account, uint256 duration);
