@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.0; // solhint-disable-line one-contract-per-file
 
 import { Test, stdError } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -8,7 +8,7 @@ import { Auditor } from "../contracts/Auditor.sol";
 import { Market, InterestRateModel } from "../contracts/Market.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
-import { Pauser, Ownable } from "../contracts/periphery/Pauser.sol";
+import { Pauser, Ownable, IPausable } from "../contracts/periphery/Pauser.sol";
 
 contract PauserTest is Test {
   Auditor internal auditor;
@@ -64,33 +64,78 @@ contract PauserTest is Test {
     vm.label(BOB, "bob");
   }
 
-  function testPauserWhenMarketsAreUnpaused() external {
-    pauser.pause();
+  function testPauseProtocolWhenMarketsAreUnpaused() external {
+    pauser.pauseProtocol(new IPausable[](0));
 
     assertTrue(marketA.paused());
     assertTrue(marketB.paused());
   }
 
-  function testPauserWhenOneMarketIsPaused() external {
+  function testPauseProtocolWhenOneMarketIsPaused() external {
     marketA.pause();
 
-    pauser.pause();
+    pauser.pauseProtocol(new IPausable[](0));
 
     assertTrue(marketA.paused());
     assertTrue(marketB.paused());
   }
 
-  function testPauserWhenMarketsArePaused() external {
+  function testPauseProtocolWhenMarketsArePaused() external {
     marketA.pause();
     marketB.pause();
 
     vm.expectRevert(stdError.assertionError);
-    pauser.pause();
+    pauser.pauseProtocol(new IPausable[](0));
   }
 
-  function testPauserFromRando() external {
+  function testPauseProtocolFromRando() external {
     vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, BOB));
     vm.prank(BOB);
-    pauser.pause();
+    pauser.pauseProtocol(new IPausable[](0));
+  }
+
+  function testPauseProtocolWithExtra() external {
+    IPausable[] memory extra = new IPausable[](1);
+    extra[0] = new Pausable();
+
+    pauser.pauseProtocol(extra);
+
+    assertTrue(marketA.paused());
+    assertTrue(marketB.paused());
+    assertTrue(extra[0].paused());
+  }
+
+  function testPauseTargets() external {
+    IPausable[] memory targets = new IPausable[](3);
+    for (uint256 i = 0; i < targets.length; ++i) targets[i] = new Pausable();
+
+    pauser.pause(targets);
+
+    assertFalse(marketA.paused());
+    assertFalse(marketB.paused());
+    for (uint256 i = 0; i < targets.length; ++i) assertTrue(targets[i].paused());
+  }
+
+  function testPauseTargetsAlreadyPaused() external {
+    IPausable[] memory targets = new IPausable[](3);
+    for (uint256 i = 0; i < targets.length; ++i) {
+      targets[i] = new Pausable();
+      targets[i].pause();
+    }
+
+    vm.expectRevert(stdError.assertionError);
+    pauser.pause(targets);
+  }
+}
+
+contract Pausable is IPausable {
+  bool internal paused_;
+
+  function paused() external view override returns (bool) {
+    return paused_;
+  }
+
+  function pause() external override {
+    paused_ = true;
   }
 }

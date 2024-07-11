@@ -11,15 +11,28 @@ contract Pauser is Ownable {
     auditor = auditor_;
   }
 
-  function pause() external onlyOwner {
-    Market[] memory markets = auditor.allMarkets();
+  function pause(IPausable[] calldata targets) external onlyOwner {
     bool success = false;
-    for (uint256 i = 0; i < markets.length; ++i) {
-      if (!markets[i].paused()) {
-        success = true;
-        markets[i].pause();
-      }
-    }
+    for (uint256 i = 0; i < targets.length; ++i) success = _pause(targets[i]) || success;
     assert(success);
   }
+
+  function pauseProtocol(IPausable[] calldata extra) external onlyOwner {
+    Market[] memory markets = auditor.allMarkets();
+    bool success = false;
+    for (uint256 i = 0; i < markets.length; ++i) success = _pause(IPausable(address(markets[i]))) || success;
+    for (uint256 i = 0; i < extra.length; ++i) success = _pause(extra[i]) || success;
+    assert(success);
+  }
+
+  function _pause(IPausable pausable) internal returns (bool) {
+    if (pausable.paused()) return false;
+    pausable.pause();
+    return true;
+  }
+}
+
+interface IPausable {
+  function paused() external view returns (bool);
+  function pause() external;
 }
