@@ -20,6 +20,12 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 
 import { Market } from "./Market.sol";
 
+/// @title StakedEXA Contract
+/// @notice This contract allows users to stake EXA tokens and earn rewards.
+/// The rewards are subject to a penalty if the staking duration is not optimal.
+/// The optimal staking duration is defined by `refTime`.
+/// Staking for a duration less than `minTime` results in no rewards,
+/// the closer the staking duration is to `refTime`, the lower the penalty.
 contract StakedEXA is
   Initializable,
   AccessControlUpgradeable,
@@ -36,34 +42,40 @@ contract StakedEXA is
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
   bytes32 public constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN_ROLE");
 
-  /// @notice Rewards tokens
+  /// @notice Rewards tokens.
   IERC20[] public rewardsTokens;
 
-  /// @notice Rewards data per token
+  /// @notice Rewards data per token.
   mapping(IERC20 reward => RewardData data) public rewards;
 
-  /// @notice Minimum time to stake and get rewards
+  /// @notice Minimum time to stake and get rewards.
   uint256 public minTime;
-  /// @notice Reference period to stake and get full rewards
+  /// @notice Reference period to stake and get full rewards.
   uint256 public refTime;
-  /// @notice Discount factor for excess exposure
+  /// @notice Discount factor for excess exposure.
   uint256 public excessFactor;
-  /// @notice Penalty growth factor
+  /// @notice Penalty growth factor.
   uint256 public penaltyGrowth;
-  /// @notice Threshold penalty factor for withdrawing before the reference time
+  /// @notice Threshold penalty factor for withdrawing before the reference time.
   uint256 public penaltyThreshold;
 
-  /// @notice Average starting time with the tokens staked per account
-  mapping(address account => uint256 time) public avgStart;
-  /// @notice Accounts average indexes per reward token
-  mapping(address account => mapping(IERC20 reward => uint256 index)) public avgIndexes;
-  mapping(address account => mapping(IERC20 reward => uint256 claimed)) public claimed;
-  mapping(address account => mapping(IERC20 reward => uint256 saved)) public saved;
-
+  /// @notice market from which to harvest.
   Market public market;
+  /// @notice provider of rewards when harvesting.
   address public provider;
+  /// @notice savings address to send the rewards.
   address public savings;
+  /// @notice ratio of withdrawn assets to provide when harvesting. The rest goes to savings
   uint256 public providerRatio;
+
+  /// @notice Average starting time with the tokens staked per account.
+  mapping(address account => uint256 time) public avgStart;
+  /// @notice Accounts average indexes per reward token.
+  mapping(address account => mapping(IERC20 reward => uint256 index)) public avgIndexes;
+  /// @notice Accounts claimed rewards per reward token.
+  mapping(address account => mapping(IERC20 reward => uint256 claimed)) public claimed;
+  /// @notice Accounts saved rewards per reward token.
+  mapping(address account => mapping(IERC20 reward => uint256 saved)) public saved;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor() {
@@ -72,6 +84,7 @@ contract StakedEXA is
 
   /// @notice Initializes the contract.
   /// @dev can only be called once.
+  /// @param p The parameters for initialization.
   function initialize(Parameters memory p) external initializer {
     __ERC20_init("staked EXA", "stEXA");
     __ERC4626_init(p.asset);
@@ -100,12 +113,18 @@ contract StakedEXA is
     setSavings(p.savings);
   }
 
+  /// @notice Updates the reward index for a given reward token.
+  /// @param reward The reward token to update.
   function updateIndex(IERC20 reward) internal {
     RewardData storage rewardData = rewards[reward];
     rewardData.index = globalIndex(reward);
     rewardData.updatedAt = uint40(lastTimeRewardApplicable(rewardData.finishAt));
   }
 
+  /// @notice Hook to handle updates during token transfer.
+  /// @param from The address transferring the tokens.
+  /// @param to The address receiving the tokens.
+  /// @param amount The amount of tokens being transferred.
   function _update(address from, address to, uint256 amount) internal override whenNotPaused {
     if (amount == 0) revert ZeroAmount();
     if (from == address(0)) {
@@ -145,11 +164,20 @@ contract StakedEXA is
     super._update(from, to, amount);
   }
 
+  /// @notice Permits a spender and deposits assets in a single transaction.
+  /// @param assets The amount of assets to deposit.
+  /// @param receiver The address receiving the deposited assets.
+  /// @param p The permit parameters.
+  /// @return The number of shares received.
   function permitAndDeposit(uint256 assets, address receiver, Permit calldata p) external returns (uint256) {
     IERC20Permit(asset()).permit(msg.sender, address(this), p.value, p.deadline, p.v, p.r, p.s);
     return deposit(assets, receiver);
   }
 
+  /// @notice Claims unclaimed rewards when withdrawing an amount of assets.
+  /// @param reward The reward token to claim.
+  /// @param account The account receiving the withdrawn assets and rewards.
+  /// @param amount The amount of assets being withdrawn.
   function claimWithdraw(IERC20 reward, address account, uint256 amount) internal {
     uint256 balance = balanceOf(account);
     uint256 numerator = claimed[account][reward] * amount;
@@ -173,6 +201,10 @@ contract StakedEXA is
     if (saveAmount != 0) reward.transfer(savings, saveAmount);
   }
 
+  /// @notice Notifies the contract about a reward amount.
+  /// @param reward The reward token.
+  /// @param amount The amount of reward tokens.
+  /// @param notifier The address notifying the reward amount.
   function notifyRewardAmount(IERC20 reward, uint256 amount, address notifier) internal onlyReward(reward) {
     updateIndex(reward);
     RewardData storage rewardData = rewards[reward];
@@ -195,7 +227,9 @@ contract StakedEXA is
     emit RewardAmountNotified(reward, notifier, amount);
   }
 
-  // NOTE time with 18 decimals
+  /// @notice Calculates the discount factor based on the staked time.
+  /// @param time The time staked, represented with 18 decimals.
+  /// @return The discount factor, which is always between 0 and 1e18.
   function discountFactor(uint256 time) internal view returns (uint256) {
     uint256 memMinTime = minTime * 1e18;
     if (time <= memMinTime) return 0;
@@ -214,6 +248,7 @@ contract StakedEXA is
     return Math.min((1e18 - memPenaltyThreshold).mulWadDown(penalties) + memPenaltyThreshold, 1e18);
   }
 
+  /// @notice Ensures the caller has pausing roles.
   /// @dev Throws if the caller is not an `EMERGENCY_ADMIN_ROLE` or `PAUSER_ROLE`.
   function requirePausingRoles() internal view {
     if (!hasRole(EMERGENCY_ADMIN_ROLE, msg.sender) && !hasRole(PAUSER_ROLE, msg.sender)) {
@@ -221,21 +256,29 @@ contract StakedEXA is
     }
   }
 
-  /// @dev Modifier to make a function callable only by pausing roles.
+  /// @dev Modifier to restrict functions to pausing roles.
   modifier onlyPausingRoles() {
     requirePausingRoles();
     _;
   }
 
+  /// @notice Modifier to restrict functions to enabled reward tokens.
+  /// @param reward The reward token.
   modifier onlyReward(IERC20 reward) {
     if (rewards[reward].finishAt == 0) revert RewardNotListed();
     _;
   }
 
+  /// @notice Returns the last time rewards are applicable.
+  /// @param finishAt The time when the reward period finishes.
+  /// @return The last applicable time.
   function lastTimeRewardApplicable(uint256 finishAt) public view returns (uint256) {
     return uint40(Math.min(finishAt, block.timestamp));
   }
 
+  /// @notice Returns the global index for a reward token.
+  /// @param reward The reward token.
+  /// @return The global index.
   function globalIndex(IERC20 reward) public view returns (uint256) {
     RewardData storage rewardData = rewards[reward];
     if (totalSupply() == 0) return rewardData.index;
@@ -247,21 +290,39 @@ contract StakedEXA is
       );
   }
 
+  /// @notice Returns the average index for a reward token and account.
+  /// @param reward The reward token.
+  /// @param account The account.
+  /// @return The average index.
   function avgIndex(IERC20 reward, address account) public view returns (uint256) {
     return avgIndexes[account][reward];
   }
 
+  /// @notice Calculates the earned rewards for an account, without considering penalties.
+  /// @param reward The reward token.
+  /// @param account The account.
+  /// @param shares The amount of shares.
+  /// @return The earned rewards.
   function earned(IERC20 reward, address account, uint256 shares) public view returns (uint256) {
     return shares.mulWadDown(globalIndex(reward) - avgIndexes[account][reward]);
   }
 
+  /// @notice Calculates the raw claimable rewards for an account, without considering already claimed rewards.
+  /// @param reward The reward token.
+  /// @param account The account.
+  /// @param shares The amount of shares of the account involved.
+  /// @return The raw claimable rewards.
   function rawClaimable(IERC20 reward, address account, uint256 shares) public view returns (uint256) {
     uint256 start = avgStart[account];
     if (start == 0) return 0;
     return earned(reward, account, shares).mulWadDown(discountFactor(block.timestamp * 1e18 - start));
   }
 
-  // NOTE - returns the amount of rewards that can be claimed by an account
+  /// @notice Calculates the claimable rewards for an account.
+  /// @param reward The reward token.
+  /// @param account The account.
+  /// @param shares The amount of shares of the account involved.
+  /// @return The claimable rewards.
   function claimable(IERC20 reward, address account, uint256 shares) public view returns (uint256) {
     uint256 start = avgStart[account];
     if (start == 0 || block.timestamp * 1e18 - start <= minTime * 1e18) return 0;
@@ -275,6 +336,10 @@ contract StakedEXA is
     return rawClaimable_ > claimedAmountProportion ? rawClaimable_ - claimedAmountProportion : 0;
   }
 
+  /// @notice Harvests provider's market assets as rewards to be distributed among stakers.
+  /// @dev This function withdraws the maximum allowable assets from the provider's market,
+  /// calculates the portion to be distributed as rewards based on `providerRatio`,
+  /// deposits any remaining assets back into savings, and notifies the contract of the new reward amount.
   function harvest() public whenNotPaused {
     Market memMarket = market;
     address memProvider = provider;
@@ -294,10 +359,14 @@ contract StakedEXA is
     notifyRewardAmount(providerAsset, amount, address(this));
   }
 
+  /// @notice Returns all reward tokens.
+  /// @return The list of reward tokens.
   function allRewardsTokens() external view returns (IERC20[] memory) {
     return rewardsTokens;
   }
 
+  /// @notice Internal function to claim rewards.
+  /// @param reward The reward token.
   function claim_(IERC20 reward) internal whenNotPaused {
     uint256 time = block.timestamp * 1e18 - avgStart[msg.sender];
     if (time <= minTime * 1e18) return;
@@ -326,17 +395,21 @@ contract StakedEXA is
     }
   }
 
+  /// @notice Claims rewards for a specific reward token.
+  /// @param reward The reward token.
   function claim(IERC20 reward) external {
     claim_(reward);
   }
 
+  /// @notice Claims rewards for all reward tokens.
   function claimAll() external {
     for (uint256 i = 0; i < rewardsTokens.length; ++i) {
       claim_(rewardsTokens[i]);
     }
   }
 
-  // restricted functions
+  /// @notice Enables a new reward token.
+  /// @param reward The reward token.
   function enableReward(IERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (rewards[reward].finishAt != 0) revert AlreadyEnabled();
 
@@ -346,6 +419,8 @@ contract StakedEXA is
     emit RewardListed(reward, msg.sender);
   }
 
+  /// @notice Finishes the distribution of a reward token.
+  /// @param reward The reward token.
   function finishDistribution(IERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) onlyReward(reward) {
     updateIndex(reward);
 
@@ -358,7 +433,10 @@ contract StakedEXA is
     emit DistributionFinished(reward, msg.sender);
   }
 
-  // notice - can only change the duration if the reward is finished
+  /// @notice Sets the rewards duration for a reward token.
+  /// @dev Can only change the duration if the reward is finished.
+  /// @param reward The reward token.
+  /// @param duration The new duration.
   function setRewardsDuration(IERC20 reward, uint40 duration) public onlyRole(DEFAULT_ADMIN_ROLE) {
     RewardData storage rewardData = rewards[reward];
     if (rewardData.finishAt > block.timestamp) revert NotFinished();
@@ -368,55 +446,78 @@ contract StakedEXA is
     emit RewardsDurationSet(reward, msg.sender, duration);
   }
 
+  /// @notice Notifies the contract about a reward amount.
+  /// @param reward The reward token.
+  /// @param amount The amount of reward tokens.
   function notifyRewardAmount(IERC20 reward, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
     updateIndex(reward);
     notifyRewardAmount(reward, amount, msg.sender);
   }
 
+  /// @notice Sets the market.
+  /// @param market_ The new market.
   function setMarket(Market market_) external onlyRole(DEFAULT_ADMIN_ROLE) {
     market = market_;
     emit MarketSet(market_, msg.sender);
   }
 
+  /// @notice Sets the provider address.
+  /// @param provider_ The new provider address.
   function setProvider(address provider_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (provider_ == address(0)) revert ZeroAddress();
     provider = provider_;
     emit ProviderSet(provider_, msg.sender);
   }
 
+  /// @notice Sets the provider ratio.
+  /// @param providerRatio_ The new provider ratio.
   function setProviderRatio(uint256 providerRatio_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (providerRatio_ > 1e18) revert InvalidRatio();
     providerRatio = providerRatio_;
     emit ProviderRatioSet(providerRatio_, msg.sender);
   }
 
+  /// @notice Sets the savings address.
+  /// @param savings_ The new savings address.
   function setSavings(address savings_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (savings_ == address(0)) revert ZeroAddress();
     savings = savings_;
     emit SavingsSet(savings_, msg.sender);
   }
 
+  /// @notice Sets the minimum time to stake for rewards.
+  /// @param minTime_ The new minimum time.
   function setMinTime(uint256 minTime_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     minTime = minTime_;
     emit MinTimeSet(minTime_, msg.sender);
   }
 
+  /// @notice Sets the reference time to stake for full rewards.
+  /// @param refTime_ The new reference time.
   function setRefTime(uint256 refTime_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (refTime_ < minTime || refTime_ == 0) revert InvalidRange();
     refTime = refTime_;
     emit RefTimeSet(refTime_, msg.sender);
   }
 
+  /// @notice Sets the excess factor.
+  /// @param excessFactor_ The new excess factor.
   function setExcessFactor(uint256 excessFactor_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (excessFactor_ > 1e18) revert InvalidRange();
     excessFactor = excessFactor_;
     emit ExcessFactorSet(excessFactor_, msg.sender);
   }
+
+  /// @notice Sets the penalty growth factor.
+  /// @param penaltyGrowth_ The new penalty growth factor.
   function setPenaltyGrowth(uint256 penaltyGrowth_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (penaltyGrowth_ < 0.1e18 || penaltyGrowth_ > 100e18) revert InvalidRange();
     penaltyGrowth = penaltyGrowth_;
     emit PenaltyGrowthSet(penaltyGrowth_, msg.sender);
   }
+
+  /// @notice Sets the penalty threshold.
+  /// @param penaltyThreshold_ The new penalty threshold.
   function setPenaltyThreshold(uint256 penaltyThreshold_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (penaltyThreshold_ > 1e18) revert InvalidRange();
     penaltyThreshold = penaltyThreshold_;
@@ -433,18 +534,24 @@ contract StakedEXA is
     _unpause();
   }
 
+  /// @notice Returns the total assets of the contract.
+  /// @return The total assets.
   function totalAssets() public view override returns (uint256) {
     return totalSupply();
   }
 
+  /// @notice Returns the number of decimals used by the token.
+  /// @return The number of decimals.
   function decimals() public view override(ERC4626Upgradeable, ERC20Upgradeable) returns (uint8) {
     return ERC4626Upgradeable.decimals();
   }
 
+  /// @notice Returns the current timepoint of stEXA, as per ERC-6372.
   function clock() public view override returns (uint48) {
     return uint48(block.timestamp);
   }
 
+  /// @notice Returns the current clock mode of stEXA, as per ERC-6372.
   // solhint-disable-next-line func-name-mixedcase
   function CLOCK_MODE() public pure override returns (string memory) {
     return "mode=timestamp";
