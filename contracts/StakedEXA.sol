@@ -338,7 +338,7 @@ contract StakedEXA is
 
   // restricted functions
   function enableReward(IERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (rewards[reward].finishAt != 0) revert AlreadyListed();
+    if (rewards[reward].finishAt != 0) revert AlreadyEnabled();
 
     rewards[reward].finishAt = uint40(block.timestamp);
     rewardsTokens.push(reward);
@@ -466,7 +466,7 @@ contract StakedEXA is
   event SavingsSet(address indexed savings, address indexed account);
 }
 
-error AlreadyListed();
+error AlreadyEnabled();
 error InsufficientBalance();
 error InvalidRange();
 error InvalidRatio();

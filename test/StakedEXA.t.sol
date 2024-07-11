@@ -11,7 +11,7 @@ import { ERC20, ERC4626, IERC4626 } from "@openzeppelin/contracts/token/ERC20/ex
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {
-  AlreadyListed,
+  AlreadyEnabled,
   IERC20,
   InsufficientBalance,
   InvalidRatio,
@@ -1058,7 +1058,7 @@ contract StakedEXATest is Test {
   }
 
   function testAlreadyListedError() external {
-    vm.expectRevert(AlreadyListed.selector);
+    vm.expectRevert(AlreadyEnabled.selector);
     stEXA.enableReward(rA);
   }
 
