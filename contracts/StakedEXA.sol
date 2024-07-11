@@ -50,9 +50,9 @@ contract StakedEXA is
 
   /// @notice Minimum time to stake and get rewards.
   uint256 public minTime;
-  /// @notice Reference period to stake and get full rewards.
+  /// @notice Reference period to stake and get full rewards. Not possible to change after initilization.
   uint256 public refTime;
-  /// @notice Discount factor for excess exposure.
+  /// @notice Discount factor for excess exposure. Not possible to change after initilization.
   uint256 public excessFactor;
   /// @notice Penalty growth factor.
   uint256 public penaltyGrowth;
@@ -94,9 +94,10 @@ contract StakedEXA is
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
+    if (p.refTime == 0 || p.refTime <= p.minTime || p.excessFactor > 1e18) revert InvalidRange();
     setMinTime(p.minTime);
-    setRefTime(p.refTime);
-    setExcessFactor(p.excessFactor);
+    refTime = p.refTime;
+    excessFactor = p.excessFactor;
     setPenaltyGrowth(p.penaltyGrowth);
     setPenaltyThreshold(p.penaltyThreshold);
 
@@ -492,22 +493,6 @@ contract StakedEXA is
     emit MinTimeSet(minTime_, msg.sender);
   }
 
-  /// @notice Sets the reference time to stake for full rewards.
-  /// @param refTime_ The new reference time.
-  function setRefTime(uint256 refTime_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (refTime_ < minTime || refTime_ == 0) revert InvalidRange();
-    refTime = refTime_;
-    emit RefTimeSet(refTime_, msg.sender);
-  }
-
-  /// @notice Sets the excess factor.
-  /// @param excessFactor_ The new excess factor.
-  function setExcessFactor(uint256 excessFactor_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (excessFactor_ > 1e18) revert InvalidRange();
-    excessFactor = excessFactor_;
-    emit ExcessFactorSet(excessFactor_, msg.sender);
-  }
-
   /// @notice Sets the penalty growth factor.
   /// @param penaltyGrowth_ The new penalty growth factor.
   function setPenaltyGrowth(uint256 penaltyGrowth_) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -557,7 +542,6 @@ contract StakedEXA is
     return "mode=timestamp";
   }
 
-  event ExcessFactorSet(uint256 excessFactor, address indexed account);
   event MarketSet(Market indexed market, address indexed account);
   event MinTimeSet(uint256 minTime, address indexed account);
   event PenaltyGrowthSet(uint256 penaltyGrowth, address indexed account);

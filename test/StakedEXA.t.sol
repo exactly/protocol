@@ -1462,20 +1462,6 @@ contract StakedEXATest is Test {
     stEXA.notifyRewardAmount(exa, assets);
   }
 
-  function testSetExcessFactor() external {
-    uint256 factor = 0.7e18;
-
-    address nonAdmin = address(0x1);
-    vm.prank(nonAdmin);
-    vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonAdmin, 0));
-    stEXA.setExcessFactor(factor);
-
-    vm.expectEmit(true, true, true, true, address(stEXA));
-    emit StakedEXA.ExcessFactorSet(factor, address(this));
-    stEXA.setExcessFactor(factor);
-    assertEq(stEXA.excessFactor(), factor);
-  }
-
   function testSetMinTime() external {
     uint256 time = 1 days;
 
@@ -1516,20 +1502,6 @@ contract StakedEXATest is Test {
     emit StakedEXA.PenaltyThresholdSet(threshold, address(this));
     stEXA.setPenaltyThreshold(threshold);
     assertEq(stEXA.penaltyThreshold(), threshold);
-  }
-
-  function testSetRefTime() external {
-    uint256 time = 2 weeks;
-
-    address nonAdmin = address(0x1);
-    vm.prank(nonAdmin);
-    vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonAdmin, 0));
-    stEXA.setRefTime(time);
-
-    vm.expectEmit(true, true, true, true, address(stEXA));
-    emit StakedEXA.RefTimeSet(time, address(this));
-    stEXA.setRefTime(time);
-    assertEq(stEXA.refTime(), time);
   }
 
   function testResetDepositAfterRefTime(uint256 assets) external {
@@ -1581,16 +1553,6 @@ contract StakedEXATest is Test {
     if (time > minTime) assertTrue(rClaimable > 0, "rClaimable == 0");
 
     assertEq(rA.balanceOf(address(this)) - balanceBefore, rClaimable, "balanceBefore != rClaimable");
-  }
-
-  function testRefTimeRange() external {
-    vm.expectRevert(InvalidRange.selector);
-    stEXA.setRefTime(minTime - 1);
-  }
-
-  function testExcessFactorRange() external {
-    vm.expectRevert(InvalidRange.selector);
-    stEXA.setExcessFactor(1e18 + 1);
   }
 
   function testPenaltyGrowthRange() external {
