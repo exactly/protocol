@@ -14,7 +14,7 @@ contract RatePreviewer {
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
 
-  struct TotalAssets {
+  struct Snapshot {
     Market market;
     uint256 floatingDebt;
     uint256 floatingBackupBorrowed;
@@ -40,15 +40,15 @@ contract RatePreviewer {
     auditor = auditor_;
   }
 
-  /// @notice Gets the total assets values for all markets
-  /// @return totalAssets An array of total assets values for each market
-  function previewTotalAssets() external view returns (TotalAssets[] memory totalAssets) {
+  /// @notice Gets a snapshot of `totalAssets()` values for all markets
+  /// @return values An array of values to calculate `totalAssets()` for each market
+  function snapshot() external view returns (Snapshot[] memory values) {
     Market[] memory markets = auditor.allMarkets();
-    totalAssets = new TotalAssets[](markets.length);
+    values = new Snapshot[](markets.length);
 
     for (uint256 i = 0; i < markets.length; i++) {
       Market market = markets[i];
-      totalAssets[i] = TotalAssets({
+      values[i] = Snapshot({
         market: market,
         floatingDebt: market.floatingDebt(),
         floatingBackupBorrowed: market.floatingBackupBorrowed(),
