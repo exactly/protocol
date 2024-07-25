@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20, Parameters, StakedEXA } from "../StakedEXA.sol";
 
 /// @title StakingPreviewer
@@ -36,6 +37,7 @@ contract StakingPreviewer {
       (, uint40 finishAt, , , uint256 rate) = stEXA.rewards(reward);
       rewards[i] = RewardAccount({
         reward: reward,
+        symbol: ERC20(address(reward)).symbol(),
         rate: rate,
         finishAt: finishAt,
         claimable: claimable(reward, account),
@@ -141,6 +143,7 @@ struct StakingAccount {
 
 struct RewardAccount {
   IERC20 reward;
+  string symbol;
   uint256 rate;
   uint256 finishAt;
   uint256 claimable;
