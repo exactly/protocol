@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import { Test } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {
+  ERC20,
   IERC20,
   StakingPreviewer,
   StakedEXA,
@@ -169,6 +170,7 @@ contract StakingPreviewerTest is Test {
     for (uint256 i = 0; i < rewards.length; i++) {
       IERC20 reward = rewards[i].reward;
       (, uint40 finishAt, , , uint256 rate) = stEXA.rewards(reward);
+      assertEq(rewards[i].symbol, ERC20(address(reward)).symbol());
       assertEq(rewards[i].finishAt, finishAt);
       assertEq(rewards[i].rate, rate);
       assertEq(rewards[i].claimable, stEXA.claimable(reward, address(this), stEXA.balanceOf(address(this))));
