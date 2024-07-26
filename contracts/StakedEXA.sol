@@ -134,7 +134,8 @@ contract StakedEXA is
       uint256 balance = balanceOf(to);
       uint256 total = amount + balance;
 
-      for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+      uint256 length = rewardsTokens.length;
+      for (uint256 i = 0; i < length; ++i) {
         IERC20 reward = rewardsTokens[i];
         updateIndex(reward);
 
@@ -154,7 +155,8 @@ contract StakedEXA is
       }
       harvest();
     } else if (to == address(0)) {
-      for (uint256 i = 0; i < rewardsTokens.length; ++i) {
+      uint256 length = rewardsTokens.length;
+      for (uint256 i = 0; i < length; ++i) {
         IERC20 reward = rewardsTokens[i];
         updateIndex(reward);
         claimWithdraw(reward, from, amount);
