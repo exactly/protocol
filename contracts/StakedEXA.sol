@@ -172,7 +172,8 @@ contract StakedEXA is
   /// @param p The permit parameters.
   /// @return The number of shares received.
   function permitAndDeposit(uint256 assets, address receiver, Permit calldata p) external returns (uint256) {
-    IERC20Permit(asset()).permit(msg.sender, address(this), p.value, p.deadline, p.v, p.r, p.s);
+    // solhint-disable-next-line no-empty-blocks
+    try IERC20Permit(asset()).permit(msg.sender, address(this), p.value, p.deadline, p.v, p.r, p.s) {} catch {}
     return deposit(assets, receiver);
   }
 
