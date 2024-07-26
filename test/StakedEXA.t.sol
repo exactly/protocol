@@ -1314,6 +1314,11 @@ contract StakedEXATest is Test {
     assertEq(address(stEXA.market()), address(newMarket));
   }
 
+  function testSetMarketAddressZero() external {
+    vm.expectRevert(ZeroAddress.selector);
+    stEXA.setMarket(Market(address(0)));
+  }
+
   function testOnlyAdminSetProvider() external {
     address nonAdmin = address(0x1);
     address newProvider = address(0x2);

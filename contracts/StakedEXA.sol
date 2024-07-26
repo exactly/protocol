@@ -459,6 +459,7 @@ contract StakedEXA is
   /// @notice Sets the market.
   /// @param market_ The new market.
   function setMarket(Market market_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (address(market_) == address(0)) revert ZeroAddress();
     market = market_;
     emit MarketSet(market_, msg.sender);
   }
