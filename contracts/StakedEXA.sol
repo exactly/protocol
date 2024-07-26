@@ -101,8 +101,7 @@ contract StakedEXA is
     setPenaltyGrowth(p.penaltyGrowth);
     setPenaltyThreshold(p.penaltyThreshold);
 
-    market = p.market;
-
+    setMarket(p.market);
     IERC20 providerAsset = IERC20(address(p.market.asset()));
     enableReward(providerAsset);
     setRewardsDuration(providerAsset, p.duration);
@@ -457,7 +456,7 @@ contract StakedEXA is
 
   /// @notice Sets the market.
   /// @param market_ The new market.
-  function setMarket(Market market_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setMarket(Market market_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     market = market_;
     emit MarketSet(market_, msg.sender);
   }
