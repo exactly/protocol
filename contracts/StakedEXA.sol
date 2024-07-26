@@ -193,14 +193,14 @@ contract StakedEXA is
     uint256 claimableAmount = Math.max(rawClaimable(reward, account, amount), claimedAmount); // due to excess exposure
     uint256 claimAmount = claimableAmount - claimedAmount;
     if (claimAmount != 0) {
-      reward.transfer(account, claimAmount);
+      reward.safeTransfer(account, claimAmount);
       emit RewardPaid(reward, account, claimAmount);
     }
 
     uint256 rawEarned = earned(reward, account, amount);
     // due to rounding
     uint256 saveAmount = rawEarned <= claimableAmount + savedAmount ? 0 : rawEarned - claimableAmount - savedAmount;
-    if (saveAmount != 0) reward.transfer(savings, saveAmount);
+    if (saveAmount != 0) reward.safeTransfer(savings, saveAmount);
   }
 
   /// @notice Notifies the contract about a reward amount.
@@ -388,11 +388,11 @@ contract StakedEXA is
 
       if (saveAmount != 0) {
         saved[msg.sender][reward] = savedAmount + saveAmount;
-        reward.transfer(savings, saveAmount);
+        reward.safeTransfer(savings, saveAmount);
       }
     }
     if (claimAmount != 0) {
-      reward.transfer(msg.sender, claimAmount);
+      reward.safeTransfer(msg.sender, claimAmount);
       emit RewardPaid(reward, msg.sender, claimAmount);
     }
   }
@@ -429,7 +429,7 @@ contract StakedEXA is
     if (block.timestamp < rewards[reward].finishAt) {
       uint256 finishAt = rewards[reward].finishAt;
       rewards[reward].finishAt = uint40(block.timestamp);
-      reward.transfer(savings, (finishAt - block.timestamp) * rewards[reward].rate);
+      reward.safeTransfer(savings, (finishAt - block.timestamp) * rewards[reward].rate);
     }
 
     emit DistributionFinished(reward, msg.sender);
