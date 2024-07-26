@@ -24,6 +24,12 @@ tab_width = 2
 bracket_spacing = true
 number_underscore = "thousands"
 
+[profile.snapshot]
+bytecode_hash = "none"
+
+[profile.snapshot.invariant]
+runs = 10
+
 [profile.production.fuzz]
 runs = 66_666
 
