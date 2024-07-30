@@ -453,7 +453,6 @@ contract StakedEXA is
   /// @param reward The reward token.
   /// @param amount The amount of reward tokens.
   function notifyRewardAmount(IERC20 reward, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    updateIndex(reward);
     notifyRewardAmount(reward, amount, msg.sender);
   }
 
