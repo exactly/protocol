@@ -1622,12 +1622,12 @@ contract MarketTest is Test {
     vm.warp(12 weeks);
     market.repayAtMaturity(4 weeks, maxVal, maxVal, ALICE);
 
-    uint256 maturity_16 = 16 weeks;
-    market.borrowAtMaturity(maturity_16, 1 ether, maxVal, address(this), address(this));
+    uint256 maturity16 = 16 weeks;
+    market.borrowAtMaturity(maturity16, 1 ether, maxVal, address(this), address(this));
 
     daiPriceFeed.setPrice(5_000e18);
     uint256 borrowAmount = 5000 ether;
-    marketWETH.borrowAtMaturity(maturity_16, borrowAmount, borrowAmount * 2, address(this), address(this));
+    marketWETH.borrowAtMaturity(maturity16, borrowAmount, borrowAmount * 2, address(this), address(this));
 
     daiPriceFeed.setPrice(1_000e18);
     weth.mint(ALICE, 1_000_000 ether);
@@ -1637,7 +1637,7 @@ contract MarketTest is Test {
     vm.prank(ALICE);
     marketWETH.liquidate(address(this), maxVal, market);
 
-    (, , uint256 unassignedEarningsAfter, ) = market.fixedPools(maturity_16);
+    (, , uint256 unassignedEarningsAfter, ) = market.fixedPools(maturity16);
     assertEq(unassignedEarningsAfter, 0);
   }
 

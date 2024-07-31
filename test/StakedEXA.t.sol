@@ -36,7 +36,7 @@ contract StakedEXATest is Test {
   using FixedPointMathLib for uint64;
 
   uint256 internal constant BOB_KEY = 0x420;
-  address internal BOB;
+  address internal BOB; // solhint-disable-line var-name-mixedcase
   StakedEXA internal stEXA;
   MockERC20 internal exa;
   MockERC20 internal rA;
