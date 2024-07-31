@@ -18,6 +18,7 @@ import {
   InvalidRange,
   Market,
   Math,
+  MaxRewardsTokensExceeded,
   NotFinished,
   NotPausingRole,
   Parameters,
@@ -1639,6 +1640,46 @@ contract StakedEXATest is Test {
     stEXA.unpause();
 
     stEXA.harvest();
+  }
+
+  function testSetMaxRewardsTokensExceeded() external {
+    uint256 addRewards = stEXA.MAX_REWARDS_TOKENS() - stEXA.allRewardsTokens().length;
+    for (uint256 i = 0; i < addRewards; ++i) stEXA.enableReward(new MockERC20("reward", "r", 18));
+
+    assertEq(stEXA.allRewardsTokens().length, stEXA.MAX_REWARDS_TOKENS());
+
+    MockERC20 r = new MockERC20("reward", "r", 18);
+    vm.expectRevert(MaxRewardsTokensExceeded.selector);
+    stEXA.enableReward(r);
+
+    assertEq(stEXA.allRewardsTokens().length, stEXA.MAX_REWARDS_TOKENS());
+  }
+
+  function testMaxRewardsGasConsumption() external {
+    uint256 addRewards = stEXA.MAX_REWARDS_TOKENS() - stEXA.allRewardsTokens().length;
+    for (uint256 i = 0; i < addRewards; ++i) {
+      MockERC20 r = new MockERC20("reward", "r", 18);
+      r.mint(address(stEXA), initialAmount);
+      stEXA.enableReward(r);
+      stEXA.setRewardsDuration(r, duration);
+      stEXA.notifyRewardAmount(r, initialAmount);
+    }
+
+    uint256 assets = 1_000e18;
+    exa.mint(address(this), assets);
+
+    stEXA.deposit(assets, address(this));
+    assertLt(vm.lastCallGas().gasTotalUsed, 10_000_000);
+
+    skip(refTime / 2);
+
+    stEXA.claimAll();
+    assertLt(vm.lastCallGas().gasTotalUsed, 10_000_000);
+
+    skip(refTime / 2 + 1);
+
+    stEXA.withdraw(assets, address(this), address(this));
+    assertLt(vm.lastCallGas().gasTotalUsed, 10_000_000);
   }
 
   function minMaxWithdrawAllowance() internal view returns (uint256) {

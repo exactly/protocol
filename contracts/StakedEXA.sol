@@ -44,9 +44,8 @@ contract StakedEXA is
 
   /// @notice Rewards tokens.
   IERC20[] public rewardsTokens;
-
-  /// @notice Rewards data per token.
-  mapping(IERC20 reward => RewardData data) public rewards;
+  /// @notice Maximum amount of rewards token.
+  uint256 public constant MAX_REWARDS_TOKENS = 100;
 
   /// @notice Minimum time to stake and get rewards.
   uint256 public minTime;
@@ -68,6 +67,8 @@ contract StakedEXA is
   /// @notice ratio of withdrawn assets to provide when harvesting. The rest goes to savings
   uint256 public providerRatio;
 
+  /// @notice Rewards data per token.
+  mapping(IERC20 reward => RewardData data) public rewards;
   /// @notice Average starting time with the tokens staked per account.
   mapping(address account => uint256 time) public avgStart;
   /// @notice Accounts average indexes per reward token.
@@ -414,6 +415,7 @@ contract StakedEXA is
   /// @notice Enables a new reward token.
   /// @param reward The reward token.
   function enableReward(IERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (rewardsTokens.length >= MAX_REWARDS_TOKENS) revert MaxRewardsTokensExceeded();
     if (rewards[reward].finishAt != 0) revert AlreadyEnabled();
 
     rewards[reward].finishAt = uint40(block.timestamp);
@@ -563,6 +565,7 @@ error AlreadyEnabled();
 error InsufficientBalance();
 error InvalidRange();
 error InvalidRatio();
+error MaxRewardsTokensExceeded();
 error NotFinished();
 error NotPausingRole();
 error RewardNotListed();
