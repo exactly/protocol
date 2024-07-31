@@ -103,11 +103,7 @@ contract StakedEXA is
     setPenaltyThreshold(p.penaltyThreshold);
 
     setMarket(p.market);
-    IERC20 providerAsset = IERC20(address(p.market.asset()));
-    enableReward(providerAsset);
-    setRewardsDuration(providerAsset, p.duration);
-
-    providerAsset.approve(address(market), type(uint256).max);
+    setRewardsDuration(IERC20(address(p.market.asset())), p.duration);
 
     setProvider(p.provider);
     setProviderRatio(p.providerRatio);
@@ -463,6 +459,12 @@ contract StakedEXA is
   function setMarket(Market market_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (address(market_) == address(0)) revert ZeroAddress();
     market = market_;
+
+    IERC20 providerAsset = IERC20(address(market_.asset()));
+    if (rewards[providerAsset].finishAt == 0) enableReward(providerAsset);
+
+    providerAsset.approve(address(market_), type(uint256).max);
+
     emit MarketSet(market_, msg.sender);
   }
 

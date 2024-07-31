@@ -51,7 +51,9 @@ contract StakedEXATest is Test {
   uint256 internal penaltyThreshold;
 
   Market internal market;
+  Market internal marketB;
   MockERC20 internal providerAsset;
+  MockERC20 internal providerAssetB;
   address internal constant PROVIDER = address(0x1);
   address internal constant SAVINGS = address(0x2);
   uint256 internal providerRatio;
@@ -81,9 +83,13 @@ contract StakedEXATest is Test {
     penaltyThreshold = 0.5e18;
 
     providerAsset = new MockERC20("Wrapped ETH", "WETH", 18);
+    providerAssetB = new MockERC20("USD Coin", "USDC", 6);
     market = Market(address(new MockMarket(providerAsset)));
+    marketB = Market(address(new MockMarket(providerAssetB)));
     vm.label(address(providerAsset), "WETH");
+    vm.label(address(providerAssetB), "USDC");
     vm.label(address(market), "Market");
+    vm.label(address(marketB), "MarketB");
     vm.label(PROVIDER, "provider");
     vm.label(SAVINGS, "savings");
 
@@ -113,11 +119,15 @@ contract StakedEXATest is Test {
     );
 
     providerAsset.mint(PROVIDER, 1_000e18);
+    providerAssetB.mint(PROVIDER, 1_000e6);
 
     vm.startPrank(PROVIDER);
     providerAsset.approve(address(market), type(uint256).max);
+    providerAssetB.approve(address(marketB), type(uint256).max);
     market.deposit(1_000e18, PROVIDER);
+    marketB.deposit(1_000e6, PROVIDER);
     market.approve(address(stEXA), type(uint256).max);
+    marketB.approve(address(stEXA), type(uint256).max);
     vm.stopPrank();
 
     exa.approve(address(stEXA), type(uint256).max);
@@ -146,7 +156,7 @@ contract StakedEXATest is Test {
     accounts.push(BOB);
 
     targetContract(address(this));
-    bytes4[] memory selectors = new bytes4[](7);
+    bytes4[] memory selectors = new bytes4[](8);
     selectors[0] = this.handlerSkip.selector;
     selectors[1] = this.testHandlerDeposit.selector;
     selectors[2] = this.testHandlerWithdraw.selector;
@@ -154,6 +164,7 @@ contract StakedEXATest is Test {
     selectors[4] = this.testHandlerHarvest.selector;
     selectors[5] = this.testHandlerNotifyRewardAmount.selector;
     selectors[6] = this.testHandlerSetDuration.selector;
+    selectors[7] = this.testHandlerSetMarket.selector;
     targetSelector(FuzzSelector(address(this), selectors));
   }
 
@@ -403,19 +414,24 @@ contract StakedEXATest is Test {
   }
 
   function testHandlerHarvest(uint64 assets) external {
-    uint256 provider = market.maxWithdraw(PROVIDER);
+    uint256 provider = stEXA.market().maxWithdraw(PROVIDER);
+    MockERC20 asset = MockERC20(address(stEXA.market().asset()));
     if (assets != 0) {
-      providerAsset.mint(address(this), assets);
-      providerAsset.approve(address(market), assets);
-      market.deposit(assets, PROVIDER);
+      asset.mint(address(this), assets);
+      asset.approve(address(stEXA.market()), assets);
+      stEXA.market().deposit(assets, PROVIDER);
       provider += assets;
     }
-    uint256 savings = market.maxWithdraw(SAVINGS);
+    uint256 savings = stEXA.market().maxWithdraw(SAVINGS);
     stEXA.harvest();
-    (uint256 rDuration, , , , ) = stEXA.rewards(providerAsset);
+    (uint256 rDuration, , , , ) = stEXA.rewards(asset);
     if (rDuration != 0 && assets.mulWadDown(providerRatio) >= rDuration) {
-      assertEq(market.balanceOf(PROVIDER), 0, "assets left");
-      assertEq(market.maxWithdraw(SAVINGS), savings + provider.mulWadUp(1e18 - providerRatio), "missing savings");
+      assertEq(stEXA.market().balanceOf(PROVIDER), 0, "assets left");
+      assertEq(
+        stEXA.market().maxWithdraw(SAVINGS),
+        savings + provider.mulWadUp(1e18 - providerRatio),
+        "missing savings"
+      );
     }
   }
 
@@ -456,6 +472,19 @@ contract StakedEXATest is Test {
     uint256 newRate;
     (, finishAt, , , newRate) = stEXA.rewards(reward);
     assertEq(rate, newRate, "rate != new rate");
+  }
+
+  function testHandlerSetMarket() external {
+    if (stEXA.market() == market) {
+      stEXA.setMarket(marketB);
+      assertEq(address(stEXA.market()), address(marketB));
+    } else {
+      stEXA.setMarket(market);
+      assertEq(address(stEXA.market()), address(market));
+    }
+    (, uint40 finishAt, , , ) = stEXA.rewards(IERC20(address(market.asset())));
+    assertGt(finishAt, 0);
+    assertEq(stEXA.market().asset().allowance(address(stEXA), address(stEXA.market())), type(uint256).max);
   }
 
   function testInitialValues() external view {
