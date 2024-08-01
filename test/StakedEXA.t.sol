@@ -1711,6 +1711,26 @@ contract StakedEXATest is Test {
     assertLt(vm.lastCallGas().gasTotalUsed, 10_000_000);
   }
 
+  function testDepositClaimsRewardsToReceiver() external {
+    uint256 assets = 1_000e18;
+    exa.mint(address(this), assets);
+    stEXA.deposit(assets, address(this));
+
+    skip(minTime + 1);
+
+    uint256 claimableAmount = claimable(rA, address(this));
+    uint256 balanceBefore = rA.balanceOf(address(this));
+
+    exa.mint(BOB, assets);
+    vm.startPrank(BOB);
+    exa.approve(address(stEXA), assets);
+    stEXA.deposit(assets, address(this));
+    vm.stopPrank();
+
+    assertEq(claimableAmount, rA.balanceOf(address(this)) - balanceBefore);
+
+  }
+
   function minMaxWithdrawAllowance() internal view returns (uint256) {
     return Math.min(market.convertToAssets(market.allowance(PROVIDER, address(stEXA))), market.maxWithdraw(PROVIDER));
   }

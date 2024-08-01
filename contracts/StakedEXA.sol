@@ -140,7 +140,7 @@ contract StakedEXA is
           if (balance != 0) claimWithdraw(reward, to, balance);
           avgIndexes[to][reward] = rewards[reward].index;
         } else {
-          if (balance != 0) claim_(reward);
+          if (balance != 0) claim_(reward, to);
           uint256 numerator = avgIndexes[to][reward] * balance + rewards[reward].index * amount;
           avgIndexes[to][reward] = numerator == 0 ? 0 : (numerator - 1) / total + 1;
         }
@@ -367,44 +367,44 @@ contract StakedEXA is
 
   /// @notice Internal function to claim rewards.
   /// @param reward The reward token.
-  function claim_(IERC20 reward) internal whenNotPaused {
-    uint256 time = block.timestamp * 1e18 - avgStart[msg.sender];
+  function claim_(IERC20 reward, address account) internal whenNotPaused {
+    uint256 time = block.timestamp * 1e18 - avgStart[account];
     if (time <= minTime * 1e18) return;
 
-    uint256 claimedAmount = claimed[msg.sender][reward];
+    uint256 claimedAmount = claimed[account][reward];
     // due to excess exposure
-    uint256 claimableAmount = Math.max(rawClaimable(reward, msg.sender, balanceOf(msg.sender)), claimedAmount);
+    uint256 claimableAmount = Math.max(rawClaimable(reward, account, balanceOf(account)), claimedAmount);
     uint256 claimAmount = claimableAmount - claimedAmount;
 
-    if (claimAmount != 0) claimed[msg.sender][reward] = claimedAmount + claimAmount;
+    if (claimAmount != 0) claimed[account][reward] = claimedAmount + claimAmount;
 
     if (time > refTime * 1e18) {
-      uint256 rawEarned = earned(reward, msg.sender, balanceOf(msg.sender));
-      uint256 savedAmount = saved[msg.sender][reward];
+      uint256 rawEarned = earned(reward, account, balanceOf(account));
+      uint256 savedAmount = saved[account][reward];
       uint256 maxClaimed = Math.min(rawEarned, claimableAmount);
       uint256 saveAmount = rawEarned > maxClaimed + savedAmount ? rawEarned - maxClaimed - savedAmount : 0;
 
       if (saveAmount != 0) {
-        saved[msg.sender][reward] = savedAmount + saveAmount;
+        saved[account][reward] = savedAmount + saveAmount;
         reward.safeTransfer(savings, saveAmount);
       }
     }
     if (claimAmount != 0) {
-      reward.safeTransfer(msg.sender, claimAmount);
-      emit RewardPaid(reward, msg.sender, claimAmount);
+      reward.safeTransfer(account, claimAmount);
+      emit RewardPaid(reward, account, claimAmount);
     }
   }
 
   /// @notice Claims rewards for a specific reward token.
   /// @param reward The reward token.
   function claim(IERC20 reward) external {
-    claim_(reward);
+    claim_(reward, msg.sender);
   }
 
   /// @notice Claims rewards for all reward tokens.
   function claimAll() external {
     for (uint256 i = 0; i < rewardsTokens.length; ++i) {
-      claim_(rewardsTokens[i]);
+      claim_(rewardsTokens[i], msg.sender);
     }
   }
 
