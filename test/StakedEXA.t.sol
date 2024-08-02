@@ -485,7 +485,6 @@ contract StakedEXATest is Test {
     }
     (, uint40 finishAt, , , ) = stEXA.rewards(IERC20(address(market.asset())));
     assertGt(finishAt, 0);
-    assertEq(stEXA.market().asset().allowance(address(stEXA), address(stEXA.market())), type(uint256).max);
   }
 
   function testInitialValues() external view {
@@ -1731,7 +1730,7 @@ contract StakedEXATest is Test {
 
     uint256 claimableAmount = claimable(rA, address(this));
     uint256 balanceBefore = rA.balanceOf(address(this));
-    
+
     stEXA.approve(BOB, 1);
 
     exa.mint(BOB, assets);
@@ -1741,7 +1740,6 @@ contract StakedEXATest is Test {
     vm.stopPrank();
 
     assertEq(claimableAmount, rA.balanceOf(address(this)) - balanceBefore);
-
   }
 
   function testDepositToAnotherWithoutAllowanceShouldFail() external {
@@ -1755,7 +1753,7 @@ contract StakedEXATest is Test {
   function testDepositToAnotherWithAllowance() external {
     uint256 assets = 1_000e18;
     exa.mint(address(this), assets);
-    
+
     vm.prank(BOB);
     stEXA.approve(address(this), 1);
 
@@ -1765,7 +1763,7 @@ contract StakedEXATest is Test {
   function testRemoveDepositAllowance() external {
     uint256 assets = 1_000e18;
     exa.mint(address(this), assets * 2);
-    
+
     vm.prank(BOB);
     stEXA.approve(address(this), 1);
 

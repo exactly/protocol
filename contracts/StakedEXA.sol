@@ -344,18 +344,20 @@ contract StakedEXA is
   function harvest() public whenNotPaused {
     Market memMarket = market;
     address memProvider = provider;
-    uint256 assets = Math.min(
-      memMarket.convertToAssets(memMarket.allowance(memProvider, address(this))),
-      memMarket.maxWithdraw(memProvider)
-    );
-    uint256 amount = assets.mulWadDown(providerRatio);
+
+    uint256 shares = Math.min(memMarket.allowance(memProvider, address(this)), memMarket.maxRedeem(memProvider));
+    uint256 sharesReward = shares.mulWadDown(providerRatio);
+
+    uint256 amount = memMarket.previewRedeem(sharesReward);
+
     IERC20 providerAsset = IERC20(address(memMarket.asset()));
     uint256 duration = rewards[providerAsset].duration;
-    if (duration == 0 || amount < rewards[providerAsset].duration) return;
+    if (duration == 0 || amount < duration) return;
 
-    memMarket.withdraw(assets, address(this), memProvider);
-    uint256 save = assets - amount;
-    if (save != 0) memMarket.deposit(save, savings);
+    memMarket.redeem(sharesReward, address(this), memProvider);
+
+    uint256 save = shares - sharesReward;
+    if (save != 0) memMarket.transferFrom(memProvider, savings, save);
 
     notifyRewardAmount(providerAsset, amount, address(this));
   }
@@ -463,8 +465,6 @@ contract StakedEXA is
 
     IERC20 providerAsset = IERC20(address(market_.asset()));
     if (rewards[providerAsset].finishAt == 0) enableReward(providerAsset);
-
-    providerAsset.approve(address(market_), type(uint256).max);
 
     emit MarketSet(market_, msg.sender);
   }
