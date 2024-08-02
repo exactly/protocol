@@ -151,7 +151,7 @@ contract StakedEXA is
         uint256 numerator = start * balance + block.timestamp * 1e18 * amount;
         avgStart[to] = numerator == 0 ? 0 : (numerator - 1) / total + 1;
       }
-      harvest();
+      try this.harvest() {} catch {} // solhint-disable-line no-empty-blocks
     } else if (to == address(0)) {
       uint256 length = rewardsTokens.length;
       for (uint256 i = 0; i < length; ++i) {
@@ -341,25 +341,17 @@ contract StakedEXA is
   /// @dev This function withdraws the maximum allowable assets from the provider's market,
   /// calculates the portion to be distributed as rewards based on `providerRatio`,
   /// deposits any remaining assets back into savings, and notifies the contract of the new reward amount.
-  function harvest() public whenNotPaused {
+  function harvest() external whenNotPaused {
     Market memMarket = market;
     address memProvider = provider;
-
     uint256 shares = Math.min(memMarket.allowance(memProvider, address(this)), memMarket.maxRedeem(memProvider));
     uint256 sharesReward = shares.mulWadDown(providerRatio);
 
-    uint256 amount = memMarket.previewRedeem(sharesReward);
-
-    IERC20 providerAsset = IERC20(address(memMarket.asset()));
-    uint256 duration = rewards[providerAsset].duration;
-    if (duration == 0 || amount < duration) return;
-
-    memMarket.redeem(sharesReward, address(this), memProvider);
-
+    uint256 amount = memMarket.redeem(sharesReward, address(this), memProvider);
     uint256 save = shares - sharesReward;
     if (save != 0) memMarket.transferFrom(memProvider, savings, save);
 
-    notifyRewardAmount(providerAsset, amount, address(this));
+    notifyRewardAmount(IERC20(address(memMarket.asset())), amount, address(this));
   }
 
   /// @notice Returns all reward tokens.

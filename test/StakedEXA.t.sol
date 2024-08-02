@@ -424,7 +424,7 @@ contract StakedEXATest is Test {
       provider += assets;
     }
     uint256 savings = stEXA.market().maxWithdraw(SAVINGS);
-    stEXA.harvest();
+    try stEXA.harvest() {} catch {} // solhint-disable-line no-empty-blocks
     (uint256 rDuration, , , , ) = stEXA.rewards(asset);
     if (rDuration != 0 && assets.mulWadDown(providerRatio) >= rDuration) {
       assertEq(stEXA.market().balanceOf(PROVIDER), 0, "assets left");
@@ -1774,6 +1774,13 @@ contract StakedEXATest is Test {
 
     vm.expectRevert(NotAllowed.selector);
     stEXA.deposit(assets, BOB);
+  }
+
+  function testHarvestFailDoesntDoSDeposits() external {
+    stEXA.setRewardsDuration(providerAsset, 0);
+    uint256 assets = 1_000e18;
+    exa.mint(address(this), assets);
+    stEXA.deposit(assets, address(this));
   }
 
   function minMaxWithdrawAllowance() internal view returns (uint256) {
