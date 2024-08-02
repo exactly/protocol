@@ -19,6 +19,7 @@ import {
   Market,
   Math,
   MaxRewardsTokensExceeded,
+  NotAllowed,
   NotFinished,
   NotPausingRole,
   Parameters,
@@ -1203,6 +1204,8 @@ contract StakedEXATest is Test {
     uint256 assets = 1_000e18;
     exa.mint(address(this), assets * 2);
     stEXA.deposit(assets, address(this));
+    vm.prank(BOB);
+    stEXA.approve(address(this), 1);
     stEXA.deposit(assets, BOB);
     skip(minTime + 1);
 
@@ -1229,6 +1232,8 @@ contract StakedEXATest is Test {
     uint256 assets = 1_000e18;
     exa.mint(address(this), assets * 2);
     stEXA.deposit(assets, address(this));
+    vm.prank(BOB);
+    stEXA.approve(address(this), 1);
     stEXA.deposit(assets, BOB);
     skip(minTime + 1);
 
@@ -1426,6 +1431,8 @@ contract StakedEXATest is Test {
     uint256 assets = 1_000e18;
     exa.mint(address(this), assets * 2);
     stEXA.deposit(assets, address(this));
+    vm.prank(BOB);
+    stEXA.approve(address(this), 1);
     stEXA.deposit(assets, BOB);
 
     skip(minTime + 2 weeks);
@@ -1449,6 +1456,10 @@ contract StakedEXATest is Test {
     uint256 assets = 1_000e18;
     exa.mint(address(this), assets * 2);
     stEXA.deposit(assets, address(this));
+
+    vm.prank(BOB);
+    stEXA.approve(address(this), 1);
+
     stEXA.deposit(assets, BOB);
 
     uint256 claimableAcc = 0;
@@ -1720,6 +1731,8 @@ contract StakedEXATest is Test {
 
     uint256 claimableAmount = claimable(rA, address(this));
     uint256 balanceBefore = rA.balanceOf(address(this));
+    
+    stEXA.approve(BOB, 1);
 
     exa.mint(BOB, assets);
     vm.startPrank(BOB);
@@ -1729,6 +1742,40 @@ contract StakedEXATest is Test {
 
     assertEq(claimableAmount, rA.balanceOf(address(this)) - balanceBefore);
 
+  }
+
+  function testDepositToAnotherWithoutAllowanceShouldFail() external {
+    uint256 assets = 1_000e18;
+    exa.mint(address(this), assets);
+
+    vm.expectRevert(NotAllowed.selector);
+    stEXA.deposit(assets, BOB);
+  }
+
+  function testDepositToAnotherWithAllowance() external {
+    uint256 assets = 1_000e18;
+    exa.mint(address(this), assets);
+    
+    vm.prank(BOB);
+    stEXA.approve(address(this), 1);
+
+    stEXA.deposit(assets, BOB);
+  }
+
+  function testRemoveDepositAllowance() external {
+    uint256 assets = 1_000e18;
+    exa.mint(address(this), assets * 2);
+    
+    vm.prank(BOB);
+    stEXA.approve(address(this), 1);
+
+    stEXA.deposit(assets, BOB);
+
+    vm.prank(BOB);
+    stEXA.approve(address(this), 0);
+
+    vm.expectRevert(NotAllowed.selector);
+    stEXA.deposit(assets, BOB);
   }
 
   function minMaxWithdrawAllowance() internal view returns (uint256) {

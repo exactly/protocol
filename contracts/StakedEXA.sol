@@ -125,6 +125,7 @@ contract StakedEXA is
   function _update(address from, address to, uint256 amount) internal override whenNotPaused {
     if (amount == 0) revert ZeroAmount();
     if (from == address(0)) {
+      if (to != msg.sender && allowance(to, msg.sender) == 0) revert NotAllowed();
       uint256 start = avgStart[to];
       uint256 time = start != 0 ? block.timestamp * 1e18 - start : 0;
       uint256 memRefTime = refTime * 1e18;
@@ -568,6 +569,7 @@ error InsufficientBalance();
 error InvalidRange();
 error InvalidRatio();
 error MaxRewardsTokensExceeded();
+error NotAllowed();
 error NotFinished();
 error NotPausingRole();
 error RewardNotListed();
