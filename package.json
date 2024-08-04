@@ -22,8 +22,8 @@
     "coverage:fuzzer": "FOUNDRY_PROFILE=production forge test --no-match-contract Protocol",
     "deploy:ethereum": "hardhat --network ethereum deploy",
     "deploy:op-sepolia": "hardhat --network op-sepolia deploy",
-    "prepare": "concurrently 'npm:prepare:*' --group -c auto",
-    "prepare:foundry": "if git status &>/dev/null; then forge install; fi",
+    "prepare": "concurrently 'npm:prepare:*' --group -c auto || true",
+    "prepare:foundry": "forge install",
     "prepare:hardhat": "hardhat compile --force"
   },
   "files": [
