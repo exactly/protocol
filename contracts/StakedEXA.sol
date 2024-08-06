@@ -444,6 +444,8 @@ contract StakedEXA is
       reward.safeTransfer(savings, (finishAt - block.timestamp) * rewards[reward].rate);
     }
 
+    if (reward == IERC20(address(market.asset()))) setProvider(address(0));
+
     emit DistributionFinished(reward, msg.sender);
   }
 
@@ -482,7 +484,6 @@ contract StakedEXA is
   /// @notice Sets the provider address.
   /// @param provider_ The new provider address.
   function setProvider(address provider_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (provider_ == address(0)) revert ZeroAddress();
     provider = provider_;
     emit ProviderSet(provider_, msg.sender);
   }

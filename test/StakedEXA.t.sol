@@ -8,6 +8,7 @@ import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.so
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import { ERC20, ERC4626, IERC4626 } from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import { IERC20Errors } from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {
@@ -426,7 +427,7 @@ contract StakedEXATest is Test {
     uint256 savings = stEXA.market().maxWithdraw(SAVINGS);
     try stEXA.harvest() {} catch {} // solhint-disable-line no-empty-blocks
     (uint256 rDuration, , , , ) = stEXA.rewards(asset);
-    if (rDuration != 0 && assets.mulWadDown(providerRatio) >= rDuration) {
+    if (rDuration != 0 && assets.mulWadDown(providerRatio) >= rDuration && stEXA.provider() != address(0)) {
       assertEq(stEXA.market().balanceOf(PROVIDER), 0, "assets left");
       assertEq(
         stEXA.market().maxWithdraw(SAVINGS),
@@ -1410,11 +1411,6 @@ contract StakedEXATest is Test {
     assertEq(stEXA.savings(), newSavings);
   }
 
-  function testSetProviderZeroAddressError() external {
-    vm.expectRevert(ZeroAddress.selector);
-    stEXA.setProvider(address(0));
-  }
-
   function testSetSavingsZeroAddressError() external {
     vm.expectRevert(ZeroAddress.selector);
     stEXA.setSavings(address(0));
@@ -1843,6 +1839,27 @@ contract StakedEXATest is Test {
     stEXA.withdrawRewards(exa, withdrawableAmount);
     assertEq(exa.balanceOf(address(stEXA)), amount);
     assertEq(exa.balanceOf(SAVINGS), initialAmount);
+  }
+
+  function testHarvestWhenFinished() external {
+    skip(duration / 2);
+    stEXA.harvest();
+
+    uint256 timestamp = block.timestamp;
+
+    (, uint256 finishAt, , , ) = stEXA.rewards(providerAsset);
+    assertNotEq(finishAt, timestamp);
+
+    stEXA.finishDistribution(providerAsset);
+
+    (, finishAt, , , ) = stEXA.rewards(providerAsset);
+    assertEq(finishAt, timestamp, "finishAt != timestamp");
+    assertEq(stEXA.provider(), address(0));
+
+    vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InvalidApprover.selector, address(0)));
+    stEXA.harvest();
+    (, finishAt, , , ) = stEXA.rewards(providerAsset);
+    assertEq(finishAt, timestamp);
   }
 
   function minMaxWithdrawAllowance() internal view returns (uint256) {
