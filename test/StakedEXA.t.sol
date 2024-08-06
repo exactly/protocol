@@ -1800,6 +1800,51 @@ contract StakedEXATest is Test {
     assertEq(stEXA.avgStart(address(this)), block.timestamp * 1e18);
   }
 
+  function testWithdrawRewardsOnlyAdmin() external {
+    uint256 amount = 1;
+    providerAsset.mint(address(stEXA), amount);
+    address nonAdmin = address(0x1);
+    vm.prank(nonAdmin);
+    vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonAdmin, 0));
+    stEXA.withdrawRewards(providerAsset, amount);
+
+    address admin = address(0x2);
+    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
+    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+
+    vm.prank(admin);
+    vm.expectEmit(true, true, true, true, address(stEXA));
+    emit StakedEXA.RewardsWithdrawn(admin, SAVINGS, providerAsset, amount);
+    stEXA.withdrawRewards(providerAsset, amount);
+
+    assertEq(providerAsset.balanceOf(SAVINGS), amount);
+  }
+
+  function testWithdrawRewardsOnlyReward() external {
+    uint256 amount = 1;
+    MockERC20 notListed = new MockERC20("reward C", "rC", 18);
+    notListed.mint(address(stEXA), amount);
+
+    vm.expectRevert(RewardNotListed.selector);
+    stEXA.withdrawRewards(notListed, amount);
+  }
+
+  function testWithdrawRewardUnderlyingAsset() external {
+    uint256 amount = 1_000e18;
+
+    exa.mint(address(this), amount);
+    stEXA.deposit(amount, address(this));
+
+    uint256 withdrawableAmount = initialAmount;
+
+    vm.expectRevert(InsufficientBalance.selector);
+    stEXA.withdrawRewards(exa, withdrawableAmount + 1);
+
+    stEXA.withdrawRewards(exa, withdrawableAmount);
+    assertEq(exa.balanceOf(address(stEXA)), amount);
+    assertEq(exa.balanceOf(SAVINGS), initialAmount);
+  }
+
   function minMaxWithdrawAllowance() internal view returns (uint256) {
     return Math.min(market.convertToAssets(market.allowance(PROVIDER, address(stEXA))), market.maxWithdraw(PROVIDER));
   }

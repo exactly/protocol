@@ -409,6 +409,18 @@ contract StakedEXA is
     }
   }
 
+  /// @notice Withdraws `amount` of `reward` from contract to `savings`.
+  /// @param reward The reward token.
+  /// @param amount The amount of reward tokens to withdraw.
+  function withdrawRewards(IERC20 reward, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) onlyReward(reward) {
+    if (address(reward) == asset() && amount > reward.balanceOf(address(this)) - totalAssets()) {
+      revert InsufficientBalance();
+    }
+    address memSavings = savings;
+    reward.safeTransfer(memSavings, amount);
+    emit RewardsWithdrawn(msg.sender, memSavings, reward, amount);
+  }
+
   /// @notice Enables a new reward token.
   /// @param reward The reward token.
   function enableReward(IERC20 reward) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -547,6 +559,7 @@ contract StakedEXA is
     return "mode=timestamp";
   }
 
+  event DistributionFinished(IERC20 indexed reward, address indexed account);
   event MarketSet(Market indexed market, address indexed account);
   event MinTimeSet(uint256 minTime, address indexed account);
   event PenaltyGrowthSet(uint256 penaltyGrowth, address indexed account);
@@ -555,10 +568,10 @@ contract StakedEXA is
   event ProviderSet(address indexed provider, address indexed account);
   event RefTimeSet(uint256 refTime, address indexed account);
   event RewardAmountNotified(IERC20 indexed reward, address indexed notifier, uint256 amount);
-  event DistributionFinished(IERC20 indexed reward, address indexed account);
-  event RewardPaid(IERC20 indexed reward, address indexed account, uint256 amount);
   event RewardListed(IERC20 indexed reward, address indexed account);
+  event RewardPaid(IERC20 indexed reward, address indexed account, uint256 amount);
   event RewardsDurationSet(IERC20 indexed reward, address indexed account, uint256 duration);
+  event RewardsWithdrawn(address indexed account, address indexed receiver, IERC20 indexed reward, uint256 amount);
   event SavingsSet(address indexed savings, address indexed account);
 }
 
