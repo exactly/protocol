@@ -171,8 +171,15 @@ contract StakedEXA is
   /// @return The number of shares received.
   function permitAndDeposit(uint256 assets, address receiver, Permit calldata p) external returns (uint256) {
     // solhint-disable-next-line no-empty-blocks
-    try IERC20Permit(asset()).permit(msg.sender, address(this), p.value, p.deadline, p.v, p.r, p.s) {} catch {}
-    return deposit(assets, receiver);
+    try IERC20Permit(asset()).permit(receiver, address(this), p.value, p.deadline, p.v, p.r, p.s) {} catch {}
+
+    uint256 maxAssets = maxDeposit(receiver);
+    if (assets > maxAssets) revert ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
+
+    uint256 shares = previewDeposit(assets);
+    _deposit(receiver, receiver, assets, shares);
+
+    return shares;
   }
 
   /// @notice Resets msg.sender's position by withdrawing and depositing the same assets.

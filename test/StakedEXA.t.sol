@@ -1634,7 +1634,34 @@ contract StakedEXATest is Test {
     );
 
     vm.prank(BOB);
+    stEXA.approve(address(this), 1);
+
+    uint256 balanceBefore = stEXA.balanceOf(BOB);
+    uint256 exaBefore = exa.balanceOf(BOB);
+
     stEXA.permitAndDeposit(assets, BOB, Permit(assets, block.timestamp, v, r, s));
+
+    assertEq(balanceBefore + assets, stEXA.balanceOf(BOB));
+    assertEq(exaBefore - assets, exa.balanceOf(BOB));
+  }
+
+  function testPermitFailKeepsFlow() external {
+    uint256 assets = 1_000e18;
+    address random = address(0x123);
+    exa.mint(random, assets);
+
+    vm.startPrank(random);
+    exa.approve(address(stEXA), assets);
+    stEXA.approve(address(this), 1);
+    vm.stopPrank();
+
+    uint256 balanceBefore = stEXA.balanceOf(random);
+    uint256 exaBefore = exa.balanceOf(random);
+
+    stEXA.permitAndDeposit(assets, random, Permit(assets, block.timestamp, 1, bytes32(""), bytes32("")));
+
+    assertEq(balanceBefore + assets, stEXA.balanceOf(random));
+    assertEq(exaBefore - assets, exa.balanceOf(random));
   }
 
   function testPausableClaim() external {
