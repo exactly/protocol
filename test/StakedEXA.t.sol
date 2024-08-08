@@ -379,7 +379,7 @@ contract StakedEXATest is Test {
     for (uint256 i = 0; i < rewards.length; ++i) {
       v.reward = rewards[i];
       v.numerator = claimed[account][v.reward] * assets;
-      uint256 claimedAmount = v.numerator == 0 ? 0 : (v.numerator - 1) / prevShares + 1;
+      uint256 claimedAmount = v.numerator / prevShares;
       claimed[account][v.reward] -= claimedAmount;
       v.claimed = claimed[account][v.reward];
       assertApproxEqAbs(v.claimed, stEXA.claimed(account, v.reward), 10, "claimed != expected");

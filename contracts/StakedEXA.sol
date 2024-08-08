@@ -194,12 +194,10 @@ contract StakedEXA is
   /// @param amount The amount of assets being withdrawn.
   function claimWithdraw(IERC20 reward, address account, uint256 amount) internal {
     uint256 balance = balanceOf(account);
-    uint256 numerator = claimed[account][reward] * amount;
-    uint256 claimedAmount = numerator == 0 ? 0 : (numerator - 1) / balance + 1;
+    uint256 claimedAmount = (claimed[account][reward] * amount) / balance;
     claimed[account][reward] -= claimedAmount;
 
-    numerator = saved[account][reward] * amount;
-    uint256 savedAmount = numerator == 0 ? 0 : (numerator - 1) / balance + 1;
+    uint256 savedAmount = (saved[account][reward] * amount) / balance;
     saved[account][reward] -= savedAmount;
 
     uint256 claimableAmount = Math.max(rawClaimable(reward, account, amount), claimedAmount); // due to excess exposure
