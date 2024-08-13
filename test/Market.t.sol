@@ -1126,6 +1126,51 @@ contract MarketTest is Test {
     assertEq(market.floatingDebt(), floatingDebtBefore);
   }
 
+  function testClearBadDebtEmptiesUnassignedEarnings() external {
+    uint256 maxVal = type(uint256).max;
+
+    marketWETH.deposit(100000 ether, address(this));
+    marketWETH.borrowAtMaturity(4 weeks, 10000e18, maxVal, address(this), address(this));
+    marketWETH.repayAtMaturity(4 weeks, maxVal, maxVal, address(this));
+
+    vm.startPrank(BOB);
+    market.deposit(100 ether, BOB);
+    auditor.enterMarket(market);
+    marketWETH.borrowAtMaturity(4 weeks, 60e18, maxVal, BOB, BOB);
+    vm.stopPrank();
+
+    vm.startPrank(ALICE);
+    weth.mint(ALICE, 1_000_000 ether);
+    weth.approve(address(marketWETH), type(uint256).max);
+    marketWETH.deposit(10, ALICE);
+    marketWETH.borrowAtMaturity(4 weeks, 1, maxVal, ALICE, ALICE);
+    vm.stopPrank();
+
+    daiPriceFeed.setPrice(0.6e18);
+
+    vm.startPrank(ALICE);
+    marketWETH.liquidate(BOB, 100_000 ether, market);
+    vm.stopPrank();
+
+    (, , uint256 unassignedEarningsAfter, ) = marketWETH.fixedPools(4 weeks);
+    assertEq(unassignedEarningsAfter, 0);
+
+    address account = makeAddr("account");
+    vm.startPrank(account);
+    deal(address(weth), account, 10);
+    weth.approve(address(marketWETH), 10);
+    marketWETH.depositAtMaturity(4 weeks, 10, 0, account);
+    vm.stopPrank();
+
+    (, , unassignedEarningsAfter, ) = marketWETH.fixedPools(4 weeks);
+    assertEq(unassignedEarningsAfter, 0);
+
+    // account should not get unassigned earnings
+    (uint256 principal, uint256 fee) = marketWETH.fixedDepositPositions(4 weeks, account);
+    assertEq(principal, 10);
+    assertEq(fee, 0);
+  }
+
   function testClearBadDebtCalledByAccount() external {
     vm.expectRevert(NotAuditor.selector);
     market.clearBadDebt(address(this));
@@ -1677,7 +1722,7 @@ contract MarketTest is Test {
     uint256 lendersIncentive = 1181818181818181800;
     uint256 distributedEarnings = 680440721299864513;
     uint256 badDebt = 981818181818181818100 + 1100000000000000000000 + 1100000000000000000000 + 1100000000000000000000;
-    uint256 untrackedUnassignedEarnings = 300000000000000000000;
+    uint256 untrackedUnassignedEarnings = 300000000000000000000 + 29752070215138961802;
     uint256 earlyRepayEarnings = 3069658128703695345;
     uint256 accumulatedEarnings = (earningsAccumulatorBefore + lendersIncentive).mulDivDown(
       block.timestamp - market.lastAccumulatorAccrual(),

@@ -643,16 +643,22 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
           if (address(memRewardsController) != address(0)) memRewardsController.handleBorrow(borrower);
           accumulator -= badDebt;
           totalBadDebt += badDebt;
-          floatingBackupBorrowed -= fixedPools[maturity].repay(position.principal);
+          uint256 backupDebtReduction = fixedPools[maturity].repay(position.principal);
+
+          if (backupDebtReduction != 0) {
+            floatingBackupBorrowed -= backupDebtReduction;
+            uint256 yield = fixedPools[maturity].unassignedEarnings.mulDivDown(
+              Math.min(position.principal, backupDebtReduction),
+              backupDebtReduction
+            );
+            fixedPools[maturity].unassignedEarnings -= yield;
+            earningsAccumulator += yield;
+          }
+
           delete fixedBorrowPositions[maturity][borrower];
           account.fixedBorrows = account.fixedBorrows.clearMaturity(maturity);
 
           emit RepayAtMaturity(maturity, msg.sender, borrower, badDebt, badDebt);
-
-          if (fixedPools[maturity].borrowed == position.principal) {
-            earningsAccumulator += fixedPools[maturity].unassignedEarnings;
-            fixedPools[maturity].unassignedEarnings = 0;
-          }
         }
       }
       packedMaturities >>= 1;
