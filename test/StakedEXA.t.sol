@@ -1191,7 +1191,7 @@ contract StakedEXATest is Test {
     thisClaimable = claimable(providerAsset, address(this));
     assertGt(thisClaimable, 0);
 
-    skip(refTime - 1 weeks - 1);
+    skip(refTime - minTime - 1);
 
     thisClaimable = claimable(providerAsset, address(this));
 
