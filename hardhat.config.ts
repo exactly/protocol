@@ -35,7 +35,10 @@ const hardhatConfig: Config = {
     optimism: { priceDecimals: 8, timelockDelay: 24 * 3_600, url: env.OPTIMISM_NODE ?? "" },
     "op-sepolia": {
       priceDecimals: 8,
-      finance: { escrow: { vestingPeriod: 7 * 86_400, reserveRatio: 0.25 } },
+      finance: {
+        escrow: { vestingPeriod: 7 * 86_400, reserveRatio: 0.25 },
+        staking: { minTime: 3_600, refTime: 86_400 },
+      },
       url: env.OP_SEPOLIA_NODE ?? "",
     },
   },
@@ -100,14 +103,14 @@ const hardhatConfig: Config = {
       reserveRatio: 0.25,
     },
     staking: {
-      minTime: 1 * 86_400,
-      refTime: 3 * 86_400,
-      excessFactor: 0.7,
+      minTime: 0,
+      refTime: 365 * 86_400,
+      excessFactor: 0.9,
       penaltyGrowth: 2,
-      penaltyThreshold: 0.2,
-      market: "WETH",
+      penaltyThreshold: 0.1,
+      market: "USDC",
       duration: 4 * 7 * 86_400,
-      providerRatio: 0.69,
+      providerRatio: 0.5,
     },
     markets: {
       WETH: {
