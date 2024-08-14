@@ -447,7 +447,9 @@ contract StakedEXATest is Test {
     if (rDuration == 0) vm.expectRevert(stdError.divisionError);
     else if (
       (
-        block.timestamp >= finishAt ? assets / rDuration : (assets + ((finishAt - block.timestamp) * rate)) / rDuration
+        block.timestamp >= finishAt
+          ? (uint256(assets) * 1e18) / rDuration
+          : (uint256(assets) * 1e18 + (finishAt - block.timestamp) * rate) / rDuration
       ) == 0
     ) vm.expectRevert(ZeroRate.selector);
     stEXA.notifyRewardAmount(reward, assets);
@@ -462,7 +464,7 @@ contract StakedEXATest is Test {
     (, uint40 finishAt, , , uint256 rate) = stEXA.rewards(reward);
 
     if (finishAt > block.timestamp) {
-      uint256 remainingRewards = rate * (finishAt - block.timestamp);
+      uint256 remainingRewards = rate.mulWadDown(finishAt - block.timestamp);
 
       stEXA.finishDistribution(reward);
       assertEq(reward.balanceOf(SAVINGS), savingsBalance + remainingRewards, "missing remaining savings");
@@ -494,7 +496,7 @@ contract StakedEXATest is Test {
     assertEq(duration0, duration);
     assertEq(finishAt0, block.timestamp + duration);
     assertEq(index0, 0);
-    assertEq(rate0, initialAmount / duration);
+    assertEq(rate0, (initialAmount * 1e18) / duration);
     assertEq(updatedAt0, block.timestamp);
 
     (uint256 duration1, uint256 finishAt1, uint256 updatedAt1, uint256 index1, uint256 rate1) = stEXA.rewards(rB);
@@ -502,7 +504,7 @@ contract StakedEXATest is Test {
     assertEq(duration1, duration);
     assertEq(finishAt1, block.timestamp + duration);
     assertEq(index1, 0);
-    assertEq(rate1, initialAmount / duration);
+    assertEq(rate1, (initialAmount * 1e18) / duration);
     assertEq(updatedAt1, block.timestamp);
 
     assertEq(stEXA.totalSupply(), 0);
@@ -615,9 +617,9 @@ contract StakedEXATest is Test {
     exa.mint(address(this), assets);
 
     stEXA.deposit(assets, address(this));
-    uint256 rate = initialAmount / duration;
+    uint256 rate = (initialAmount * 1e18) / duration;
     skip(duration / 2);
-    uint256 earned_ = rate * (duration / 2);
+    uint256 earned_ = rate.mulWadDown(duration / 2);
     assertApproxEqAbs(earned(rA, address(this)), earned_, 2e6, "earned != expected");
 
     uint256 thisClaimable = claimable(rA, address(this));
@@ -691,9 +693,9 @@ contract StakedEXATest is Test {
 
     uint256 expectedRate = 0;
     if (block.timestamp >= finishAt) {
-      expectedRate = amount / duration;
+      expectedRate = (amount * 1e18) / duration;
     } else {
-      expectedRate = (amount + (finishAt - block.timestamp) * rate) / duration;
+      expectedRate = ((amount * 1e18) + (finishAt - block.timestamp) * rate) / duration;
     }
 
     rA.mint(address(stEXA), amount);
@@ -761,7 +763,7 @@ contract StakedEXATest is Test {
     stEXA.deposit(assets, address(this));
 
     skip(time);
-    uint256 thisRewards = rate * time;
+    uint256 thisRewards = rate.mulWadDown(time);
 
     exa.mint(BOB, assets);
     vm.startPrank(BOB);
@@ -771,7 +773,7 @@ contract StakedEXATest is Test {
 
     skip(time);
 
-    uint256 bobRewards = (rate * time) / 2;
+    uint256 bobRewards = rate.mulWadDown(time) / 2;
     thisRewards += bobRewards;
 
     assertApproxEqAbs(earned(rA, address(this)), thisRewards, 1e7, "this rewards != earned expected");
@@ -795,13 +797,13 @@ contract StakedEXATest is Test {
     uint256 assets = 1_000e18;
 
     uint256 time = duration / 2;
-    uint256 rate = initialAmount / duration;
+    uint256 rate = (initialAmount * 1e18) / duration;
     exa.mint(address(this), assets);
     stEXA.deposit(assets, address(this));
 
     skip(time);
 
-    uint256 thisRewards = rate * time;
+    uint256 thisRewards = rate.mulWadDown(time);
 
     exa.mint(BOB, assets);
     vm.startPrank(BOB);
@@ -811,11 +813,11 @@ contract StakedEXATest is Test {
 
     skip(time);
 
-    uint256 bobRewards = (rate * time) / 2;
+    uint256 bobRewards = rate.mulWadDown(time / 2);
     thisRewards += bobRewards;
 
-    assertApproxEqAbs(earned(rA, address(this)), thisRewards, 600, "this rewards != earned expected");
-    assertApproxEqAbs(earned(rA, BOB), bobRewards, 200, "bob rewards != earned expected");
+    assertApproxEqAbs(earned(rA, address(this)), thisRewards, 2e3, "this rewards != earned expected");
+    assertApproxEqAbs(earned(rA, BOB), bobRewards, 1e3, "bob rewards != earned expected");
 
     skip(timeAfterPeriod);
 
@@ -1122,7 +1124,7 @@ contract StakedEXATest is Test {
     assertEq(providerDuration, 1 weeks);
     assertEq(finishAt, block.timestamp + 1 weeks);
     assertEq(index, 0);
-    assertEq(rate, assets.mulWadDown(providerRatio) / 1 weeks);
+    assertEq(rate, (assets * providerRatio) / 1 weeks);
     assertEq(updatedAt, block.timestamp);
   }
 
@@ -1300,7 +1302,7 @@ contract StakedEXATest is Test {
     uint256 savingsBalance = rA.balanceOf(SAVINGS);
 
     (, uint256 finishAt, , , uint256 rate) = stEXA.rewards(rA);
-    uint256 remainingRewards = rate * (finishAt - block.timestamp);
+    uint256 remainingRewards = rate.mulWadDown(finishAt - block.timestamp);
 
     stEXA.finishDistribution(rA);
     assertEq(rA.balanceOf(SAVINGS), savingsBalance + remainingRewards);
@@ -1319,7 +1321,7 @@ contract StakedEXATest is Test {
 
     (, uint256 finishAt, , , uint256 rate) = stEXA.rewards(rA);
 
-    uint256 remainingRewards = finishAt > block.timestamp ? rate * (finishAt - block.timestamp) : 0;
+    uint256 remainingRewards = finishAt > block.timestamp ? rate.mulWadDown(finishAt - block.timestamp) : 0;
 
     assertEq(remainingRewards, 0);
 

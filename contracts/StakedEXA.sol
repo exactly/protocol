@@ -221,15 +221,15 @@ contract StakedEXA is
     updateIndex(reward);
     RewardData storage rewardData = rewards[reward];
     if (block.timestamp >= rewardData.finishAt) {
-      rewardData.rate = amount / rewardData.duration;
+      rewardData.rate = (amount * 1e18) / rewardData.duration;
     } else {
       uint256 remainingRewards = (rewardData.finishAt - block.timestamp) * rewardData.rate;
-      rewardData.rate = (amount + remainingRewards) / rewardData.duration;
+      rewardData.rate = (amount * 1e18 + remainingRewards) / rewardData.duration;
     }
 
     if (rewardData.rate == 0) revert ZeroRate();
     if (
-      rewardData.rate * rewardData.duration >
+      rewardData.rate.mulWadDown(rewardData.duration) >
       reward.balanceOf(address(this)) - (address(reward) == asset() ? totalAssets() : 0)
     ) revert InsufficientBalance();
 
@@ -297,9 +297,7 @@ contract StakedEXA is
 
     return
       rewardData.index +
-      (rewardData.rate * (lastTimeRewardApplicable(rewardData.finishAt) - rewardData.updatedAt)).divWadDown(
-        totalSupply()
-      );
+      rewardData.rate.mulDivDown(lastTimeRewardApplicable(rewardData.finishAt) - rewardData.updatedAt, totalSupply());
   }
 
   /// @notice Returns the average index for a reward token and account.
@@ -446,7 +444,7 @@ contract StakedEXA is
     if (block.timestamp < rewards[reward].finishAt) {
       uint256 finishAt = rewards[reward].finishAt;
       rewards[reward].finishAt = uint40(block.timestamp);
-      reward.safeTransfer(savings, (finishAt - block.timestamp) * rewards[reward].rate);
+      reward.safeTransfer(savings, (finishAt - block.timestamp).mulWadDown(rewards[reward].rate));
     }
 
     if (reward == IERC20(address(market.asset()))) setProvider(address(0));
@@ -614,6 +612,7 @@ struct RewardData {
   uint40 finishAt;
   uint40 updatedAt;
   uint256 index;
+  /// @notice rate in assets per second with 18 extra decimals
   uint256 rate;
 }
 
