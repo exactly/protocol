@@ -380,6 +380,7 @@ extendConfig((extendedConfig, { finance }) => {
     networkConfig.finance = {
       ...finance,
       ...networkConfig.finance,
+      staking: { ...finance.staking, ...networkConfig.finance?.staking },
       markets: Object.fromEntries(
         Object.entries(finance.markets)
           .filter(([, { networks }]) => !live || !networks || networks.includes(networkName))
@@ -498,7 +499,7 @@ declare module "hardhat/types/config" {
   export interface HttpNetworkUserConfig {
     priceDecimals: number;
     timelockDelay?: number;
-    finance?: Partial<FinanceConfig>;
+    finance?: Omit<Partial<FinanceConfig>, "staking"> & { staking?: Partial<StakingParameters> };
     sunset?: boolean;
   }
 
