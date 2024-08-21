@@ -23,7 +23,7 @@ contract StakingPreviewerTest is Test {
   MockERC20 internal rA;
   MockERC20 internal rB;
   Parameters internal p;
-  MockERC20 internal providerAsset;
+  MockMarket internal market;
 
   function setUp() external {
     vm.warp(1_704_067_200); // 01/01/2024 @ 00:00 (UTC)
@@ -34,7 +34,7 @@ contract StakingPreviewerTest is Test {
     vm.label(address(rA), "rA");
     vm.label(address(rB), "rB");
 
-    providerAsset = new MockERC20("Wrapped ETH", "WETH", 18);
+    market = new MockMarket(new MockERC20("Wrapped ETH", "WETH", 18));
 
     p = Parameters({
       asset: exa,
@@ -43,7 +43,7 @@ contract StakingPreviewerTest is Test {
       excessFactor: 0.5e18,
       penaltyGrowth: 2e18,
       penaltyThreshold: 0.5e18,
-      market: Market(address(new MockMarket(providerAsset))),
+      market: Market(address(market)),
       provider: address(0x2),
       savings: address(0x3),
       duration: 1 weeks,

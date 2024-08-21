@@ -103,7 +103,7 @@ contract StakedEXA is
     setPenaltyThreshold(p.penaltyThreshold);
 
     setMarket(p.market);
-    setRewardsDuration(IERC20(address(p.market.asset())), p.duration);
+    setRewardsDuration(IERC20(address(p.market)), p.duration);
 
     setProvider(p.provider);
     setProviderRatio(p.providerRatio);
@@ -350,11 +350,11 @@ contract StakedEXA is
     uint256 shares = Math.min(memMarket.allowance(memProvider, address(this)), memMarket.maxRedeem(memProvider));
     uint256 sharesReward = shares.mulWadDown(providerRatio);
 
-    uint256 amount = memMarket.redeem(sharesReward, address(this), memProvider);
+    memMarket.transferFrom(provider, address(this), sharesReward);
     uint256 save = shares - sharesReward;
     if (save != 0) memMarket.transferFrom(memProvider, savings, save);
 
-    notifyRewardAmount(IERC20(address(memMarket.asset())), amount, address(this));
+    notifyRewardAmount(IERC20(address(memMarket)), sharesReward, address(this));
   }
 
   /// @notice Returns all reward tokens.
@@ -441,7 +441,7 @@ contract StakedEXA is
       reward.safeTransfer(savings, (finishAt - block.timestamp).mulWadDown(rewards[reward].rate));
     }
 
-    if (reward == IERC20(address(market.asset()))) setProvider(address(0));
+    if (reward == IERC20(address(market))) setProvider(address(0));
 
     emit DistributionFinished(reward, msg.sender);
   }
@@ -472,8 +472,7 @@ contract StakedEXA is
     if (address(market_) == address(0)) revert ZeroAddress();
     market = market_;
 
-    IERC20 providerAsset = IERC20(address(market_.asset()));
-    if (rewards[providerAsset].finishAt == 0) enableReward(providerAsset);
+    if (rewards[IERC20(address(market_))].finishAt == 0) enableReward(IERC20(address(market_)));
 
     emit MarketSet(market_, msg.sender);
   }
