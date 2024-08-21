@@ -182,12 +182,6 @@ contract StakedEXA is
     return shares;
   }
 
-  /// @notice Resets msg.sender's position by withdrawing and depositing the same assets.
-  function reset() external returns (uint256) {
-    uint256 assets = redeem(balanceOf(msg.sender), msg.sender, msg.sender);
-    return deposit(assets, msg.sender);
-  }
-
   /// @notice Claims unclaimed rewards when withdrawing an amount of assets.
   /// @param reward The reward token to claim.
   /// @param account The account receiving the withdrawn assets and rewards.
