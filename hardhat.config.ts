@@ -61,6 +61,7 @@ const hardhatConfig: Config = {
     },
     savings: {
       default: 0,
+      optimism: "0x8a1c05C4462b3554814a637E940b3342ffBE02f2",
       "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
     hypernative: {
