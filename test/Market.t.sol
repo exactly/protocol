@@ -1279,9 +1279,9 @@ contract MarketTest is Test {
     assertEq(marketWETH.earningsAccumulator(), 20 ether);
 
     daiPriceFeed.setPrice(1);
-    // clear the first fixed borrow debt and 1/5 of the floating debt with accumulator's earnings
+    // clear the first fixed borrow debt and more than 1/5 of the floating debt with accumulator's earnings
     vm.expectEmit(true, true, true, true, address(marketWETH));
-    emit Repay(address(auditor), address(this), 10 ether, 10 ether);
+    emit Repay(address(auditor), address(this), 15 ether, 15 ether);
     auditor.handleBadDebt(address(this));
 
     // only first fixed borrow is covered
@@ -1292,8 +1292,8 @@ contract MarketTest is Test {
     (, , uint256 unassignedEarningsAfter, ) = market.fixedPools(FixedLib.INTERVAL);
     assertEq(unassignedEarningsAfter, 0);
     assertEq(principal + fee, 400 ether);
-    assertEq(marketWETH.previewRefund(floatingBorrowShares), 40 ether);
-    assertEq(marketWETH.earningsAccumulator(), 5 ether);
+    assertEq(marketWETH.previewRefund(floatingBorrowShares), 35 ether);
+    assertEq(marketWETH.earningsAccumulator(), 0);
   }
 
   function testClearBadDebtAvoidingFixedBorrowsIfAccumulatorLower() external {

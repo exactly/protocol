@@ -653,6 +653,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
             );
             fixedPools[maturity].unassignedEarnings -= yield;
             earningsAccumulator += yield;
+            accumulator += yield;
           }
 
           delete fixedBorrowPositions[maturity][borrower];
