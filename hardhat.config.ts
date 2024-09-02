@@ -20,7 +20,7 @@ setup({ automaticVerifications: false });
 
 const hardhatConfig: Config = {
   solidity: {
-    version: "0.8.25",
+    version: "0.8.26",
     settings: { evmVersion: "cancun", optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
   },
   networks: {
