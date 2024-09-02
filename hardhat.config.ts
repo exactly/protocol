@@ -18,10 +18,20 @@ import type { HardhatUserConfig as Config } from "hardhat/types";
 
 setup({ automaticVerifications: false });
 
+const compiler = {
+  version: "0.8.26",
+  settings: { evmVersion: "cancun", optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
+} as const;
+
 const hardhatConfig: Config = {
   solidity: {
-    version: "0.8.26",
-    settings: { evmVersion: "cancun", optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
+    compilers: [compiler],
+    overrides: {
+      "contracts/Market.sol": {
+        ...compiler,
+        settings: { ...compiler.settings, optimizer: { ...compiler.settings.optimizer, runs: 70 } },
+      },
+    },
   },
   networks: {
     hardhat: { hardfork: "cancun" },
