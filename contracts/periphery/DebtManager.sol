@@ -511,11 +511,7 @@ contract DebtManager is Initializable {
   /// @param token The `ERC20` to transfer from `_msgSender` to this contract.
   /// @param assets The amount of assets to transfer from `_msgSender`.
   /// @param p2 Arguments for the permit2 call.
-  modifier permitTransfer(
-    ERC20 token,
-    uint256 assets,
-    Permit2 calldata p2
-  ) {
+  modifier permitTransfer(ERC20 token, uint256 assets, Permit2 calldata p2) {
     {
       address sender = _msgSender;
       permit2.permitTransferFrom(
