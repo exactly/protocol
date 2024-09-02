@@ -20,7 +20,7 @@ setup({ automaticVerifications: false });
 
 const compiler = {
   version: "0.8.26",
-  settings: { evmVersion: "cancun", optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
+  settings: { evmVersion: "cancun", optimizer: { enabled: true, runs: 1111 }, debug: { revertStrings: "strip" } },
 } as const;
 
 const hardhatConfig: Config = {
