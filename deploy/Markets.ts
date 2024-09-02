@@ -99,7 +99,7 @@ const func: DeployFunction = async ({
       "InterestRateModel",
       await deploy(`InterestRateModel${assetSymbol}`, {
         skipIfAlreadyDeployed: !JSON.parse(
-          env[`DEPLOY_IRM_${assetSymbol}`] ?? (await market.interestRateModel()) === ZeroAddress ? "true" : "false",
+          env[`DEPLOY_IRM_${assetSymbol}`] ?? ((await market.interestRateModel()) === ZeroAddress ? "true" : "false"),
         ),
         contract: "InterestRateModel",
         args: [
