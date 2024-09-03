@@ -120,7 +120,7 @@ const hardhatConfig: Config = {
       penaltyGrowth: 2,
       penaltyThreshold: 0.1,
       market: "USDC",
-      duration: 4 * 7 * 86_400,
+      duration: 7 * 86_400,
       providerRatio: 0.5,
       allowance: 10_000,
     },
