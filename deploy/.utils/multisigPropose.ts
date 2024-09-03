@@ -4,8 +4,14 @@ import Safe from "@safe-global/protocol-kit";
 import type { BaseContract } from "ethers";
 import format from "./format";
 
-export default async (account: string, contract: BaseContract, functionName: string, args: readonly unknown[] = []) => {
-  const { [account]: senderAddress, multisig: safeAddress } = await getNamedAccounts();
+export default async (
+  account: string,
+  contract: BaseContract,
+  functionName: string,
+  args: readonly unknown[] = [],
+  safe = "multisig",
+) => {
+  const { [account]: senderAddress, [safe]: safeAddress } = await getNamedAccounts();
   const safeApiKit = new SafeApiKit({
     chainId: BigInt(network.config.chainId ?? (await ethers.provider.getNetwork()).chainId),
   });
@@ -13,11 +19,11 @@ export default async (account: string, contract: BaseContract, functionName: str
   const data = contract.interface.encodeFunctionData(functionName, args);
   if (!(await safeApiKit.getPendingTransactions(safeAddress)).results.find((tx) => tx.to === to && tx.data === data)) {
     // eslint-disable-next-line no-console
-    console.log("multisig: proposing", `${await format(to)}.${functionName}`, await format(args));
+    console.log(`${safe}: proposing`, `${await format(to)}.${functionName}`, await format(args));
     const safeSdk = await Safe.init({ safeAddress, signer: senderAddress, provider: network.provider });
     if (!(await safeSdk.isOwner(senderAddress))) {
       // eslint-disable-next-line no-console
-      console.log("multisig: manual proposal", { to, data, value: "0" });
+      console.log(`${safe}: manual proposal`, { to, data, value: "0" });
       return;
     }
     const safeTransaction = await safeSdk.createTransaction({

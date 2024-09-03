@@ -122,6 +122,7 @@ const hardhatConfig: Config = {
       market: "USDC",
       duration: 4 * 7 * 86_400,
       providerRatio: 0.5,
+      allowance: 10_000,
     },
     markets: {
       WETH: {
@@ -465,6 +466,7 @@ declare module "hardhat/types/config" {
     market: string;
     duration: number;
     providerRatio: number;
+    allowance: number;
   }
 
   export interface MarketConfig {

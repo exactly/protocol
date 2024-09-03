@@ -1,6 +1,7 @@
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { StakedEXA } from "../types";
+import type { Market, StakedEXA } from "../types";
 import transferOwnership from "./.utils/transferOwnership";
+import multisigPropose from "./.utils/multisigPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
 import deployEXA from "./EXA";
 
@@ -14,8 +15,12 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [{ address: exa }, { address: market }, { address: timelock }, { deployer, treasury, savings }] =
-    await Promise.all([get("EXA"), get(`Market${staking.market}`), get("TimelockController"), getNamedAccounts()]);
+  const [market, { address: timelock }, { address: exa }, { deployer, treasury, savings }] = await Promise.all([
+    getContract<Market>(`Market${staking.market}`),
+    get("TimelockController"),
+    get("EXA"),
+    getNamedAccounts(),
+  ]);
 
   await validateUpgrade("stEXA", { contract: "StakedEXA", envKey: "STAKED_EXA" }, async (name, opts) =>
     deploy(name, {
@@ -35,7 +40,7 @@ const func: DeployFunction = async ({
                 excessFactor: parseUnits(String(staking.excessFactor)),
                 penaltyGrowth: parseUnits(String(staking.penaltyGrowth)),
                 penaltyThreshold: parseUnits(String(staking.penaltyThreshold)),
-                market,
+                market: market.target,
                 provider: treasury,
                 savings,
                 duration: staking.duration,
@@ -61,6 +66,13 @@ const func: DeployFunction = async ({
       log: true,
     }),
   );
+
+  const allowance = parseUnits(String(staking.allowance), 6);
+  if ((await market.allowance(treasury, stEXA.target)) < allowance / 5n) {
+    if (treasury !== deployer) {
+      await multisigPropose("deployer", market, "approve", [stEXA.target, allowance], "treasury");
+    } else await (await market.approve(stEXA.target, allowance)).wait();
+  }
 };
 
 func.tags = ["Staking"];
