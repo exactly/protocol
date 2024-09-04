@@ -3,6 +3,7 @@ import type { Market, StakedEXA } from "../types";
 import transferOwnership from "./.utils/transferOwnership";
 import multisigPropose from "./.utils/multisigPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
+import grantRole from "./.utils/grantRole";
 import deployEXA from "./EXA";
 
 const func: DeployFunction = async ({
@@ -12,15 +13,17 @@ const func: DeployFunction = async ({
     },
   },
   ethers: { parseUnits, getSigner, getContract },
-  deployments: { deploy, get },
+  deployments: { deploy, get, getOrNull },
   getNamedAccounts,
 }) => {
-  const [market, { address: timelock }, { address: exa }, { deployer, treasury, savings }] = await Promise.all([
-    getContract<Market>(`Market${staking.market}`),
-    get("TimelockController"),
-    get("EXA"),
-    getNamedAccounts(),
-  ]);
+  const [market, pauser, { address: timelock }, { address: exa }, { deployer, multisig, treasury, savings }] =
+    await Promise.all([
+      getContract<Market>(`Market${staking.market}`),
+      getOrNull("Pauser"),
+      get("TimelockController"),
+      get("EXA"),
+      getNamedAccounts(),
+    ]);
 
   await validateUpgrade("stEXA", { contract: "StakedEXA", envKey: "STAKED_EXA" }, async (name, opts) =>
     deploy(name, {
@@ -56,6 +59,9 @@ const func: DeployFunction = async ({
   );
 
   const stEXA = await getContract<StakedEXA>("stEXA", await getSigner(deployer));
+
+  if (pauser) await grantRole(stEXA, await stEXA.EMERGENCY_ADMIN_ROLE(), pauser.address);
+  await grantRole(stEXA, await stEXA.PAUSER_ROLE(), multisig);
   await transferOwnership(stEXA, deployer, timelock);
 
   await validateUpgrade("StakingPreviewer", { args: [stEXA.target], envKey: "STAKING_PREVIEWER" }, async (name, opts) =>
@@ -76,7 +82,7 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Staking"];
-func.dependencies = ["Markets", "EXA"];
+func.dependencies = ["Markets", "EXA", "Pauser"];
 func.skip = deployEXA.skip;
 
 export default func;
