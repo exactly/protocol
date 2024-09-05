@@ -1,6 +1,7 @@
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { Market, StakedEXA } from "../types";
 import transferOwnership from "./.utils/transferOwnership";
+import executeOrPropose from "./.utils/executeOrPropose";
 import multisigPropose from "./.utils/multisigPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
 import grantRole from "./.utils/grantRole";
@@ -25,6 +26,8 @@ const func: DeployFunction = async ({
       getNamedAccounts(),
     ]);
 
+  const providerRatio = parseUnits(String(staking.providerRatio));
+
   await validateUpgrade("stEXA", { contract: "StakedEXA", envKey: "STAKED_EXA" }, async (name, opts) =>
     deploy(name, {
       ...opts,
@@ -47,7 +50,7 @@ const func: DeployFunction = async ({
                 provider: treasury,
                 savings,
                 duration: staking.duration,
-                providerRatio: parseUnits(String(staking.penaltyThreshold)),
+                providerRatio,
               },
             ],
           },
@@ -59,6 +62,10 @@ const func: DeployFunction = async ({
   );
 
   const stEXA = await getContract<StakedEXA>("stEXA", await getSigner(deployer));
+
+  if ((await stEXA.providerRatio()) !== providerRatio) {
+    await executeOrPropose(stEXA, "setProviderRatio", [providerRatio]);
+  }
 
   if (pauser) await grantRole(stEXA, await stEXA.EMERGENCY_ADMIN_ROLE(), pauser.address);
   await grantRole(stEXA, await stEXA.PAUSER_ROLE(), multisig);
