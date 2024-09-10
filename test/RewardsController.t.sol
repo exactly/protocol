@@ -238,6 +238,28 @@ contract RewardsControllerTest is Test {
     assertGt(newAccruedExaRewards, accruedExaRewards);
   }
 
+  function testAllClaimableUSDCWithFixedDeposit() external {
+    vm.startPrank(BOB);
+    marketUSDC.mint(100e6, BOB);
+    marketUSDC.borrow(30e6, BOB, BOB);
+    vm.stopPrank();
+    marketUSDC.depositAtMaturity(FixedLib.INTERVAL, 10e6, 10e6, address(this));
+
+    vm.warp(3 days);
+    uint256 accruedRewards = rewardsController.allClaimable(address(this), opRewardAsset);
+    assertEq(accruedRewards, claimable(rewardsController.allMarketsOperations(), address(this), opRewardAsset));
+    uint256 accruedExaRewards = rewardsController.allClaimable(address(this), exaRewardAsset);
+    assertEq(accruedExaRewards, claimable(rewardsController.allMarketsOperations(), address(this), exaRewardAsset));
+
+    vm.warp(7 days);
+    uint256 newAccruedRewards = rewardsController.allClaimable(address(this), opRewardAsset);
+    assertEq(newAccruedRewards, claimable(rewardsController.allMarketsOperations(), address(this), opRewardAsset));
+    uint256 newAccruedExaRewards = rewardsController.allClaimable(address(this), exaRewardAsset);
+    assertGt(newAccruedRewards, accruedRewards);
+    assertEq(newAccruedExaRewards, claimable(rewardsController.allMarketsOperations(), address(this), exaRewardAsset));
+    assertGt(newAccruedExaRewards, accruedExaRewards);
+  }
+
   function testAllClaimableUSDCWithTransfer() external {
     vm.startPrank(BOB);
     marketUSDC.deposit(100e6, BOB);
@@ -752,8 +774,8 @@ contract RewardsControllerTest is Test {
     });
     rewardsController.config(configs);
     vm.warp(block.timestamp + 10 days);
-    // should not earn rewards from previous fixed pool borrow
-    assertEq(rewardsController.allClaimable(address(this), exaRewardAsset), 0);
+    // should earn rewards from previous fixed pool borrows
+    assertGt(rewardsController.allClaimable(address(this), exaRewardAsset), 0);
     assertGt(rewardsController.allClaimable(address(this), opRewardAsset), 0);
 
     marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 3, 20 ether, 40 ether, address(this), address(this));
@@ -1773,6 +1795,51 @@ contract RewardsControllerTest is Test {
     assertGt(rewardsController.claimable(marketOps, address(this), opRewardAsset), 0);
   }
 
+  function testAccrueRewardsWithFixedWithdraw() external {
+    vm.startPrank(BOB);
+    marketUSDC.deposit(1_000_000e6, BOB);
+    marketUSDC.borrow(100_000e6, BOB, BOB);
+    vm.stopPrank();
+
+    marketUSDC.depositAtMaturity(FixedLib.INTERVAL, 30_000e6, 30_000e6, address(this));
+
+    vm.warp(3 weeks);
+    RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
+    bool[] memory ops = new bool[](2);
+    ops[0] = true;
+    ops[1] = false;
+    marketOps[0] = RewardsController.MarketOperation({ market: marketUSDC, operations: ops });
+
+    (uint256 principal, uint256 fee) = marketUSDC.fixedDepositPositions(FixedLib.INTERVAL, address(this));
+    marketUSDC.withdrawAtMaturity(FixedLib.INTERVAL, principal + fee, 0, address(this), address(this));
+    uint256 claimableRewards = rewardsController.claimable(marketOps, address(this), opRewardAsset);
+    (principal, fee) = marketUSDC.fixedDepositPositions(FixedLib.INTERVAL, address(this));
+    assertEq(principal + fee, 0);
+    assertGt(claimableRewards, 0);
+
+    vm.warp(4 weeks);
+    assertEq(claimableRewards, rewardsController.claimable(marketOps, address(this), opRewardAsset));
+  }
+
+  function testClaimFixedDepositRewards() external {
+    marketUSDC.deposit(100_000e6, address(this));
+    marketUSDC.borrow(50_000e6, address(this), address(this));
+
+    vm.prank(BOB);
+    marketUSDC.depositAtMaturity(FixedLib.INTERVAL, 10_000e6, 10_000e6, BOB);
+
+    vm.warp(1 weeks);
+    uint256 claimableRewards = rewardsController.allClaimable(BOB, opRewardAsset);
+    assertGt(claimableRewards, 0);
+
+    (uint256 principal, uint256 fee) = marketUSDC.fixedDepositPositions(FixedLib.INTERVAL, BOB);
+    vm.prank(BOB);
+    marketUSDC.withdrawAtMaturity(FixedLib.INTERVAL, principal + fee, 0, BOB, BOB);
+
+    vm.warp(2 weeks);
+    assertGt(rewardsController.allClaimable(BOB, opRewardAsset), claimableRewards);
+  }
+
   function testAccrueRewardsWithRepayOfBorrowBalance() external {
     marketWBTC.deposit(100e8, address(this));
     auditor.enterMarket(marketWBTC);
@@ -1812,17 +1879,18 @@ contract RewardsControllerTest is Test {
     address account
   ) internal view returns (RewardsController.AccountOperation[] memory accountBalanceOps) {
     accountBalanceOps = new RewardsController.AccountOperation[](ops.length);
+    (uint256 fixedDeposits, uint256 fixedBorrows) = market.accountsFixedConsolidated(account);
     for (uint256 i = 0; i < ops.length; i++) {
       if (ops[i]) {
         (, , uint256 floatingBorrowShares) = market.accounts(account);
         accountBalanceOps[i] = RewardsController.AccountOperation({
           operation: ops[i],
-          balance: floatingBorrowShares + accountFixedBorrowShares(market, account)
+          balance: floatingBorrowShares + market.previewRepay(fixedBorrows)
         });
       } else {
         accountBalanceOps[i] = RewardsController.AccountOperation({
           operation: ops[i],
-          balance: market.balanceOf(account)
+          balance: market.balanceOf(account) + market.previewWithdraw(fixedDeposits)
         });
       }
     }
@@ -1890,17 +1958,6 @@ contract RewardsControllerTest is Test {
 
       rewards += ops.accountOperations[o].balance.mulDivDown(nextIndex - accountIndex, baseUnit);
     }
-  }
-
-  function accountFixedBorrowShares(Market market, address account) internal view returns (uint256 fixedDebt) {
-    for (uint256 i = 0; i < market.maxFuturePools(); i++) {
-      (uint256 principal, ) = market.fixedBorrowPositions(
-        block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1),
-        account
-      );
-      fixedDebt += principal;
-    }
-    fixedDebt = market.previewRepay(fixedDebt);
   }
 
   event Accrue(

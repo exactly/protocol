@@ -53,7 +53,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   function handleDeposit(address account) external {
     Market market = Market(msg.sender);
     AccountOperation[] memory ops = new AccountOperation[](1);
-    ops[0] = AccountOperation({ operation: false, balance: market.balanceOf(account) });
+    (uint256 fixedDeposits, ) = market.accountsFixedConsolidated(account);
+    ops[0] = AccountOperation({
+      operation: false,
+      balance: market.balanceOf(account) + market.previewWithdraw(fixedDeposits)
+    });
 
     Distribution storage dist = distribution[market];
     uint256 available = dist.availableRewardsCount;
@@ -72,16 +76,16 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     Market market = Market(msg.sender);
     AccountOperation[] memory ops = new AccountOperation[](1);
     (, , uint256 accountFloatingBorrowShares) = market.accounts(account);
+    (, uint256 fixedBorrows) = market.accountsFixedConsolidated(account);
+    ops[0] = AccountOperation({
+      operation: true,
+      balance: accountFloatingBorrowShares + market.previewRepay(fixedBorrows)
+    });
 
     Distribution storage dist = distribution[market];
     uint256 available = dist.availableRewardsCount;
     for (uint128 r = 0; r < available; ) {
-      ERC20 reward = dist.availableRewards[r];
-      ops[0] = AccountOperation({
-        operation: true,
-        balance: accountFloatingBorrowShares + accountFixedBorrowShares(market, account, dist.rewards[reward].start)
-      });
-      update(account, Market(msg.sender), reward, ops);
+      update(account, Market(msg.sender), dist.availableRewards[r], ops);
       unchecked {
         ++r;
       }
@@ -140,12 +144,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           account,
           marketOperation.market,
           dist.availableRewards[r],
-          accountBalanceOperations(
-            marketOperation.market,
-            marketOperation.operations,
-            account,
-            dist.rewards[dist.availableRewards[r]].start
-          )
+          accountBalanceOperations(marketOperation.market, marketOperation.operations, account)
         );
         unchecked {
           ++r;
@@ -307,8 +306,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       AccountOperation[] memory ops = accountBalanceOperations(
         marketOperation.market,
         marketOperation.operations,
-        account,
-        rewardData.start
+        account
       );
       uint256 balance;
       for (uint256 o = 0; o < ops.length; ) {
@@ -380,30 +378,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         ++i;
       }
     }
-  }
-
-  /// @notice Gets the equivalent of borrow shares from fixed pool principal borrows of an account.
-  /// @param market The Market to get the fixed borrows from.
-  /// @param account The account that borrowed from fixed pools.
-  /// @return fixedDebt The fixed borrow shares.
-  function accountFixedBorrowShares(
-    Market market,
-    address account,
-    uint32 start
-  ) internal view returns (uint256 fixedDebt) {
-    uint256 firstMaturity = start - (start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
-    uint256 maxMaturity = block.timestamp -
-      (block.timestamp % FixedLib.INTERVAL) +
-      (FixedLib.INTERVAL * market.maxFuturePools());
-
-    for (uint256 maturity = firstMaturity; maturity <= maxMaturity; ) {
-      (uint256 principal, ) = market.fixedBorrowPositions(maturity, account);
-      fixedDebt += principal;
-      unchecked {
-        maturity += FixedLib.INTERVAL;
-      }
-    }
-    fixedDebt = market.previewRepay(fixedDebt);
   }
 
   /// @notice Gets the reward indexes and last amount of undistributed rewards for a given market and reward asset.
@@ -506,20 +480,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     t.start = rewardData.start;
     t.end = rewardData.end;
     {
-      uint256 firstMaturity = t.start - (t.start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
-      uint256 maxMaturity = block.timestamp -
-        (block.timestamp % FixedLib.INTERVAL) +
-        (FixedLib.INTERVAL * market.maxFuturePools());
-      uint256 fixedDebt;
-      for (uint256 maturity = firstMaturity; maturity <= maxMaturity; ) {
-        (uint256 borrowed, ) = market.fixedPoolBalance(maturity);
-        fixedDebt += borrowed;
-        unchecked {
-          maturity += FixedLib.INTERVAL;
-        }
-      }
+      (uint256 fixedDeposits, uint256 fixedDebt) = market.fixedConsolidated();
       m.debt = m.floatingDebt + fixedDebt;
       m.fixedBorrowShares = market.previewRepay(fixedDebt);
+      m.fixedDepositShares = market.previewWithdraw(fixedDeposits);
     }
     uint256 target;
     {
@@ -603,7 +567,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       v.borrowAllocation = v.borrowRewardRule.divWadDown(v.borrowRewardRule + v.depositRewardRule);
       v.depositAllocation = 1e18 - v.borrowAllocation;
       {
-        uint256 totalDepositSupply = market.totalSupply();
+        uint256 totalDepositSupply = market.totalSupply() + m.fixedDepositShares;
         uint256 totalBorrowSupply = market.totalFloatingBorrowShares() + m.fixedBorrowShares;
         uint256 baseUnit = distribution[market].baseUnit;
         borrowIndex =
@@ -624,24 +588,26 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @param market The address of the Market.
   /// @param ops List of operations to retrieve account balance.
   /// @param account Account to get the balance from.
-  /// @param distributionStart Timestamp of the start of the distribution to correctly get the rewarded fixed pools.
   /// @return accountBalanceOps contains a list with account balance per each operation.
   function accountBalanceOperations(
     Market market,
     bool[] memory ops,
-    address account,
-    uint32 distributionStart
+    address account
   ) internal view returns (AccountOperation[] memory accountBalanceOps) {
     accountBalanceOps = new AccountOperation[](ops.length);
+    (uint256 fixedDeposits, uint256 fixedBorrows) = market.accountsFixedConsolidated(account);
     for (uint256 i = 0; i < ops.length; ) {
       if (ops[i]) {
         (, , uint256 floatingBorrowShares) = market.accounts(account);
         accountBalanceOps[i] = AccountOperation({
           operation: true,
-          balance: floatingBorrowShares + accountFixedBorrowShares(market, account, distributionStart)
+          balance: floatingBorrowShares + market.previewRepay(fixedBorrows)
         });
       } else {
-        accountBalanceOps[i] = AccountOperation({ operation: false, balance: market.balanceOf(account) });
+        accountBalanceOps[i] = AccountOperation({
+          operation: false,
+          balance: market.balanceOf(account) + market.previewWithdraw(fixedDeposits)
+        });
       }
       unchecked {
         ++i;
@@ -702,7 +668,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           address(0),
           configs[i].market,
           configs[i].reward,
-          accountBalanceOperations(configs[i].market, ops, address(0), start)
+          accountBalanceOperations(configs[i].market, ops, address(0))
         );
         // properly update release rate
         if (block.timestamp < end) {
@@ -806,6 +772,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   struct TotalMarketBalance {
     uint256 debt;
     uint256 fixedBorrowShares;
+    uint256 fixedDepositShares;
     uint256 floatingDebt;
     uint256 floatingAssets;
   }

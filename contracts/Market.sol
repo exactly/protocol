@@ -93,6 +93,11 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Flag to prevent new borrows and deposits.
   bool public isFrozen;
 
+  /// @notice Tracks account's total amount of fixed deposits and borrows.
+  mapping(address => FixedOps) public accountsFixedConsolidated;
+  /// @notice Tracks the total amount of fixed deposits and borrows.
+  FixedOps public fixedConsolidated;
+
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
     auditor = auditor_;
@@ -246,6 +251,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     depositToTreasury(updateFloatingDebt());
     floatingAssets += backupEarnings;
 
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) memRewardsController.handleDeposit(receiver);
+
     (uint256 fee, uint256 backupFee) = pool.calculateDeposit(assets, backupFeeRate);
     positionAssets = assets + fee;
     if (positionAssets < minAssetsRequired) revert Disagreement();
@@ -263,6 +271,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       account.fixedDeposits = account.fixedDeposits.setMaturity(maturity);
     }
 
+    accountsFixedConsolidated[receiver].deposits += assets;
+    fixedConsolidated.deposits += assets;
     position.principal += assets;
     position.fee += fee;
 
@@ -346,6 +356,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
       fixedBorrowPositions[maturity][borrower] = FixedLib.Position(position.principal + assets, position.fee + fee);
     }
+    accountsFixedConsolidated[borrower].borrows += assets;
+    fixedConsolidated.borrows += assets;
 
     emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, fee);
     emitMarketUpdate();
@@ -376,6 +388,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     FixedLib.Pool storage pool = fixedPools[maturity];
     depositToTreasury(updateFloatingDebt());
     floatingAssets += pool.accrueEarnings(maturity);
+
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) memRewardsController.handleDeposit(owner);
 
     FixedLib.Position memory position = fixedDepositPositions[maturity][owner];
 
@@ -421,8 +436,13 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     pool.unassignedEarnings += unassignedEarnings;
     collectFreeLunch(newBackupEarnings);
 
-    // the account gets discounted the full amount
-    position.reduceProportionally(positionAssets);
+    {
+      uint256 principal = position.principal;
+      // the account gets discounted the full amount
+      uint256 principalCovered = principal - position.reduceProportionally(positionAssets).principal;
+      accountsFixedConsolidated[owner].deposits -= principalCovered;
+      fixedConsolidated.deposits -= principalCovered;
+    }
     if (position.principal | position.fee == 0) {
       delete fixedDepositPositions[maturity][owner];
       Account storage account = accounts[owner];
@@ -527,8 +547,11 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     // reduce the borrowed from the pool and might decrease the floating backup borrowed
     floatingBackupBorrowed -= pool.repay(principalCovered);
 
+    uint256 principal = position.principal;
     // update the account position
-    position.reduceProportionally(debtCovered);
+    principalCovered = principal - position.reduceProportionally(debtCovered).principal;
+    accountsFixedConsolidated[borrower].borrows -= principalCovered;
+    fixedConsolidated.borrows -= principalCovered;
     if (position.principal | position.fee == 0) {
       delete fixedBorrowPositions[maturity][borrower];
       Account storage account = accounts[borrower];
@@ -640,7 +663,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         uint256 badDebt = position.principal + position.fee;
         if (accumulator >= badDebt) {
           RewardsController memRewardsController = rewardsController;
-          if (address(memRewardsController) != address(0)) memRewardsController.handleBorrow(borrower);
+          if (address(memRewardsController) != address(0)) {
+            memRewardsController.handleBorrow(borrower);
+          }
           accumulator -= badDebt;
           totalBadDebt += badDebt;
           uint256 backupDebtReduction = fixedPools[maturity].repay(position.principal);
@@ -656,6 +681,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
             accumulator += yield;
           }
 
+          accountsFixedConsolidated[borrower].borrows -= position.principal;
+          fixedConsolidated.borrows -= position.principal;
           delete fixedBorrowPositions[maturity][borrower];
           account.fixedBorrows = account.fixedBorrows.clearMaturity(maturity);
 
@@ -1372,6 +1399,14 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 fixedDeposits;
     uint256 fixedBorrows;
     uint256 floatingBorrowShares;
+  }
+
+  /// @notice Stores amount of fixed deposits and borrows.
+  /// @param deposits amount of fixed deposits.
+  /// @param borrows amount of fixed borrows.
+  struct FixedOps {
+    uint256 deposits;
+    uint256 borrows;
   }
 }
 

@@ -2839,6 +2839,144 @@ contract MarketTest is Test {
     assertEq(assetsOwed, assets + assets.mulWadDown(rate.mulDivDown(FixedLib.INTERVAL - block.timestamp, 365 days)));
   }
 
+  function testAccountsFixedConsolidated() external {
+    market.deposit(10 ether, address(this));
+    market.deposit(10 ether, ALICE);
+
+    market.depositAtMaturity(FixedLib.INTERVAL, 0.5 ether, 0.5 ether, address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    (uint256 fixedDeposits, uint256 fixedBorrows) = market.accountsFixedConsolidated(address(this));
+    (uint256 totalFixedDeposits, uint256 totalFixedBorrows) = market.fixedConsolidated();
+
+    assertEq(fixedDeposits, 0.5 ether);
+    assertEq(fixedBorrows, 1 ether);
+    assertEq(totalFixedDeposits, 0.5 ether);
+    assertEq(totalFixedBorrows, 1 ether);
+
+    vm.startPrank(ALICE);
+    market.depositAtMaturity(FixedLib.INTERVAL, 0.5 ether, 0.5 ether, ALICE);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, ALICE, ALICE);
+    (fixedDeposits, fixedBorrows) = market.accountsFixedConsolidated(ALICE);
+    vm.stopPrank();
+
+    (fixedDeposits, fixedBorrows) = market.accountsFixedConsolidated(address(this));
+    (totalFixedDeposits, totalFixedBorrows) = market.fixedConsolidated();
+
+    assertEq(fixedDeposits, 0.5 ether);
+    assertEq(fixedBorrows, 1 ether);
+    assertEq(totalFixedDeposits, 1 ether);
+    assertEq(totalFixedBorrows, 2 ether);
+
+    vm.warp(FixedLib.INTERVAL);
+
+    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    market.repayAtMaturity(FixedLib.INTERVAL, principal + fee, principal + fee, address(this));
+    (principal, fee) = market.fixedDepositPositions(FixedLib.INTERVAL, address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, principal + fee, principal + fee, address(this), address(this));
+    (fixedDeposits, fixedBorrows) = market.accountsFixedConsolidated(address(this));
+    assertEq(fixedDeposits, 0);
+    assertEq(fixedBorrows, 0);
+
+    vm.startPrank(ALICE);
+    (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, ALICE);
+    market.repayAtMaturity(FixedLib.INTERVAL, (principal + fee) / 2, (principal + fee) / 2, ALICE);
+    (principal, fee) = market.fixedDepositPositions(FixedLib.INTERVAL, ALICE);
+    market.withdrawAtMaturity(FixedLib.INTERVAL, (principal + fee) / 2, (principal + fee) / 2, ALICE, ALICE);
+    vm.stopPrank();
+
+    (fixedDeposits, fixedBorrows) = market.accountsFixedConsolidated(ALICE);
+    assertEq(fixedDeposits, 0.25 ether);
+    assertEq(fixedBorrows, 0.5 ether);
+
+    (totalFixedDeposits, totalFixedBorrows) = market.fixedConsolidated();
+    assertEq(totalFixedDeposits, 0.25 ether);
+    assertEq(totalFixedBorrows, 0.5 ether);
+  }
+
+  function testAccountsFixedConsolidatedWhenSenderNotOwner() external {
+    market.deposit(10 ether, address(this));
+    market.deposit(10 ether, ALICE);
+
+    vm.prank(ALICE);
+    market.approve(address(this), type(uint256).max);
+
+    market.depositAtMaturity(FixedLib.INTERVAL, 0.5 ether, 0.5 ether, ALICE);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), ALICE);
+
+    (uint256 fixedDeposits, uint256 fixedBorrows) = market.accountsFixedConsolidated(ALICE);
+    assertEq(fixedDeposits, 0.5 ether);
+    assertEq(fixedBorrows, 1 ether);
+  }
+
+  function testAccountsFixedConsolidatedWithPartialRepayAndWithdraw() external {
+    market.deposit(10 ether, address(this));
+
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1.23 ether, type(uint256).max, address(this), address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 0.57 ether, 0.57 ether, address(this));
+    (uint256 principal, ) = market.fixedDepositPositions(FixedLib.INTERVAL, address(this));
+    (uint256 fixedDeposits, uint256 fixedBorrows) = market.accountsFixedConsolidated(address(this));
+    assertEq(principal, fixedDeposits);
+    (principal, ) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    assertEq(principal, fixedBorrows);
+
+    vm.warp(FixedLib.INTERVAL / 3);
+
+    market.repayAtMaturity(FixedLib.INTERVAL, 0.78 ether, 0.78 ether, address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 0.11 ether, 0, address(this), address(this));
+
+    (principal, ) = market.fixedDepositPositions(FixedLib.INTERVAL, address(this));
+    (fixedDeposits, fixedBorrows) = market.accountsFixedConsolidated(address(this));
+    assertEq(principal, fixedDeposits);
+    (principal, ) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    assertEq(principal, fixedBorrows);
+
+    vm.warp(FixedLib.INTERVAL / 2);
+
+    market.repayAtMaturity(FixedLib.INTERVAL, 0.239 ether, 0.239 ether, address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 0.03821 ether, 0, address(this), address(this));
+
+    (principal, ) = market.fixedDepositPositions(FixedLib.INTERVAL, address(this));
+    (fixedDeposits, fixedBorrows) = market.accountsFixedConsolidated(address(this));
+    assertEq(principal, fixedDeposits);
+    (principal, ) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    assertEq(principal, fixedBorrows);
+  }
+
+  function testAccountsFixedConsolidatedWhenClearBadDebt() external {
+    irm = MockInterestRateModel(address(new MockBorrowRate(1e18)));
+    market.setInterestRateModel(InterestRateModel(address(irm)));
+    marketWETH.setInterestRateModel(InterestRateModel(address(irm)));
+    daiPriceFeed.setPrice(50_000_000_000_000e18);
+    market.deposit(0.0000000001 ether, address(this));
+    auditor.enterMarket(market);
+
+    marketWETH.deposit(1_000 ether, BOB);
+    vm.warp(1 hours);
+    vm.startPrank(BOB);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 200 ether, type(uint256).max, BOB, BOB);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 200 ether, 200 ether, BOB);
+    vm.stopPrank();
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 5 ether, type(uint256).max, address(this), address(this));
+
+    (uint256 fixedDeposits, uint256 fixedBorrows) = marketWETH.accountsFixedConsolidated(address(this));
+    (uint256 totalFixedDeposits, uint256 totalFixedBorrows) = marketWETH.fixedConsolidated();
+    assertEq(fixedDeposits, 0);
+    assertEq(fixedBorrows, 5 ether);
+    assertEq(totalFixedDeposits, 200 ether);
+    assertEq(totalFixedBorrows, 205 ether);
+
+    daiPriceFeed.setPrice(1);
+
+    auditor.handleBadDebt(address(this));
+
+    (fixedDeposits, fixedBorrows) = marketWETH.accountsFixedConsolidated(address(this));
+    (totalFixedDeposits, totalFixedBorrows) = marketWETH.fixedConsolidated();
+    assertEq(fixedDeposits, 0);
+    assertEq(fixedBorrows, 0);
+    assertEq(totalFixedDeposits, 200 ether);
+    assertEq(totalFixedBorrows, 200 ether);
+  }
+
   function testPausable() external {
     assertFalse(market.paused());
     market.grantRole(market.PAUSER_ROLE(), address(this));
