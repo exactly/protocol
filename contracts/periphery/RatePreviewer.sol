@@ -46,7 +46,7 @@ contract RatePreviewer {
     Market[] memory markets = auditor.allMarkets();
     values = new Snapshot[](markets.length);
 
-    for (uint256 i = 0; i < markets.length; i++) {
+    for (uint256 i = 0; i < markets.length; ++i) {
       Market market = markets[i];
       values[i] = Snapshot({
         market: market,
@@ -68,7 +68,7 @@ contract RatePreviewer {
   function fixedPools(Market market) internal view returns (FixedPool[] memory pools) {
     uint256 firstMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
     pools = new FixedPool[](market.maxFuturePools() + 1);
-    for (uint256 i = 0; i < pools.length; i++) {
+    for (uint256 i = 0; i < pools.length; ++i) {
       uint256 maturity = firstMaturity + FixedLib.INTERVAL * i;
       (, , uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(maturity);
       pools[i] = FixedPool({ maturity: maturity, lastAccrual: lastAccrual, unassignedEarnings: unassignedEarnings });
