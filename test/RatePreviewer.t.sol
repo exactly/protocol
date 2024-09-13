@@ -55,11 +55,12 @@ contract RatePreviewerTest is ForkTest {
     }
   }
 
-  function testPreviewRate() external {
+  function testPreviewFloatingDepositRate() external {
     RatePreviewer.Snapshot[] memory snapshots = ratePreviewer.snapshot();
 
     // we simulate 20 minutes in the future
     uint256 elapsed = 20 minutes;
+    RatePreviewer.MarketRate[] memory marketRates = ratePreviewer.floatingDepositRates(elapsed);
     skip(elapsed);
     for (uint256 i = 0; i < snapshots.length; i++) {
       RatePreviewer.Snapshot memory snapshot = snapshots[i];
@@ -68,7 +69,7 @@ contract RatePreviewerTest is ForkTest {
       uint256 totalAssetsBefore = currentTotalAssets[snapshot.market];
       uint256 assetsInYear = ((projectedTotalAssets - totalAssetsBefore) * 365 days) / elapsed;
       uint256 rate = (assetsInYear * 1e18) / totalAssetsBefore;
-      rate;
+      assertEq(rate, marketRates[i].floatingDepositRate);
     }
   }
 
