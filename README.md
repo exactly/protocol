@@ -48,29 +48,29 @@ git clone git@github.com:exactly/protocol.git
 ### Install Locally
 
 ```bash
-bun install
+pnpm install
 ```
 
 ### Run Tests
 
 ```bash
-bun run test
+pnpm test
 ```
 
 ### Run Coverage
 
 ```bash
-bun run coverage
+pnpm run coverage
 ```
 
 ### Gas Reports
 
 ```bash
-REPORT_GAS=1 bun run test
+REPORT_GAS=1 pnpm test
 ```
 
 ### Deploy
 
 ```bash
-bun run deploy:op-sepolia
+pnpm run deploy:op-sepolia
 ```
