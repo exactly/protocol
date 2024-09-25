@@ -383,7 +383,7 @@ PriceFeedWrapperTest:testPriceFeedWrapperReturningPriceAfterRebase() (gas: 48927
 PriceFeedWrapperTest:testPriceFeedWrapperWithActualOnChainValues() (gas: 75176)
 PriceFeedWrapperTest:testPriceFeedWrapperWithNegativePriceShouldRevert() (gas: 164132)
 PriceFeedWrapperTest:testPriceFeedWrapperWithUsdPriceFeed() (gas: 1282537)
-RatePreviewerTest:testPreviewFloatingDepositRate() (gas: 1375281)
+RatePreviewerTest:testPreviewFloatingDepositRate() (gas: 1374327)
 RatePreviewerTest:testPreviewRateAfterFloatingDepositAndBorrow() (gas: 1060890)
 RatePreviewerTest:testSnapshot() (gas: 1029836)
 RatePreviewerTest:testSnapshotWithSignificantElapsedTime() (gas: 1063944)

@@ -135,8 +135,6 @@ contract RatePreviewer {
       marketSnapshot.floatingAssets +
       backupEarnings +
       accumulatedEarnings +
-      (marketSnapshot.floatingDebt + newDebt - marketSnapshot.floatingDebt).mulWadDown(
-        1e18 - marketSnapshot.treasuryFeeRate
-      );
+      newDebt.mulWadDown(1e18 - marketSnapshot.treasuryFeeRate);
   }
 }
