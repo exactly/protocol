@@ -33,6 +33,8 @@ contract RatePreviewer {
     uint32 lastAccumulatorAccrual;
     uint8 maxFuturePools;
     uint256 interval;
+    uint256 totalAssets;
+    uint256 floatingRate;
   }
 
   struct FixedPool {
@@ -66,7 +68,12 @@ contract RatePreviewer {
         lastFloatingDebtUpdate: market.lastFloatingDebtUpdate(),
         lastAccumulatorAccrual: market.lastAccumulatorAccrual(),
         maxFuturePools: market.maxFuturePools(),
-        interval: FixedLib.INTERVAL
+        interval: FixedLib.INTERVAL,
+        totalAssets: market.totalAssets(),
+        floatingRate: market.interestRateModel().floatingRate(
+          market.floatingDebt().divWadUp(market.floatingAssets()),
+          (market.floatingDebt() + market.floatingBackupBorrowed()).divWadUp(market.floatingAssets())
+        )
       });
     }
   }
@@ -113,7 +120,7 @@ contract RatePreviewer {
   function projectTotalAssets(
     Snapshot memory marketSnapshot,
     uint256 timestamp
-  ) internal view returns (uint256 projectedTotalAssets) {
+  ) internal pure returns (uint256 projectedTotalAssets) {
     uint256 elapsedAccumulator = timestamp - marketSnapshot.lastAccumulatorAccrual;
     uint256 accumulatedEarnings = marketSnapshot.earningsAccumulator.mulDivDown(
       elapsedAccumulator,
@@ -122,12 +129,8 @@ contract RatePreviewer {
           marketSnapshot.maxFuturePools * marketSnapshot.interval
         )
     );
-    uint256 floatingRate = marketSnapshot.market.interestRateModel().floatingRate(
-      marketSnapshot.floatingDebt.divWadUp(marketSnapshot.floatingAssets),
-      (marketSnapshot.floatingDebt + marketSnapshot.floatingBackupBorrowed).divWadUp(marketSnapshot.floatingAssets)
-    );
     uint256 newDebt = marketSnapshot.floatingDebt.mulWadDown(
-      floatingRate.mulDivDown(timestamp - marketSnapshot.lastFloatingDebtUpdate, 365 days)
+      marketSnapshot.floatingRate.mulDivDown(timestamp - marketSnapshot.lastFloatingDebtUpdate, 365 days)
     );
     uint256 backupEarnings = fixedPoolEarnings(marketSnapshot.pools, timestamp);
 
