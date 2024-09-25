@@ -27,6 +27,8 @@ contract RatePreviewer {
     uint32 lastAccumulatorAccrual;
     uint8 maxFuturePools;
     uint256 interval;
+    uint256 totalAssets;
+    uint256 floatingRate;
   }
 
   struct FixedPool {
@@ -60,7 +62,12 @@ contract RatePreviewer {
         lastFloatingDebtUpdate: market.lastFloatingDebtUpdate(),
         lastAccumulatorAccrual: market.lastAccumulatorAccrual(),
         maxFuturePools: market.maxFuturePools(),
-        interval: FixedLib.INTERVAL
+        interval: FixedLib.INTERVAL,
+        totalAssets: market.totalAssets(),
+        floatingRate: market.interestRateModel().floatingRate(
+          market.floatingDebt().divWadUp(market.floatingAssets()),
+          (market.floatingDebt() + market.floatingBackupBorrowed()).divWadUp(market.floatingAssets())
+        )
       });
     }
   }
