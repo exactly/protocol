@@ -97,7 +97,7 @@ contract InstallmentsRouterTest is Test {
     amounts[0] = 10_000e6;
     amounts[1] = 10_000e6;
     amounts[2] = 10_000e6;
-    router.borrow(market, maturity, amounts, type(uint256).max);
+    router.borrow(market, maturity, amounts, type(uint256).max, address(this));
     uint256 finalBalance = usdc.balanceOf(address(this));
     assertEq(initialBalance + 30_000e6, finalBalance, "borrowed amounts are not correct");
   }
@@ -109,7 +109,7 @@ contract InstallmentsRouterTest is Test {
     amounts[1] = 10_000e6;
     amounts[2] = 10_000e6;
     uint256 maxRepay = 31_000e6;
-    uint256[] memory assetsOwed = router.borrow(market, maturity, amounts, maxRepay);
+    uint256[] memory assetsOwed = router.borrow(market, maturity, amounts, maxRepay, address(this));
 
     uint256 totalOwed;
     for (uint256 i = 0; i < assetsOwed.length; i++) {
@@ -125,7 +125,7 @@ contract InstallmentsRouterTest is Test {
     amounts[1] = 10_000e6;
     Market fake = Market(address(0));
     vm.expectRevert(abi.encodeWithSelector(MarketNotListed.selector));
-    router.borrow(fake, maturity, amounts, type(uint256).max);
+    router.borrow(fake, maturity, amounts, type(uint256).max, address(this));
   }
 
   function testInsufficientMaxRepay() external {
@@ -137,7 +137,7 @@ contract InstallmentsRouterTest is Test {
     uint256 maxRepay = 29_000e6;
 
     vm.expectRevert(Disagreement.selector);
-    router.borrow(market, maturity, amounts, maxRepay);
+    router.borrow(market, maturity, amounts, maxRepay, address(this));
   }
 
   function testMoreBorrowsThanMaxPools() external {
@@ -151,7 +151,7 @@ contract InstallmentsRouterTest is Test {
     vm.expectRevert(
       abi.encodeWithSelector(UnmatchedPoolState.selector, FixedLib.State.NOT_READY, FixedLib.State.VALID)
     );
-    router.borrow(market, maturity, amounts, type(uint256).max);
+    router.borrow(market, maturity, amounts, type(uint256).max, address(this));
   }
 
   function testBorrowUnwrappedETH() external {
@@ -162,12 +162,10 @@ contract InstallmentsRouterTest is Test {
     amounts[2] = 10_000e18;
     uint256 maxRepay = 32_000e18;
     uint256 balanceBefore = address(this).balance;
-    router.borrowETH(maturity, amounts, maxRepay);
+    router.borrowETH(maturity, amounts, maxRepay, address(this));
     uint256 balanceAfter = address(this).balance;
     assertEq(balanceAfter, balanceBefore + 30_000e18, "borrow != expected");
   }
-
-  receive() external payable {}
 
   function testBorrowWithPermit() external {
     deal(address(weth), bob, 100_000e18);
@@ -251,7 +249,7 @@ contract InstallmentsRouterTest is Test {
 
     uint256 balanceBefore = bob.balance;
     vm.prank(bob);
-    router.borrowETH(FixedLib.INTERVAL, amounts, maxRepay, Permit(maxRepay, block.timestamp, v, r, s));
+    router.borrowETH(FixedLib.INTERVAL, amounts, maxRepay, Permit(maxRepay, block.timestamp, v, r, s), bob);
     assertEq(bob.balance, balanceBefore + 30_000e18, "borrow != expected");
   }
 
@@ -261,12 +259,38 @@ contract InstallmentsRouterTest is Test {
     amounts[0] = 10_000e6;
 
     vm.expectRevert(stdError.assertionError);
-    router.borrow(market, maturity, amounts, type(uint256).max);
+    router.borrow(market, maturity, amounts, type(uint256).max, address(this));
   }
 
   function testMissingMarketWETH() external {
     router = new InstallmentsRouter(auditor, Market(address(0)));
     vm.expectRevert(abi.encodeWithSelector(MarketNotListed.selector));
-    router.borrowETH(FixedLib.INTERVAL, new uint256[](3), type(uint256).max);
+    router.borrowETH(FixedLib.INTERVAL, new uint256[](3), type(uint256).max, address(this));
   }
+
+  function testBorrowToAnotherReceiver() external {
+    uint256 maturity = FixedLib.INTERVAL;
+    uint256[] memory amounts = new uint256[](3);
+    amounts[0] = 10_000e6;
+    amounts[1] = 10_000e6;
+    amounts[2] = 10_000e6;
+    uint256 maxRepay = 32_000e6;
+    assertEq(usdc.balanceOf(bob), 0);
+    router.borrow(market, maturity, amounts, maxRepay, bob);
+    assertEq(usdc.balanceOf(bob), 30_000e6, "borrow != expected");
+  }
+
+  function testBorrowETHToAnotherReceiver() external {
+    uint256 maturity = FixedLib.INTERVAL;
+    uint256[] memory amounts = new uint256[](3);
+    amounts[0] = 10_000e18;
+    amounts[1] = 10_000e18;
+    amounts[2] = 10_000e18;
+    uint256 maxRepay = 32_000e18;
+    assertEq(bob.balance, 0);
+    router.borrowETH(maturity, amounts, maxRepay, bob);
+    assertEq(bob.balance, 30_000e18, "borrow != expected");
+  }
+
+  receive() external payable {}
 }
