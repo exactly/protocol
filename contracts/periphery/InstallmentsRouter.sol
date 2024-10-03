@@ -43,12 +43,13 @@ contract InstallmentsRouter {
     Market market,
     uint256 firstMaturity,
     uint256[] calldata amounts,
-    uint256 maxRepay
+    uint256 maxRepay,
+    address receiver
   ) external returns (uint256[] memory assetsOwed) {
-    return borrow(market, firstMaturity, amounts, maxRepay, msg.sender);
+    return _borrow(market, firstMaturity, amounts, maxRepay, receiver);
   }
 
-  function borrow(
+  function _borrow(
     Market market,
     uint256 firstMaturity,
     uint256[] calldata amounts,
@@ -77,7 +78,7 @@ contract InstallmentsRouter {
     uint256 maxRepay,
     Permit calldata marketPermit
   ) external permit(market, marketPermit) returns (uint256[] memory assetsOwed) {
-    return borrow(market, firstMaturity, amounts, maxRepay, msg.sender);
+    return _borrow(market, firstMaturity, amounts, maxRepay, msg.sender);
   }
 
   /// @notice Borrows WETH from the WETH Market in the subsequent maturities,
@@ -89,13 +90,16 @@ contract InstallmentsRouter {
   function borrowETH(
     uint256 maturity,
     uint256[] calldata amounts,
-    uint256 maxRepay
+    uint256 maxRepay,
+    address receiver
   ) external returns (uint256[] memory assetsOwed) {
-    assetsOwed = borrow(marketWETH, maturity, amounts, maxRepay, address(this));
+    assetsOwed = _borrow(marketWETH, maturity, amounts, maxRepay, address(this));
     uint256 totalAmount = 0;
-    for (uint256 i = 0; i < amounts.length; ++i) totalAmount += amounts[i];
+    for (uint256 i = 0; i < amounts.length; ++i) {
+      totalAmount += amounts[i];
+    }
     weth.withdraw(totalAmount);
-    msg.sender.safeTransferETH(totalAmount);
+    receiver.safeTransferETH(totalAmount);
   }
 
   /// @notice Borrows WETH from the WETH Market in the subsequent maturities using permit,
@@ -109,13 +113,16 @@ contract InstallmentsRouter {
     uint256 maturity,
     uint256[] calldata amounts,
     uint256 maxRepay,
-    Permit calldata marketPermit
+    Permit calldata marketPermit,
+    address receiver
   ) external permit(marketWETH, marketPermit) returns (uint256[] memory assetsOwed) {
-    assetsOwed = borrow(marketWETH, maturity, amounts, maxRepay, address(this));
+    assetsOwed = _borrow(marketWETH, maturity, amounts, maxRepay, address(this));
     uint256 totalAmount = 0;
-    for (uint256 i = 0; i < amounts.length; ++i) totalAmount += amounts[i];
+    for (uint256 i = 0; i < amounts.length; ++i) {
+      totalAmount += amounts[i];
+    }
     weth.withdraw(totalAmount);
-    msg.sender.safeTransferETH(totalAmount);
+    receiver.safeTransferETH(totalAmount);
   }
 
   /// @notice Reverts if the Market is not listed by the Auditor.
