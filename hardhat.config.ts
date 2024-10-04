@@ -88,15 +88,15 @@ const hardhatConfig: Config = {
     futurePools: 7,
     earningsAccumulatorSmoothFactor: 2,
     interestRateModel: {
-      minRate: 2e-2,
-      naturalRate: 6e-2,
+      minRate: 1.95e-2,
+      naturalRate: 4e-2,
       maxUtilization: 1.3,
-      naturalUtilization: 0.7,
-      growthSpeed: 1.4,
+      naturalUtilization: 0.88,
+      growthSpeed: 1.1,
       sigmoidSpeed: 2.5,
-      spreadFactor: 0.2,
+      spreadFactor: 0.3,
       maturitySpeed: 0.5,
-      timePreference: 0.01,
+      timePreference: 0.2,
       fixedAllocation: 0.6,
       maxRate: 18.25,
     },
@@ -173,7 +173,7 @@ const hardhatConfig: Config = {
       },
       USDC: {
         adjustFactor: 0.91,
-        interestRateModel: { minRate: 3.5e-2, naturalRate: 8e-2, naturalUtilization: 0.75, growthSpeed: 1.1 },
+        interestRateModel: { minRate: 5e-2, naturalRate: 11e-2, naturalUtilization: 0.88, growthSpeed: 1.3 },
         overrides: {
           optimism: {
             rewards: {
@@ -206,7 +206,7 @@ const hardhatConfig: Config = {
       "USDC.e": {
         networks: ["optimism", "op-sepolia"],
         adjustFactor: 0.91,
-        interestRateModel: { minRate: 3.5e-2, naturalRate: 8e-2, naturalUtilization: 0.75, growthSpeed: 1.1 },
+        interestRateModel: { minRate: 5e-2, naturalRate: 11e-2, naturalUtilization: 0.88, growthSpeed: 1.3 },
         overrides: {
           optimism: {
             rewards: {
@@ -240,7 +240,14 @@ const hardhatConfig: Config = {
       },
       WBTC: {
         adjustFactor: 0.85,
-        interestRateModel: { minRate: 1.75e-2, naturalRate: 9e-2, maxUtilization: 1.5, growthSpeed: 1.2 },
+        interestRateModel: {
+          minRate: 1e-2,
+          naturalRate: 15e-2,
+          maxUtilization: 1.05,
+          naturalUtilization: 0.5,
+          growthSpeed: 2,
+          sigmoidSpeed: 2.5,
+        },
         overrides: {
           ethereum: { priceFeed: "double" },
           optimism: {
@@ -307,7 +314,13 @@ const hardhatConfig: Config = {
       OP: {
         networks: ["optimism", "op-sepolia"],
         adjustFactor: 0.58,
-        interestRateModel: { minRate: 2.5e-2, naturalRate: 10e-2, maxUtilization: 1.2, growthSpeed: 1.2 },
+        interestRateModel: {
+          minRate: 1.25e-2,
+          naturalRate: 6e-2,
+          maxUtilization: 1.2,
+          naturalUtilization: 0.6,
+          sigmoidSpeed: 2.5,
+        },
         overrides: {
           optimism: {
             rewards: {
