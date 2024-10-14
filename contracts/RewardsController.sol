@@ -282,6 +282,59 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return claimable(allMarketsOperations(), account, reward);
   }
 
+  /// @notice Gets the claimable amount of rewards for a given account.
+  /// @param account The account to get the claimable amounts for.
+  /// @return unclaimedRewards The claimable amount per reward asset and per Market for the given account.
+  function allClaimable(address account) external view returns (AllClaimable[] memory unclaimedRewards) {
+    uint256 rewardsLength = rewardList.length;
+    unclaimedRewards = new AllClaimable[](rewardsLength);
+    MarketOperation[] memory marketOps = allMarketsOperations();
+    for (uint256 r = 0; r < rewardsLength; ) {
+      Claimable[] memory claimableMarket = new Claimable[](marketOps.length);
+      for (uint256 i = 0; i < marketOps.length; ) {
+        MarketOperation memory marketOperation = marketOps[i];
+        Distribution storage dist = distribution[marketOperation.market];
+        RewardData storage rewardData = dist.rewards[rewardList[r]];
+        if (dist.availableRewardsCount == 0) {
+          unchecked {
+            ++i;
+          }
+          continue;
+        }
+
+        AccountOperation[] memory ops = accountBalanceOperations(
+          marketOperation.market,
+          marketOperation.operations,
+          account
+        );
+        uint256 balance;
+        uint256 rewards;
+        for (uint256 o = 0; o < ops.length; ) {
+          rewards += rewardData.accounts[account][ops[o].operation].accrued;
+          balance += ops[o].balance;
+          unchecked {
+            ++o;
+          }
+        }
+        if (balance > 0) {
+          rewards += pendingRewards(
+            account,
+            rewardList[r],
+            AccountMarketOperation({ market: marketOperation.market, accountOperations: ops })
+          );
+        }
+        claimableMarket[i] = Claimable({ market: marketOperation.market, amount: rewards });
+        unchecked {
+          ++i;
+        }
+      }
+      unclaimedRewards[r] = AllClaimable({ reward: rewardList[r], claimable: claimableMarket });
+      unchecked {
+        ++r;
+      }
+    }
+  }
+
   /// @notice Gets the claimable amount of rewards for a given account, Market operations and reward asset.
   /// @param marketOps The list of Market operations to get the accrued and pending rewards from.
   /// @param account The account to get the claimable amount for.
@@ -873,6 +926,16 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint8 availableRewardsCount;
     // base unit of the market
     uint256 baseUnit;
+  }
+
+  struct AllClaimable {
+    ERC20 reward;
+    Claimable[] claimable;
+  }
+
+  struct Claimable {
+    Market market;
+    uint256 amount;
   }
 
   /// @notice Emitted when rewards are accrued by an account.

@@ -186,6 +186,104 @@ contract RewardsControllerTest is Test {
     assertGe(rewardsController.allClaimable(address(this), opRewardAsset), rewards);
   }
 
+  function testAllClaimableOnlyWithUSDCOps() external {
+    marketUSDC.deposit(100e6, address(this));
+    marketUSDC.borrow(30e6, address(this), address(this));
+
+    vm.warp(3 days);
+    RewardsController.AllClaimable[] memory allClaimable = rewardsController.allClaimable(address(this));
+    uint256 allRewards = rewardsController.allClaimable(address(this), opRewardAsset);
+    ERC20[] memory rewardList = rewardsController.allRewards();
+
+    assertEq(allClaimable.length, rewardList.length);
+    assertEq(address(allClaimable[0].reward), address(opRewardAsset));
+    assertEq(allClaimable[0].claimable.length, 2);
+    assertEq(address(allClaimable[0].claimable[0].market), address(marketUSDC));
+    assertEq(address(allClaimable[0].claimable[1].market), address(marketWETH));
+    assertEq(address(allClaimable[1].claimable[0].market), address(marketUSDC));
+    assertEq(address(allClaimable[1].claimable[1].market), address(marketWETH));
+    assertGt(allClaimable[0].claimable[0].amount, 0);
+    assertEq(allClaimable[0].claimable[0].amount, allRewards);
+    assertEq(allClaimable[0].claimable[1].amount, 0);
+    assertGt(allClaimable[1].claimable[0].amount, 0);
+  }
+
+  function testAllClaimableWithMultipleMarketOps() external {
+    marketUSDC.deposit(100e6, address(this));
+    marketUSDC.borrow(30e6, address(this), address(this));
+    marketWETH.deposit(1 ether, address(this));
+    marketWETH.borrow(0.5 ether, address(this), address(this));
+
+    vm.warp(1 days);
+    marketUSDC.borrow(10e6, address(this), address(this));
+    marketWETH.borrow(0.1 ether, address(this), address(this));
+
+    vm.warp(3 days);
+    RewardsController.AllClaimable[] memory allClaimable = rewardsController.allClaimable(address(this));
+    uint256 allOpRewards = rewardsController.allClaimable(address(this), opRewardAsset);
+    ERC20[] memory rewardList = rewardsController.allRewards();
+
+    assertEq(allClaimable.length, rewardList.length);
+    assertEq(address(allClaimable[0].reward), address(opRewardAsset));
+    assertEq(address(allClaimable[1].reward), address(exaRewardAsset));
+    assertEq(allClaimable[0].claimable.length, 2);
+    assertEq(address(allClaimable[0].claimable[0].market), address(marketUSDC));
+    assertEq(address(allClaimable[0].claimable[1].market), address(marketWETH));
+    assertEq(address(allClaimable[1].claimable[0].market), address(marketUSDC));
+    assertEq(address(allClaimable[1].claimable[1].market), address(marketWETH));
+    assertGt(allClaimable[0].claimable[0].amount, 0);
+    assertGt(allClaimable[0].claimable[1].amount, 0);
+    assertGt(allClaimable[1].claimable[0].amount, 0);
+    assertEq(allClaimable[1].claimable[1].amount, 0);
+    assertEq(allClaimable[0].claimable[0].amount + allClaimable[0].claimable[1].amount, allOpRewards);
+  }
+
+  Market[] internal claimableMarkets;
+  ERC20[] internal claimableRewardAssets;
+
+  function testClaimWithAllClaimableArgs() external {
+    marketUSDC.deposit(100e6, address(this));
+    marketUSDC.borrow(30e6, address(this), address(this));
+    marketWETH.deposit(1 ether, address(this));
+    marketWETH.borrow(0.5 ether, address(this), address(this));
+
+    vm.warp(1 days);
+    marketUSDC.borrow(10e6, address(this), address(this));
+    marketWETH.borrow(0.1 ether, address(this), address(this));
+
+    vm.warp(3 days);
+    RewardsController.AllClaimable[] memory allClaimable = rewardsController.allClaimable(address(this));
+
+    bool rewardAsset;
+    for (uint256 i = 0; i < allClaimable.length; i++) {
+      for (uint256 j = 0; j < allClaimable[i].claimable.length; j++) {
+        if (allClaimable[i].claimable[j].amount > 0) {
+          claimableMarkets.push(allClaimable[i].claimable[j].market);
+          rewardAsset = true;
+        }
+      }
+      if (rewardAsset) {
+        claimableRewardAssets.push(allClaimable[i].reward);
+        rewardAsset = false;
+      }
+    }
+
+    bool[] memory ops = new bool[](2);
+    ops[0] = true;
+    ops[1] = false;
+    RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](
+      claimableMarkets.length
+    );
+    for (uint256 i = 0; i < claimableMarkets.length; i++) {
+      marketOps[i] = RewardsController.MarketOperation({ market: claimableMarkets[i], operations: ops });
+    }
+    ERC20[] memory rewardList = new ERC20[](claimableRewardAssets.length);
+    for (uint256 i = 0; i < claimableRewardAssets.length; i++) {
+      rewardList[i] = claimableRewardAssets[i];
+    }
+    rewardsController.claim(marketOps, address(this), rewardList);
+  }
+
   function testAllClaimableUSDCWithDeposit() external {
     marketUSDC.deposit(100e6, address(this));
     marketUSDC.borrow(30e6, address(this), address(this));
