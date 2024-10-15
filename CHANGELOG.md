@@ -1,5 +1,39 @@
 # @exactly/protocol
 
+## 0.2.20
+
+### Patch Changes
+
+- b7d43f0: 📌 solidity: relax version and set compiler to `0.8.23`
+- 0602224: 🐛 market: redirect earnings to accumulator in clear bad debt
+- 2732d80: ✨ pauser: implement multi-pauser
+- f2073c0: 👔 market: increase accumulator local var
+- a5f5a5e: 🚀 optimism: deploy staking, upgrade markets and rewards controller
+- 0b0f1b9: ♻️ market: use new irm interface
+- 9cad450: 🦺 irm: limit parameters range
+- 34f9095: 🚀 optimism: deploy new interest rate models
+- 9482ec2: 👔 irm: new fixed rate model
+- 79dfa13: 👔 market: add early repay liquidation discount to accumulator
+- 215ccf6: ⚡️ rewards: avoid update after period ends
+- c39b05a: ✨ market: extend pausable to public entry points
+- eb0a9f7: 🚀 optimism: deploy installments router, native USDC, and upgrade markets
+- d41002c: 🚚 optimism: rename bridged USDC to USDC.e
+- 1bdac4a: 🐛 rewards: fix released calculation
+- f97a577: ✨ market: add frozen state
+- 0c0d983: 👔 irm: new floating rate model
+- 07a20df: 👔 market: ensure floating debt updates
+- 9bd8d2e: ✨ market: set custom name and symbol
+- 209564e: ✨ rewards: support claim on behalf of account
+- cdb0afe: ⚡️ market: transfer liquidator repayment first
+- ea11f28: 🩹 market: round up fixed borrow fee
+- 1ce7886: 🦺 market: prevent zero floating borrows
+- 59acfb9: 👔 rewards: use new utilization definition
+- ba6c0e5: ✨ installments: add permit flow
+- a3ceabe: ✨ installments: add router contract
+- a91c85a: ⚡️ market: avoid unnecessary cache on `totalAssets`
+- bb38a54: 🐛 market: track earnings in bad debt clearing
+- 22596c7: 🐛 market: accrue earnings before liquidation
+
 ## 0.2.19
 
 ### Patch Changes
