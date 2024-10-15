@@ -111,7 +111,7 @@ const hardhatConfig: Config = {
     },
     escrow: {
       vestingPeriod: 365 * 86_400,
-      reserveRatio: 0.25,
+      reserveRatio: 0.35,
     },
     staking: {
       minTime: 0,
