@@ -46,7 +46,7 @@ const hardhatConfig: Config = {
     "op-sepolia": {
       priceDecimals: 8,
       finance: {
-        escrow: { vestingPeriod: 7 * 86_400, reserveRatio: 0.25 },
+        escrow: { vestingPeriod: 7 * 86_400, reserveRatio: 0.35 },
         staking: { minTime: 3_600, refTime: 86_400 },
       },
       url: env.OP_SEPOLIA_NODE ?? "",
