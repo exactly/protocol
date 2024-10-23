@@ -1971,6 +1971,48 @@ contract RewardsControllerTest is Test {
     assertGt(rewardsController.allClaimable(address(this), opRewardAsset), 500 ether);
   }
 
+  function testMarketInitConsolidatedShouldNotUpdateBorrowIndex() external {
+    marketWETH.deposit(1 ether, address(this));
+    marketWETH.borrow(0.2 ether, address(this), address(this));
+
+    vm.warp(block.timestamp + 10_000);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 0.1 ether, 0.2 ether, address(this), address(this));
+
+    vm.warp(block.timestamp + 1 days);
+    (, uint256 previousAccountIndex) = rewardsController.accountOperation(
+      address(this),
+      marketWETH,
+      true,
+      opRewardAsset
+    );
+
+    vm.warp(block.timestamp + 1 days);
+    marketWETH.grantRole(marketWETH.PAUSER_ROLE(), address(this));
+    marketWETH.initConsolidated(address(this));
+    (, uint256 accountIndex) = rewardsController.accountOperation(address(this), marketWETH, true, opRewardAsset);
+    assertEq(accountIndex, previousAccountIndex);
+  }
+
+  function testMarketInitConsolidatedShouldUpdateDepositIndex() external {
+    marketWETH.deposit(1 ether, address(this));
+    marketWETH.borrow(0.2 ether, address(this), address(this));
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 0.1 ether, 0.1 ether, address(this));
+
+    vm.warp(block.timestamp + 1 days);
+    (, uint256 previousAccountIndex) = rewardsController.accountOperation(
+      address(this),
+      marketWETH,
+      false,
+      opRewardAsset
+    );
+
+    vm.warp(block.timestamp + 1 days);
+    marketWETH.grantRole(marketWETH.PAUSER_ROLE(), address(this));
+    marketWETH.initConsolidated(address(this));
+    (, uint256 accountIndex) = rewardsController.accountOperation(address(this), marketWETH, false, opRewardAsset);
+    assertGt(accountIndex, previousAccountIndex);
+  }
+
   function accountBalanceOperations(
     Market market,
     bool[] memory ops,
