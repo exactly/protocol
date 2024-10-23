@@ -1160,6 +1160,49 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emit TreasurySet(treasury_, treasuryFeeRate_);
   }
 
+  /// @notice Initializes fixed consolidated variables for the given `account`.
+  /// @param account address to initialize the fixed consolidated variables.
+  function initConsolidated(address account) external onlyRole(PAUSER_ROLE) {
+    Account storage a = accounts[account];
+
+    uint256 borrows = fixedPrincipals(account, a.fixedBorrows, true);
+    if (borrows != 0) {
+      accountsFixedConsolidated[account].borrows = borrows;
+      fixedConsolidated.borrows += borrows;
+    }
+
+    uint256 deposits = fixedPrincipals(account, a.fixedDeposits, false);
+    if (deposits != 0) {
+      handleRewards(false, account);
+      accountsFixedConsolidated[account].deposits = deposits;
+      fixedConsolidated.deposits += deposits;
+    }
+  }
+
+  /// @notice Retrieves all principals for an `account` across all `account` maturities.
+  /// @param account address to retrieve the fixed principals.
+  /// @param packedMaturities maturities to retrieve the fixed principals.
+  /// @param isBorrow boolean to determine if the principals are borrows or deposits.
+  /// @return principals amount of fixed principals.
+  function fixedPrincipals(
+    address account,
+    uint256 packedMaturities,
+    bool isBorrow
+  ) internal view returns (uint256 principals) {
+    uint256 maturity = packedMaturities & ((1 << 32) - 1);
+    packedMaturities = packedMaturities >> 32;
+    while (packedMaturities != 0) {
+      if (packedMaturities & 1 != 0) {
+        FixedLib.Position memory position = isBorrow
+          ? fixedBorrowPositions[maturity][account]
+          : fixedDepositPositions[maturity][account];
+        principals += position.principal;
+      }
+      packedMaturities >>= 1;
+      maturity += FixedLib.INTERVAL;
+    }
+  }
+
   /// @notice Sets the pause state to true in case of emergency, triggered by an authorized account.
   function pause() external onlyPausingRoles {
     _pause();

@@ -1752,6 +1752,27 @@ contract MarketTest is Test {
     assertEq(fixedBorrows, 0);
   }
 
+  function testInitConsolidated() external {
+    market.deposit(300_000 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 10_000 ether, 10_000 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL * 2, 15_000 ether, 15_000 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL * 3, 20_000 ether, 20_000 ether, address(this));
+
+    vm.warp(block.timestamp + 10_000);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 10_000 ether, 20_000 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 15_000 ether, 30_000 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 3, 20_000 ether, 40_000 ether, address(this), address(this));
+
+    market.grantRole(market.PAUSER_ROLE(), address(this));
+    market.initConsolidated(address(this));
+    (uint256 deposits, uint256 borrows) = market.accountsFixedConsolidated(address(this));
+    (uint256 totalDeposits, uint256 totalBorrows) = market.fixedConsolidated();
+    assertEq(deposits, 45_000 ether);
+    assertEq(borrows, 45_000 ether);
+    assertEq(totalDeposits, 45_000 ether * 2);
+    assertEq(totalBorrows, 45_000 ether * 2);
+  }
+
   function testDistributionOfLossesShouldReduceFromFloatingBackupBorrowedAccordingly() external {
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(50_000 ether, ALICE);
