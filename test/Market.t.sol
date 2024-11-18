@@ -1769,8 +1769,8 @@ contract MarketTest is Test {
     (uint256 totalDeposits, uint256 totalBorrows) = market.fixedConsolidated();
     assertEq(deposits, 45_000 ether);
     assertEq(borrows, 45_000 ether);
-    assertEq(totalDeposits, 45_000 ether * 2);
-    assertEq(totalBorrows, 45_000 ether * 2);
+    assertEq(totalDeposits, 45_000 ether);
+    assertEq(totalBorrows, 45_000 ether);
   }
 
   function testDistributionOfLossesShouldReduceFromFloatingBackupBorrowedAccordingly() external {

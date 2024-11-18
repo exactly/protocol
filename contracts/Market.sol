@@ -1167,15 +1167,15 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     uint256 borrows = fixedPrincipals(account, a.fixedBorrows, true);
     if (borrows != 0) {
+      fixedConsolidated.borrows += borrows - accountsFixedConsolidated[account].borrows;
       accountsFixedConsolidated[account].borrows = borrows;
-      fixedConsolidated.borrows += borrows;
     }
 
     uint256 deposits = fixedPrincipals(account, a.fixedDeposits, false);
     if (deposits != 0) {
       handleRewards(false, account);
+      fixedConsolidated.deposits += deposits - accountsFixedConsolidated[account].deposits;
       accountsFixedConsolidated[account].deposits = deposits;
-      fixedConsolidated.deposits += deposits;
     }
   }
 
