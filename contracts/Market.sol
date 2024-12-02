@@ -97,6 +97,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   mapping(address => FixedOps) public accountsFixedConsolidated;
   /// @notice Tracks the total amount of fixed deposits and borrows.
   FixedOps public fixedConsolidated;
+  /// @notice Flag to initialize consolidated variables per account only once.
+  mapping(address => bool) public isAccountInitialized;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
@@ -1162,7 +1164,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Initializes fixed consolidated variables for the given `account`.
   /// @param account address to initialize the fixed consolidated variables.
-  function initConsolidated(address account) external onlyRole(PAUSER_ROLE) {
+  function initConsolidated(address account) external {
+    if (isAccountInitialized[account]) return;
+    isAccountInitialized[account] = true;
+
     Account storage a = accounts[account];
 
     uint256 borrows = fixedPrincipals(account, a.fixedBorrows, true);

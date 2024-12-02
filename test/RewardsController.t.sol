@@ -1987,30 +1987,64 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(block.timestamp + 1 days);
-    marketWETH.grantRole(marketWETH.PAUSER_ROLE(), address(this));
     marketWETH.initConsolidated(address(this));
     (, uint256 accountIndex) = rewardsController.accountOperation(address(this), marketWETH, true, opRewardAsset);
     assertEq(accountIndex, previousAccountIndex);
   }
 
-  function testMarketInitConsolidatedShouldUpdateDepositIndex() external {
+  function testClaimShouldInitConsolidated() external {
+    bool[] memory ops = new bool[](2);
+    ops[0] = true;
+    ops[1] = false;
+    RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
+    marketOps[0] = RewardsController.MarketOperation({ market: marketWETH, operations: ops });
+    ERC20[] memory rewardList = new ERC20[](1);
+    rewardList[0] = opRewardAsset;
+    rewardsController.claim(marketOps, address(this), rewardList);
+
+    assertEq(marketWETH.isAccountInitialized(address(this)), true);
+  }
+
+  function testFloatingDepositShouldInitConsolidated() external {
     marketWETH.deposit(1 ether, address(this));
-    marketWETH.borrow(0.2 ether, address(this), address(this));
-    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 0.1 ether, 0.1 ether, address(this));
 
-    vm.warp(block.timestamp + 1 days);
-    (, uint256 previousAccountIndex) = rewardsController.accountOperation(
-      address(this),
-      marketWETH,
-      false,
-      opRewardAsset
-    );
+    assertEq(marketWETH.isAccountInitialized(address(this)), true);
+  }
 
-    vm.warp(block.timestamp + 1 days);
-    marketWETH.grantRole(marketWETH.PAUSER_ROLE(), address(this));
-    marketWETH.initConsolidated(address(this));
-    (, uint256 accountIndex) = rewardsController.accountOperation(address(this), marketWETH, false, opRewardAsset);
-    assertGt(accountIndex, previousAccountIndex);
+  function testFloatingTransferShouldInitConsolidated() external {
+    marketWETH.deposit(1 ether, address(this));
+    marketWETH.transfer(ALICE, 1 ether);
+
+    assertEq(marketWETH.isAccountInitialized(ALICE), true);
+  }
+
+  function testFloatingBorrowShouldInitConsolidated() external {
+    vm.prank(ALICE);
+    marketWETH.deposit(10 ether, ALICE);
+
+    marketWBTC.deposit(100e8, address(this));
+    auditor.enterMarket(marketWBTC);
+    marketWETH.borrow(1 ether, address(this), address(this));
+
+    assertEq(marketWETH.isAccountInitialized(address(this)), true);
+  }
+
+  function testFixedDepositShouldInitConsolidated() external {
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 20_000, 20_000, address(this));
+
+    assertEq(marketWETH.isAccountInitialized(address(this)), true);
+  }
+
+  function testFixedBorrowShouldInitConsolidated() external {
+    vm.prank(ALICE);
+    marketWETH.deposit(10 ether, ALICE);
+
+    vm.warp(10_000);
+    marketWBTC.deposit(100e8, address(this));
+    auditor.enterMarket(marketWBTC);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+
+    assertEq(marketWETH.isAccountInitialized(address(this)), true);
   }
 
   function accountBalanceOperations(
