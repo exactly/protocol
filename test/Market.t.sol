@@ -1763,7 +1763,6 @@ contract MarketTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL * 2, 15_000 ether, 30_000 ether, address(this), address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL * 3, 20_000 ether, 40_000 ether, address(this), address(this));
 
-    market.grantRole(market.PAUSER_ROLE(), address(this));
     market.initConsolidated(address(this));
     (uint256 deposits, uint256 borrows) = market.accountsFixedConsolidated(address(this));
     (uint256 totalDeposits, uint256 totalBorrows) = market.fixedConsolidated();
