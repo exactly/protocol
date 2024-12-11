@@ -2002,20 +2002,20 @@ contract RewardsControllerTest is Test {
     rewardList[0] = opRewardAsset;
     rewardsController.claim(marketOps, address(this), rewardList);
 
-    assertEq(marketWETH.isAccountInitialized(address(this)), true);
+    assertEq(marketWETH.isInitialized(address(this)), true);
   }
 
   function testFloatingDepositShouldInitConsolidated() external {
     marketWETH.deposit(1 ether, address(this));
 
-    assertEq(marketWETH.isAccountInitialized(address(this)), true);
+    assertEq(marketWETH.isInitialized(address(this)), true);
   }
 
   function testFloatingTransferShouldInitConsolidated() external {
     marketWETH.deposit(1 ether, address(this));
     marketWETH.transfer(ALICE, 1 ether);
 
-    assertEq(marketWETH.isAccountInitialized(ALICE), true);
+    assertEq(marketWETH.isInitialized(ALICE), true);
   }
 
   function testFloatingBorrowShouldInitConsolidated() external {
@@ -2026,13 +2026,13 @@ contract RewardsControllerTest is Test {
     auditor.enterMarket(marketWBTC);
     marketWETH.borrow(1 ether, address(this), address(this));
 
-    assertEq(marketWETH.isAccountInitialized(address(this)), true);
+    assertEq(marketWETH.isInitialized(address(this)), true);
   }
 
   function testFixedDepositShouldInitConsolidated() external {
     marketWETH.depositAtMaturity(FixedLib.INTERVAL, 20_000, 20_000, address(this));
 
-    assertEq(marketWETH.isAccountInitialized(address(this)), true);
+    assertEq(marketWETH.isInitialized(address(this)), true);
   }
 
   function testFixedBorrowShouldInitConsolidated() external {
@@ -2044,7 +2044,7 @@ contract RewardsControllerTest is Test {
     auditor.enterMarket(marketWBTC);
     marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
 
-    assertEq(marketWETH.isAccountInitialized(address(this)), true);
+    assertEq(marketWETH.isInitialized(address(this)), true);
   }
 
   function accountBalanceOperations(
@@ -2053,7 +2053,7 @@ contract RewardsControllerTest is Test {
     address account
   ) internal view returns (RewardsController.AccountOperation[] memory accountBalanceOps) {
     accountBalanceOps = new RewardsController.AccountOperation[](ops.length);
-    (uint256 fixedDeposits, uint256 fixedBorrows) = market.accountsFixedConsolidated(account);
+    (uint256 fixedDeposits, uint256 fixedBorrows) = market.fixedConsolidated(account);
     for (uint256 i = 0; i < ops.length; i++) {
       if (ops[i]) {
         (, , uint256 floatingBorrowShares) = market.accounts(account);

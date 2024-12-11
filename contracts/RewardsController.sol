@@ -54,7 +54,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     Market market = Market(msg.sender);
     AccountOperation[] memory ops = new AccountOperation[](1);
     market.initConsolidated(account);
-    (uint256 fixedDeposits, ) = market.accountsFixedConsolidated(account);
+    (uint256 fixedDeposits, ) = market.fixedConsolidated(account);
     ops[0] = AccountOperation({
       operation: false,
       balance: market.balanceOf(account) + market.previewWithdraw(fixedDeposits)
@@ -78,7 +78,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     AccountOperation[] memory ops = new AccountOperation[](1);
     market.initConsolidated(account);
     (, , uint256 accountFloatingBorrowShares) = market.accounts(account);
-    (, uint256 fixedBorrows) = market.accountsFixedConsolidated(account);
+    (, uint256 fixedBorrows) = market.fixedConsolidated(account);
     ops[0] = AccountOperation({
       operation: true,
       balance: accountFloatingBorrowShares + market.previewRepay(fixedBorrows)
@@ -536,7 +536,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     t.start = rewardData.start;
     t.end = rewardData.end;
     {
-      (uint256 fixedDeposits, uint256 fixedDebt) = market.fixedConsolidated();
+      (uint256 fixedDeposits, uint256 fixedDebt) = market.fixedOps();
       m.debt = m.floatingDebt + fixedDebt;
       m.fixedBorrowShares = market.previewRepay(fixedDebt);
       m.fixedDepositShares = market.previewWithdraw(fixedDeposits);
@@ -651,7 +651,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     address account
   ) internal view returns (AccountOperation[] memory accountBalanceOps) {
     accountBalanceOps = new AccountOperation[](ops.length);
-    (uint256 fixedDeposits, uint256 fixedBorrows) = market.accountsFixedConsolidated(account);
+    (uint256 fixedDeposits, uint256 fixedBorrows) = market.fixedConsolidated(account);
     for (uint256 i = 0; i < ops.length; ) {
       if (ops[i]) {
         (, , uint256 floatingBorrowShares) = market.accounts(account);

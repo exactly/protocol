@@ -94,11 +94,11 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   bool public isFrozen;
 
   /// @notice Tracks account's total amount of fixed deposits and borrows.
-  mapping(address => FixedOps) public accountsFixedConsolidated;
+  mapping(address account => FixedOps consolidated) public fixedConsolidated;
   /// @notice Tracks the total amount of fixed deposits and borrows.
-  FixedOps public fixedConsolidated;
+  FixedOps public fixedOps;
   /// @notice Flag to initialize consolidated variables per account only once.
-  mapping(address => bool) public isAccountInitialized;
+  mapping(address account => bool initialized) public isInitialized;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
@@ -270,8 +270,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       account.fixedDeposits = account.fixedDeposits.setMaturity(maturity);
     }
 
-    accountsFixedConsolidated[receiver].deposits += assets;
-    fixedConsolidated.deposits += assets;
+    fixedConsolidated[receiver].deposits += assets;
+    fixedOps.deposits += assets;
     position.principal += assets;
     position.fee += fee;
 
@@ -354,8 +354,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
       fixedBorrowPositions[maturity][borrower] = FixedLib.Position(position.principal + assets, position.fee + fee);
     }
-    accountsFixedConsolidated[borrower].borrows += assets;
-    fixedConsolidated.borrows += assets;
+    fixedConsolidated[borrower].borrows += assets;
+    fixedOps.borrows += assets;
 
     emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, fee);
     emitMarketUpdate();
@@ -437,8 +437,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       uint256 principal = position.principal;
       // the account gets discounted the full amount
       uint256 principalCovered = principal - position.reduceProportionally(positionAssets).principal;
-      accountsFixedConsolidated[owner].deposits -= principalCovered;
-      fixedConsolidated.deposits -= principalCovered;
+      fixedConsolidated[owner].deposits -= principalCovered;
+      fixedOps.deposits -= principalCovered;
     }
     if (position.principal | position.fee == 0) {
       delete fixedDepositPositions[maturity][owner];
@@ -546,8 +546,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 principal = position.principal;
     // update the account position
     principalCovered = principal - position.reduceProportionally(debtCovered).principal;
-    accountsFixedConsolidated[borrower].borrows -= principalCovered;
-    fixedConsolidated.borrows -= principalCovered;
+    fixedConsolidated[borrower].borrows -= principalCovered;
+    fixedOps.borrows -= principalCovered;
     if (position.principal | position.fee == 0) {
       delete fixedBorrowPositions[maturity][borrower];
       Account storage account = accounts[borrower];
@@ -674,8 +674,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
             accumulator += yield;
           }
 
-          accountsFixedConsolidated[borrower].borrows -= position.principal;
-          fixedConsolidated.borrows -= position.principal;
+          fixedConsolidated[borrower].borrows -= position.principal;
+          fixedOps.borrows -= position.principal;
           delete fixedBorrowPositions[maturity][borrower];
           account.fixedBorrows = account.fixedBorrows.clearMaturity(maturity);
 
@@ -1165,22 +1165,22 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Initializes fixed consolidated variables for the given `account`.
   /// @param account address to initialize the fixed consolidated variables.
   function initConsolidated(address account) external {
-    if (isAccountInitialized[account]) return;
-    isAccountInitialized[account] = true;
+    if (isInitialized[account]) return;
+    isInitialized[account] = true;
 
     Account storage a = accounts[account];
 
     uint256 borrows = fixedPrincipals(account, a.fixedBorrows, true);
     if (borrows != 0) {
-      fixedConsolidated.borrows += borrows - accountsFixedConsolidated[account].borrows;
-      accountsFixedConsolidated[account].borrows = borrows;
+      fixedOps.borrows += borrows - fixedConsolidated[account].borrows;
+      fixedConsolidated[account].borrows = borrows;
     }
 
     uint256 deposits = fixedPrincipals(account, a.fixedDeposits, false);
     if (deposits != 0) {
       handleRewards(false, account);
-      fixedConsolidated.deposits += deposits - accountsFixedConsolidated[account].deposits;
-      accountsFixedConsolidated[account].deposits = deposits;
+      fixedOps.deposits += deposits - fixedConsolidated[account].deposits;
+      fixedConsolidated[account].deposits = deposits;
     }
   }
 

@@ -1764,8 +1764,8 @@ contract MarketTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL * 3, 20_000 ether, 40_000 ether, address(this), address(this));
 
     market.initConsolidated(address(this));
-    (uint256 deposits, uint256 borrows) = market.accountsFixedConsolidated(address(this));
-    (uint256 totalDeposits, uint256 totalBorrows) = market.fixedConsolidated();
+    (uint256 deposits, uint256 borrows) = market.fixedConsolidated(address(this));
+    (uint256 totalDeposits, uint256 totalBorrows) = market.fixedOps();
     assertEq(deposits, 45_000 ether);
     assertEq(borrows, 45_000 ether);
     assertEq(totalDeposits, 45_000 ether);
@@ -2865,8 +2865,8 @@ contract MarketTest is Test {
 
     market.depositAtMaturity(FixedLib.INTERVAL, 0.5 ether, 0.5 ether, address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
-    (uint256 fixedDeposits, uint256 fixedBorrows) = market.accountsFixedConsolidated(address(this));
-    (uint256 totalFixedDeposits, uint256 totalFixedBorrows) = market.fixedConsolidated();
+    (uint256 fixedDeposits, uint256 fixedBorrows) = market.fixedConsolidated(address(this));
+    (uint256 totalFixedDeposits, uint256 totalFixedBorrows) = market.fixedOps();
 
     assertEq(fixedDeposits, 0.5 ether);
     assertEq(fixedBorrows, 1 ether);
@@ -2876,11 +2876,11 @@ contract MarketTest is Test {
     vm.startPrank(ALICE);
     market.depositAtMaturity(FixedLib.INTERVAL, 0.5 ether, 0.5 ether, ALICE);
     market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, ALICE, ALICE);
-    (fixedDeposits, fixedBorrows) = market.accountsFixedConsolidated(ALICE);
+    (fixedDeposits, fixedBorrows) = market.fixedConsolidated(ALICE);
     vm.stopPrank();
 
-    (fixedDeposits, fixedBorrows) = market.accountsFixedConsolidated(address(this));
-    (totalFixedDeposits, totalFixedBorrows) = market.fixedConsolidated();
+    (fixedDeposits, fixedBorrows) = market.fixedConsolidated(address(this));
+    (totalFixedDeposits, totalFixedBorrows) = market.fixedOps();
 
     assertEq(fixedDeposits, 0.5 ether);
     assertEq(fixedBorrows, 1 ether);
@@ -2893,7 +2893,7 @@ contract MarketTest is Test {
     market.repayAtMaturity(FixedLib.INTERVAL, principal + fee, principal + fee, address(this));
     (principal, fee) = market.fixedDepositPositions(FixedLib.INTERVAL, address(this));
     market.withdrawAtMaturity(FixedLib.INTERVAL, principal + fee, principal + fee, address(this), address(this));
-    (fixedDeposits, fixedBorrows) = market.accountsFixedConsolidated(address(this));
+    (fixedDeposits, fixedBorrows) = market.fixedConsolidated(address(this));
     assertEq(fixedDeposits, 0);
     assertEq(fixedBorrows, 0);
 
@@ -2904,11 +2904,11 @@ contract MarketTest is Test {
     market.withdrawAtMaturity(FixedLib.INTERVAL, (principal + fee) / 2, (principal + fee) / 2, ALICE, ALICE);
     vm.stopPrank();
 
-    (fixedDeposits, fixedBorrows) = market.accountsFixedConsolidated(ALICE);
+    (fixedDeposits, fixedBorrows) = market.fixedConsolidated(ALICE);
     assertEq(fixedDeposits, 0.25 ether);
     assertEq(fixedBorrows, 0.5 ether);
 
-    (totalFixedDeposits, totalFixedBorrows) = market.fixedConsolidated();
+    (totalFixedDeposits, totalFixedBorrows) = market.fixedOps();
     assertEq(totalFixedDeposits, 0.25 ether);
     assertEq(totalFixedBorrows, 0.5 ether);
   }
@@ -2923,7 +2923,7 @@ contract MarketTest is Test {
     market.depositAtMaturity(FixedLib.INTERVAL, 0.5 ether, 0.5 ether, ALICE);
     market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), ALICE);
 
-    (uint256 fixedDeposits, uint256 fixedBorrows) = market.accountsFixedConsolidated(ALICE);
+    (uint256 fixedDeposits, uint256 fixedBorrows) = market.fixedConsolidated(ALICE);
     assertEq(fixedDeposits, 0.5 ether);
     assertEq(fixedBorrows, 1 ether);
   }
@@ -2934,7 +2934,7 @@ contract MarketTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL, 1.23 ether, type(uint256).max, address(this), address(this));
     market.depositAtMaturity(FixedLib.INTERVAL, 0.57 ether, 0.57 ether, address(this));
     (uint256 principal, ) = market.fixedDepositPositions(FixedLib.INTERVAL, address(this));
-    (uint256 fixedDeposits, uint256 fixedBorrows) = market.accountsFixedConsolidated(address(this));
+    (uint256 fixedDeposits, uint256 fixedBorrows) = market.fixedConsolidated(address(this));
     assertEq(principal, fixedDeposits);
     (principal, ) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
     assertEq(principal, fixedBorrows);
@@ -2945,7 +2945,7 @@ contract MarketTest is Test {
     market.withdrawAtMaturity(FixedLib.INTERVAL, 0.11 ether, 0, address(this), address(this));
 
     (principal, ) = market.fixedDepositPositions(FixedLib.INTERVAL, address(this));
-    (fixedDeposits, fixedBorrows) = market.accountsFixedConsolidated(address(this));
+    (fixedDeposits, fixedBorrows) = market.fixedConsolidated(address(this));
     assertEq(principal, fixedDeposits);
     (principal, ) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
     assertEq(principal, fixedBorrows);
@@ -2956,7 +2956,7 @@ contract MarketTest is Test {
     market.withdrawAtMaturity(FixedLib.INTERVAL, 0.03821 ether, 0, address(this), address(this));
 
     (principal, ) = market.fixedDepositPositions(FixedLib.INTERVAL, address(this));
-    (fixedDeposits, fixedBorrows) = market.accountsFixedConsolidated(address(this));
+    (fixedDeposits, fixedBorrows) = market.fixedConsolidated(address(this));
     assertEq(principal, fixedDeposits);
     (principal, ) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
     assertEq(principal, fixedBorrows);
@@ -2978,8 +2978,8 @@ contract MarketTest is Test {
     vm.stopPrank();
     marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 5 ether, type(uint256).max, address(this), address(this));
 
-    (uint256 fixedDeposits, uint256 fixedBorrows) = marketWETH.accountsFixedConsolidated(address(this));
-    (uint256 totalFixedDeposits, uint256 totalFixedBorrows) = marketWETH.fixedConsolidated();
+    (uint256 fixedDeposits, uint256 fixedBorrows) = marketWETH.fixedConsolidated(address(this));
+    (uint256 totalFixedDeposits, uint256 totalFixedBorrows) = marketWETH.fixedOps();
     assertEq(fixedDeposits, 0);
     assertEq(fixedBorrows, 5 ether);
     assertEq(totalFixedDeposits, 200 ether);
@@ -2989,8 +2989,8 @@ contract MarketTest is Test {
 
     auditor.handleBadDebt(address(this));
 
-    (fixedDeposits, fixedBorrows) = marketWETH.accountsFixedConsolidated(address(this));
-    (totalFixedDeposits, totalFixedBorrows) = marketWETH.fixedConsolidated();
+    (fixedDeposits, fixedBorrows) = marketWETH.fixedConsolidated(address(this));
+    (totalFixedDeposits, totalFixedBorrows) = marketWETH.fixedOps();
     assertEq(fixedDeposits, 0);
     assertEq(fixedBorrows, 0);
     assertEq(totalFixedDeposits, 200 ether);
