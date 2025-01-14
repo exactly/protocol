@@ -173,7 +173,7 @@ const hardhatConfig: Config = {
       },
       USDC: {
         adjustFactor: 0.91,
-        interestRateModel: { minRate: 5e-2, naturalRate: 11e-2, naturalUtilization: 0.88, growthSpeed: 1.3 },
+        interestRateModel: { minRate: 5e-2, naturalRate: 11e-2, growthSpeed: 1.3 },
         overrides: {
           optimism: {
             rewards: {
@@ -206,7 +206,7 @@ const hardhatConfig: Config = {
       "USDC.e": {
         networks: ["optimism", "op-sepolia"],
         adjustFactor: 0.91,
-        interestRateModel: { minRate: 5e-2, naturalRate: 11e-2, naturalUtilization: 0.88, growthSpeed: 1.3 },
+        interestRateModel: { minRate: 5e-2, naturalRate: 11e-2, growthSpeed: 1.3 },
         overrides: {
           optimism: {
             rewards: {
@@ -246,7 +246,6 @@ const hardhatConfig: Config = {
           maxUtilization: 1.05,
           naturalUtilization: 0.5,
           growthSpeed: 2,
-          sigmoidSpeed: 2.5,
         },
         overrides: {
           ethereum: { priceFeed: "double" },
@@ -319,7 +318,6 @@ const hardhatConfig: Config = {
           naturalRate: 6e-2,
           maxUtilization: 1.2,
           naturalUtilization: 0.6,
-          sigmoidSpeed: 2.5,
         },
         overrides: {
           optimism: {
