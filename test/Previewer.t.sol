@@ -2245,6 +2245,14 @@ contract PreviewerTest is Test {
     assertEq(data[0].reserveFactor, market.reserveFactor());
   }
 
+  function testIsFrozen() external {
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].isFrozen, false);
+    market.setFrozen(true);
+    data = previewer.exactly(address(this));
+    assertEq(data[0].isFrozen, true);
+  }
+
   function testPreviewRepayAtMaturityLastAccrualIsMaturity() external {
     market.setInterestRateModel(InterestRateModel(address(new MockBorrowRate(0.1e18))));
     uint256 maturity = FixedLib.INTERVAL;
