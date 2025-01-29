@@ -1196,11 +1196,12 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   ) internal view returns (uint256 principals) {
     uint256 maturity = packedMaturities & ((1 << 32) - 1);
     packedMaturities = packedMaturities >> 32;
+    mapping(uint256 => mapping(address => FixedLib.Position)) storage fixedPositions = isBorrow
+      ? fixedBorrowPositions
+      : fixedDepositPositions;
     while (packedMaturities != 0) {
       if (packedMaturities & 1 != 0) {
-        FixedLib.Position memory position = isBorrow
-          ? fixedBorrowPositions[maturity][account]
-          : fixedDepositPositions[maturity][account];
+        FixedLib.Position memory position = fixedPositions[maturity][account];
         principals += position.principal;
       }
       packedMaturities >>= 1;
