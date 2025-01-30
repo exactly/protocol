@@ -297,13 +297,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       for (uint256 i = 0; i < marketOps.length; ) {
         MarketOperation memory marketOperation = marketOps[i];
         Distribution storage dist = distribution[marketOperation.market];
-        RewardData storage rewardData = dist.rewards[rewardList[r]];
         if (dist.availableRewardsCount == 0) {
           unchecked {
             ++i;
           }
           continue;
         }
+        RewardData storage rewardData = dist.rewards[rewardList[r]];
 
         AccountOperation[] memory ops = accountBalanceOperations(
           marketOperation.market,
