@@ -674,8 +674,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
             accumulator += yield;
           }
 
-          fixedConsolidated[borrower].borrows -= position.principal;
-          fixedOps.borrows -= position.principal;
+          uint256 principal = position.principal;
+          fixedConsolidated[borrower].borrows -= principal;
+          fixedOps.borrows -= principal;
           delete fixedBorrowPositions[maturity][borrower];
           account.fixedBorrows = account.fixedBorrows.clearMaturity(maturity);
 
