@@ -488,6 +488,7 @@ declare module "hardhat/types/config" {
   }
 
   export interface MarketConfig {
+    frozen?: boolean;
     adjustFactor: number;
     priceFeed?: "double" | { wrapper: string; fn: string; baseUnit: bigint };
     interestRateModel: IRMParameters;
