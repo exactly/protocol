@@ -467,6 +467,7 @@ contract Previewer {
         r.config = r.controller.rewardConfig(market, rewards[r.i].asset);
         r.rewardPrice = auditor.assetPrice(r.config.priceFeed);
         (r.borrowIndex, r.depositIndex, ) = r.controller.rewardIndexes(market, rewards[r.i].asset);
+        (r.start, , ) = r.controller.distributionTime(market, rewards[r.i].asset);
         (r.projectedBorrowIndex, r.projectedDepositIndex, ) = r.controller.previewAllocation(
           market,
           rewards[r.i].asset,
@@ -478,14 +479,13 @@ contract Previewer {
           (block.timestamp % FixedLib.INTERVAL) +
           (FixedLib.INTERVAL * market.maxFuturePools());
         r.maturities = new uint256[]((r.maxMaturity - r.firstMaturity) / FixedLib.INTERVAL + 1);
-        r.start = 0;
-        for (r.maturity = r.firstMaturity; r.maturity <= r.maxMaturity; ) {
+        r.maturity = r.firstMaturity;
+        for (uint256 i = 0; r.maturity <= r.maxMaturity; ++i) {
           (uint256 borrowed, ) = market.fixedPoolBalance(r.maturity);
           r.fixedDebt += borrowed;
-          r.maturities[r.start] = r.maturity;
+          r.maturities[i] = r.maturity;
           unchecked {
             r.maturity += FixedLib.INTERVAL;
-            ++r.start;
           }
         }
         rewards[r.i] = RewardRate({
@@ -532,12 +532,15 @@ contract Previewer {
       marketOps[0] = RewardsController.MarketOperation({ market: market, operations: ops });
 
       for (uint256 i = 0; i < rewardList.length; ) {
-        rewards[i] = ClaimableReward({
-          asset: address(rewardList[i]),
-          assetName: rewardList[i].name(),
-          assetSymbol: rewardList[i].symbol(),
-          amount: rewardsController.claimable(marketOps, account, rewardList[i])
-        });
+        (uint32 start, , ) = rewardsController.distributionTime(market, rewardList[i]);
+        if (start > 0) {
+          rewards[i] = ClaimableReward({
+            asset: address(rewardList[i]),
+            assetName: rewardList[i].name(),
+            assetSymbol: rewardList[i].symbol(),
+            amount: rewardsController.claimable(marketOps, account, rewardList[i])
+          });
+        }
         unchecked {
           ++i;
         }

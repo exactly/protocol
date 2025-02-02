@@ -810,6 +810,56 @@ contract PreviewerTest is Test {
     assertEq(address(data[1].rewardRates[0].asset), address(exa));
   }
 
+  function testRewardRatesMaturities() external {
+    vm.warp(55 * 365 days);
+    RewardsController rewardsController = RewardsController(
+      address(new ERC1967Proxy(address(new RewardsController()), ""))
+    );
+    rewardsController.initialize();
+    MockERC20 exa = new MockERC20("EXA", "EXA", 18);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](2);
+    configs[0] = RewardsController.Config({
+      market: market,
+      reward: rewardAsset,
+      priceFeed: opPriceFeed,
+      targetDebt: 2_000_000 ether,
+      totalDistribution: 50_000 ether,
+      start: uint32(block.timestamp),
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.00005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    configs[1] = RewardsController.Config({
+      market: market,
+      reward: exa,
+      priceFeed: opPriceFeed,
+      targetDebt: 2_000_000 ether,
+      totalDistribution: 50_000 ether,
+      start: uint32(block.timestamp),
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.00005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+    market.setRewardsController(rewardsController);
+
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data.length, 1);
+    assertEq(data[0].rewardRates.length, 2);
+    assertEq(data[0].rewardRates[0].maturities.length, 12);
+    assertEq(data[0].rewardRates[1].maturities.length, 12);
+  }
+
   function testRewardsRateAfterDistributionEnd() external {
     RewardsController rewardsController = RewardsController(
       address(new ERC1967Proxy(address(new RewardsController()), ""))
