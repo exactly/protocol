@@ -84,7 +84,7 @@ const hardhatConfig: Config = {
     penaltyRatePerDay: 0.0045,
     backupFeeRate: 0.1,
     reserveFactor: 0.05,
-    dampSpeed: { up: 0.0046, down: 0.4 },
+    dampSpeed: { up: 0.000053, down: 0.4 },
     futurePools: 7,
     earningsAccumulatorSmoothFactor: 2,
     interestRateModel: {
