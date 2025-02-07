@@ -685,6 +685,23 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     asset.safeTransfer(to, asset.balanceOf(address(this)));
   }
 
+  /// @notice Withdraws the undistributed rewards of the given market and reward asset to the given address.
+  /// @param market The market to withdraw the rewards from.
+  /// @param reward The reward asset to withdraw.
+  /// @param to The address to withdraw the rewards to.
+  function withdrawUndistributed(Market market, ERC20 reward, address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    RewardData storage rewardData = distribution[market].rewards[reward];
+    if (block.timestamp < rewardData.end) revert NotEnded();
+
+    bool[] memory ops = new bool[](1);
+    ops[0] = true;
+    update(address(0), market, reward, accountBalanceOperations(market, ops, address(0)));
+
+    uint256 undistributed = rewardData.lastUndistributed;
+    rewardData.lastUndistributed = 0;
+    reward.safeTransfer(to, undistributed);
+  }
+
   /// @notice Enables or updates the reward distribution for the given markets and rewards.
   /// @param configs The configurations to update each RewardData with.
   function config(Config[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -992,6 +1009,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 error IndexOverflow();
 error InvalidConfig();
 error NotKeeper();
+error NotEnded();
 
 struct ClaimPermit {
   address owner;

@@ -10,7 +10,14 @@ import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { Auditor, IPriceFeed } from "../contracts/Auditor.sol";
 import { Market } from "../contracts/Market.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
-import { ERC20, RewardsController, ClaimPermit, InvalidConfig, NotKeeper } from "../contracts/RewardsController.sol";
+import {
+  ERC20,
+  RewardsController,
+  ClaimPermit,
+  InvalidConfig,
+  NotKeeper,
+  NotEnded
+} from "../contracts/RewardsController.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
 
 contract RewardsControllerTest is Test {
@@ -1536,6 +1543,48 @@ contract RewardsControllerTest is Test {
 
     // withdraw call from contract should not revert
     rewardsController.withdraw(opRewardAsset, BOB);
+  }
+
+  function testWithdrawUndistributed() external {
+    marketUSDC.deposit(10_000e6, address(this));
+    marketUSDC.borrow(1_000e6, address(this), address(this));
+
+    vm.warp(1 days);
+    marketUSDC.borrow(1_000e6, address(this), address(this));
+
+    vm.warp(2 days);
+    rewardsController.claimAll(address(this));
+    (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketUSDC, opRewardAsset);
+    assertGt(lastUndistributed, 0);
+
+    uint256 bobBalance = opRewardAsset.balanceOf(BOB);
+
+    vm.warp(12 weeks);
+    rewardsController.withdrawUndistributed(marketUSDC, opRewardAsset, BOB);
+    (, , lastUndistributed) = rewardsController.rewardIndexes(marketUSDC, opRewardAsset);
+    (, , uint32 lastUpdate) = rewardsController.distributionTime(marketUSDC, opRewardAsset);
+
+    assertGt(opRewardAsset.balanceOf(BOB), bobBalance);
+    assertEq(lastUndistributed, 0);
+    assertEq(lastUpdate, 12 weeks);
+  }
+
+  function testWithdrawUndistributedOnlyEndedDistribution() external {
+    vm.expectRevert(NotEnded.selector);
+    rewardsController.withdrawUndistributed(marketUSDC, opRewardAsset, BOB);
+
+    vm.warp(12 weeks);
+    rewardsController.withdrawUndistributed(marketUSDC, opRewardAsset, BOB);
+  }
+
+  function testWithdrawUndistributedOnlyAdminRole() external {
+    vm.expectRevert(bytes(""));
+    vm.prank(BOB);
+    rewardsController.withdrawUndistributed(marketUSDC, opRewardAsset, BOB);
+
+    vm.warp(12 weeks);
+    // withdraw call from contract should not revert
+    rewardsController.withdrawUndistributed(marketUSDC, opRewardAsset, BOB);
   }
 
   function testWithdrawAllRewardBalance() external {
