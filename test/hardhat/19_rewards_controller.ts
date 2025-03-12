@@ -42,7 +42,7 @@ describe("RewardsController", function () {
     });
 
     it("THEN the claimable amount is positive", async () => {
-      const claimableBalance = await rewardsController.allClaimable(alice.address, op.target);
+      const claimableBalance = await rewardsController["allClaimable(address, address)"](alice.address, op.target);
       await rewardsController["claim((address,bool[])[],address,address[])"](
         [{ market: marketUSDC.target, operations: [false, true] }],
         alice.address,
@@ -60,20 +60,15 @@ describe("RewardsController", function () {
       expect(rewards[0]).to.be.eq(op.target);
     });
 
-    it("AND trying to claim with invalid market THEN the claimable amount is 0", async () => {
+    it("AND trying to claim with invalid market THEN the transaction should revert", async () => {
       const marketOps = [{ market: alice.address, operations: [false, true] }];
-      const claimableBalance = await rewardsController.claimable(marketOps, alice.address, op.target);
-      await rewardsController["claim((address,bool[])[],address,address[])"](marketOps, alice.address, [op.target]);
-      const claimedBalance = await op.balanceOf(alice.address);
-
-      expect(claimableBalance).to.be.eq(0);
-      expect(claimedBalance).to.be.eq(0);
+      await expect(
+        rewardsController["claim((address,bool[])[],address,address[])"](marketOps, alice.address, [op.target]),
+      ).to.be.revertedWithoutReason();
     });
 
     it("AND calling allClaimable with invalid reward asset THEN the claimable amount is 0", async () => {
-      await expect(
-        rewardsController.allClaimable(alice.address, alice.address, { gasLimit: 1_000_000 }),
-      ).to.be.revertedWithoutReason();
+      expect(await rewardsController["allClaimable(address, address)"](alice.address, alice.address)).to.be.eq(0);
     });
 
     it("AND setting a keeper enables claiming on behalf of an account", async () => {
