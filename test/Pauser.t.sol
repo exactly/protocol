@@ -39,6 +39,13 @@ contract PauserTest is Test {
       0.0046e18,
       0.42e18
     );
+    marketA.setDampSpeed(
+      marketA.floatingAssetsDampSpeedUp(),
+      marketA.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    marketA.setFixedBorrowThreshold(1e18);
     marketA.grantRole(marketA.PAUSER_ROLE(), address(this));
     marketA.grantRole(marketA.PAUSER_ROLE(), address(pauser));
     auditor.enableMarket(marketA, new MockPriceFeed(18, 1e18), 0.8e18);
@@ -56,6 +63,13 @@ contract PauserTest is Test {
       0.0046e18,
       0.42e18
     );
+    marketB.setDampSpeed(
+      marketB.floatingAssetsDampSpeedUp(),
+      marketB.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    marketB.setFixedBorrowThreshold(1e18);
     marketB.grantRole(marketB.PAUSER_ROLE(), address(this));
     marketB.grantRole(marketB.PAUSER_ROLE(), address(pauser));
     auditor.enableMarket(marketB, new MockPriceFeed(18, 1e18), 0.8e18);

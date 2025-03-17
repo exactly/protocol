@@ -49,9 +49,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Rate charged to the fixed pool to be retained by the floating pool for initially providing liquidity.
   uint256 public backupFeeRate;
   /// @notice Damp speed factor to update `floatingAssetsAverage` when `floatingAssets` is higher.
-  uint256 public dampSpeedUp;
+  uint256 public floatingAssetsDampSpeedUp;
   /// @notice Damp speed factor to update `floatingAssetsAverage` when `floatingAssets` is lower.
-  uint256 public dampSpeedDown;
+  uint256 public floatingAssetsDampSpeedDown;
 
   /// @notice Number of fixed pools to be active at the same time.
   uint8 public maxFuturePools;
@@ -100,6 +100,15 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Flag to initialize consolidated variables per account only once.
   mapping(address account => bool initialized) public isInitialized;
 
+  /// @notice Average of the global utilization to get fixed borrow rates and prevent rate manipulation.
+  uint256 public globalUtilizationAverage;
+  /// @notice Damp speed factor to update `globalUtilizationAverage` when `floatingAssets` is higher.
+  uint256 public uDampSpeedUp;
+  /// @notice Damp speed factor to update `globalUtilizationAverage` when `floatingAssets` is lower.
+  uint256 public uDampSpeedDown;
+  /// @notice Threshold to prevent fixed borrows when the utilization is too high.
+  uint256 public fixedBorrowThreshold;
+
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
     auditor = auditor_;
@@ -117,8 +126,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 penaltyRate_,
     uint256 backupFeeRate_,
     uint128 reserveFactor_,
-    uint256 dampSpeedUp_,
-    uint256 dampSpeedDown_
+    uint256 floatingAssetsDampSpeedUp_,
+    uint256 floatingAssetsDampSpeedDown_
   ) external initializer {
     __AccessControl_init();
     __Pausable_init();
@@ -136,7 +145,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     setPenaltyRate(penaltyRate_);
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
-    setDampSpeed(dampSpeedUp_, dampSpeedDown_);
+    setDampSpeed(floatingAssetsDampSpeedUp_, floatingAssetsDampSpeedDown_, 0, 0);
   }
 
   /// @notice Borrows a certain amount from the floating pool.
@@ -318,14 +327,15 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     }
     uint256 fee;
     {
-      uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
+      uint256 memFloatingAssets = floatingAssets;
       uint256 memFloatingDebt = floatingDebt;
       uint256 fixedRate = interestRateModel.fixedRate(
         maturity,
         maxFuturePools,
-        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssetsAverage),
-        floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
-        globalUtilization(memFloatingAssetsAverage, memFloatingDebt, floatingBackupBorrowed)
+        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssets),
+        floatingUtilization(memFloatingAssets, memFloatingDebt),
+        globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed),
+        previewGlobalUtilizationAverage()
       );
       fee = assets.mulWadUp(fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     }
@@ -405,16 +415,16 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     // verify if there are any penalties/fee for the account because of early withdrawal, if so discount
     if (block.timestamp < maturity) {
-      uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
+      uint256 memFloatingAssets = floatingAssets;
       uint256 memFloatingDebt = floatingDebt;
-      uint256 memFloatingBackupBorrowed = floatingBackupBorrowed;
 
       uint256 fixedRate = interestRateModel.fixedRate(
         maturity,
         maxFuturePools,
-        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssetsAverage),
-        floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
-        globalUtilization(memFloatingAssetsAverage, memFloatingDebt, memFloatingBackupBorrowed)
+        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssets),
+        floatingUtilization(memFloatingAssets, memFloatingDebt),
+        globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed),
+        previewGlobalUtilizationAverage()
       );
       assetsDiscounted = positionAssets.divWadDown(1e18 + fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     } else {
@@ -736,7 +746,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be withdrawn from the floating pool.
   function beforeWithdraw(uint256 assets, uint256) internal override whenNotPaused {
-    updateFloatingAssetsAverage();
+    updateAverages();
     depositToTreasury(updateFloatingDebt());
     uint256 earnings = accrueAccumulatedEarnings();
     uint256 newFloatingAssets = floatingAssets + earnings - assets;
@@ -748,7 +758,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be deposited to the floating pool.
   function afterDeposit(uint256 assets, uint256) internal override whenNotPaused whenNotFrozen {
-    updateFloatingAssetsAverage();
+    updateAverages();
     uint256 treasuryFee = updateFloatingDebt();
     uint256 earnings = accrueAccumulatedEarnings();
     floatingAssets += earnings + assets;
@@ -898,8 +908,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emit AccumulatorAccrual(block.timestamp);
   }
 
-  /// @notice Updates the `floatingAssetsAverage`.
-  function updateFloatingAssetsAverage() internal {
+  /// @notice Updates the `globalUtilizationAverage` and `floatingAssetsAverage`.
+  function updateAverages() internal {
+    globalUtilizationAverage = previewGlobalUtilizationAverage();
     floatingAssetsAverage = previewFloatingAssetsAverage();
     lastAverageUpdate = uint32(block.timestamp);
   }
@@ -909,9 +920,20 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function previewFloatingAssetsAverage() public view returns (uint256) {
     uint256 memFloatingAssets = floatingAssets;
     uint256 memFloatingAssetsAverage = floatingAssetsAverage;
-    uint256 dampSpeedFactor = memFloatingAssets < memFloatingAssetsAverage ? dampSpeedDown : dampSpeedUp;
+    uint256 dampSpeedFactor = memFloatingAssets < memFloatingAssetsAverage
+      ? floatingAssetsDampSpeedDown
+      : floatingAssetsDampSpeedUp;
     uint256 averageFactor = uint256(1e18 - (-int256(dampSpeedFactor * (block.timestamp - lastAverageUpdate))).expWad());
     return memFloatingAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(memFloatingAssets);
+  }
+
+  function previewGlobalUtilizationAverage() public view returns (uint256) {
+    uint256 memGlobalUtilization = globalUtilization(floatingAssets, floatingDebt, floatingBackupBorrowed);
+    uint256 memGlobalUtilizationAverage = globalUtilizationAverage;
+    uint256 dampSpeedFactor = memGlobalUtilization < memGlobalUtilizationAverage ? uDampSpeedDown : uDampSpeedUp;
+    uint256 averageFactor = uint256(1e18 - (-int256(dampSpeedFactor * (block.timestamp - lastAverageUpdate))).expWad());
+    return
+      memGlobalUtilizationAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(memGlobalUtilization);
   }
 
   /// @notice Updates the floating pool borrows' variables.
@@ -1093,14 +1115,30 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emit BackupFeeRateSet(backupFeeRate_);
   }
 
-  /// @notice Sets the damp speed used to update the floatingAssetsAverage.
-  /// @param up damp speed up, represented with 18 decimals.
-  /// @param down damp speed down, represented with 18 decimals.
-  function setDampSpeed(uint256 up, uint256 down) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    updateFloatingAssetsAverage();
-    dampSpeedUp = up;
-    dampSpeedDown = down;
-    emit DampSpeedSet(up, down);
+  /// @notice Sets the damp speed used to update the `floatingAssetsAverage` and `globalUtilizationAverage`.
+  /// @param assetsUp damp speed up for the `floatingAssetsAverage`, represented with 18 decimals.
+  /// @param assetsDown damp speed down for the `floatingAssetsAverage`, represented with 18 decimals.
+  /// @param uUp damp speed up for the `globalUtilizationAverage`, represented with 18 decimals.
+  /// @param uDown damp speed down for the `globalUtilizationAverage`, represented with 18 decimals.
+  function setDampSpeed(
+    uint256 assetsUp,
+    uint256 assetsDown,
+    uint256 uUp,
+    uint256 uDown
+  ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    updateAverages();
+    floatingAssetsDampSpeedUp = assetsUp;
+    floatingAssetsDampSpeedDown = assetsDown;
+    uDampSpeedUp = uUp;
+    uDampSpeedDown = uDown;
+    emit DampSpeedSet(assetsUp, assetsDown, uUp, uDown);
+  }
+
+  /// @notice Sets the fixed borrow threshold for the amount of assets that can be borrowed from the supply.
+  /// @param threshold percentage represented with 18 decimals.
+  function setFixedBorrowThreshold(uint256 threshold) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    fixedBorrowThreshold = threshold;
+    emit FixedBorrowThresholdSet(threshold);
   }
 
   /// @notice Sets the factor used when smoothly accruing earnings to the floating pool.
@@ -1365,9 +1403,20 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   event BackupFeeRateSet(uint256 backupFeeRate);
 
   /// @notice Emitted when the damp speeds are changed by admin.
-  /// @param dampSpeedUp represented with 18 decimals.
-  /// @param dampSpeedDown represented with 18 decimals.
-  event DampSpeedSet(uint256 dampSpeedUp, uint256 dampSpeedDown);
+  /// @param floatingAssetsDampSpeedUp represented with 18 decimals.
+  /// @param floatingAssetsDampSpeedDown represented with 18 decimals.
+  /// @param uDampSpeedUp represented with 18 decimals.
+  /// @param uDampSpeedDown represented with 18 decimals.
+  event DampSpeedSet(
+    uint256 floatingAssetsDampSpeedUp,
+    uint256 floatingAssetsDampSpeedDown,
+    uint256 uDampSpeedUp,
+    uint256 uDampSpeedDown
+  );
+
+  /// @notice Emitted when the fixedBorrowThreshold is changed by admin.
+  /// @param threshold represented with 18 decimals.
+  event FixedBorrowThresholdSet(uint256 threshold);
 
   /// @notice Emitted when the earningsAccumulatorSmoothFactor is changed by admin.
   /// @param earningsAccumulatorSmoothFactor factor represented with 18 decimals.

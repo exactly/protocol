@@ -67,6 +67,8 @@ contract MarketTest is Test {
       0.0046e18,
       0.42e18
     );
+    market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
+    market.setFixedBorrowThreshold(1e18);
     vm.label(address(market), "MarketDAI");
     daiPriceFeed = new MockPriceFeed(18, 1e18);
 
@@ -82,6 +84,13 @@ contract MarketTest is Test {
       0.0046e18,
       0.42e18
     );
+    marketWETH.setDampSpeed(
+      marketWETH.floatingAssetsDampSpeedUp(),
+      marketWETH.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    marketWETH.setFixedBorrowThreshold(1e18);
     vm.label(address(marketWETH), "MarketWETH");
 
     auditor.enableMarket(market, daiPriceFeed, 0.8e18);
@@ -560,6 +569,13 @@ contract MarketTest is Test {
       0.0046e18,
       0.42e18
     );
+    marketHarness.setDampSpeed(
+      market.floatingAssetsDampSpeedUp(),
+      market.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    marketHarness.setFixedBorrowThreshold(1e18);
     uint256 maturity = FixedLib.INTERVAL * 2;
     asset.mint(address(this), 50_000 ether);
     asset.approve(address(marketHarness), 50_000 ether);
@@ -595,6 +611,13 @@ contract MarketTest is Test {
       0.0046e18,
       0.42e18
     );
+    marketHarness.setDampSpeed(
+      marketHarness.floatingAssetsDampSpeedUp(),
+      marketHarness.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    marketHarness.setFixedBorrowThreshold(1e18);
     uint256 maturity = FixedLib.INTERVAL * 2;
     asset.mint(address(this), 50_000 ether);
     asset.approve(address(marketHarness), 50_000 ether);
@@ -754,6 +777,13 @@ contract MarketTest is Test {
       0.0046e18,
       0.42e18
     );
+    marketUSDC.setDampSpeed(
+      marketUSDC.floatingAssetsDampSpeedUp(),
+      marketUSDC.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    marketUSDC.setFixedBorrowThreshold(1e18);
     vm.label(address(marketUSDC), "MarketUSDC");
     MockPriceFeed usdcPriceFeed = new MockPriceFeed(18, 1e18);
     auditor.enableMarket(marketUSDC, usdcPriceFeed, 0.8e18);
@@ -1053,15 +1083,201 @@ contract MarketTest is Test {
     assertEq(totalAssetsBefore, market.totalAssets());
   }
 
-  function testSetDampSpeedFactorShouldUpdateFloatingAssetsAverage() external {
+  function testSetFloatingAssetsDampSpeedFactorShouldUpdateFloatingAssetsAverage() external {
     market.deposit(100 ether, address(this));
     vm.warp(30 seconds);
     market.deposit(5, address(this));
     vm.warp(100 seconds);
     uint256 floatingAssetsAverageBefore = market.floatingAssetsAverage();
 
-    market.setDampSpeed(0.0083e18, 0.35e18);
+    market.setDampSpeed(0.0083e18, 0.0083e18, 0.35e18, 0.35e18);
     assertGt(market.floatingAssetsAverage(), floatingAssetsAverageBefore);
+  }
+
+  function testSetFloatingAssetsDampSpeedFactorShouldUpdateGlobalUtilizationAverage() external {
+    market.deposit(100 ether, address(this));
+    market.borrow(10 ether, address(this), address(this));
+    uint256 globalUtilizationAverageBefore = market.globalUtilizationAverage();
+
+    vm.warp(1_000 seconds);
+    market.setDampSpeed(0.0083e18, 0.0083e18, 0.35e18, 0.35e18);
+    assertGt(market.globalUtilizationAverage(), globalUtilizationAverageBefore);
+  }
+
+  function testGlobalUtilizationAverageWithSignificantAmountOperations() external {
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+    Market newMarket = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    newMarket.initialize(
+      "USDC",
+      7,
+      2e18,
+      new InterestRateModel(
+        Parameters({
+          minRate: 0.05e18,
+          naturalRate: 0.11e18,
+          maxUtilization: 1.3e18,
+          naturalUtilization: 0.88e18,
+          growthSpeed: 1.3e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.3e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.2e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 18.25e18
+        }),
+        newMarket
+      ),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0.05e18,
+      0.000053e18,
+      0.23e18
+    );
+    newMarket.setDampSpeed(
+      newMarket.floatingAssetsDampSpeedUp(),
+      newMarket.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    newMarket.setFixedBorrowThreshold(1e18);
+    auditor.enableMarket(newMarket, IPriceFeed(auditor.BASE_FEED()), 0.91e18);
+    asset.mint(address(this), 10_000_000 ether);
+    asset.approve(address(newMarket), type(uint256).max);
+    market.deposit(500_000 ether, address(this));
+    auditor.enterMarket(market);
+
+    newMarket.deposit(1_350_000 ether, address(this));
+    vm.warp(block.timestamp + 3 days);
+    newMarket.borrow(1_160_000 ether, address(this), address(this));
+
+    vm.warp(block.timestamp + 25);
+
+    uint256 floatingAssets = newMarket.floatingAssets();
+    uint256 floatingDebt = newMarket.floatingDebt();
+    uint256 uGlobal = (floatingDebt + newMarket.floatingBackupBorrowed()).divWadUp(floatingAssets);
+    uint256 globalUtilizationAverage = newMarket.previewGlobalUtilizationAverage();
+    assertEq(globalUtilizationAverage, uGlobal);
+
+    newMarket.deposit(600_000 ether, address(this));
+
+    floatingAssets = newMarket.floatingAssets();
+    floatingDebt = newMarket.floatingDebt();
+    uGlobal = (floatingDebt + newMarket.floatingBackupBorrowed()).divWadUp(floatingAssets);
+    globalUtilizationAverage = newMarket.previewGlobalUtilizationAverage();
+    assertGt(globalUtilizationAverage, uGlobal.mulWadDown(1.3e18));
+
+    for (uint256 i = 0; i < 3; ++i) {
+      vm.warp(block.timestamp + 30 minutes);
+      newMarket.borrowAtMaturity(FixedLib.INTERVAL, 50_000 ether, 150_000 ether, address(this), address(this));
+      uGlobal = (newMarket.floatingDebt() + newMarket.floatingBackupBorrowed()).divWadUp(newMarket.floatingAssets());
+      globalUtilizationAverage = newMarket.previewGlobalUtilizationAverage();
+      assertGt(globalUtilizationAverage, uGlobal.mulWadDown(1.2e18));
+    }
+
+    vm.warp(block.timestamp + 30 minutes);
+    newMarket.withdraw(600_000 ether, address(this), address(this));
+    uGlobal = (newMarket.floatingDebt() + newMarket.floatingBackupBorrowed()).divWadUp(newMarket.floatingAssets());
+    globalUtilizationAverage = newMarket.previewGlobalUtilizationAverage();
+    assertGt(uGlobal, globalUtilizationAverage.mulWadDown(1.2e18));
+
+    vm.warp(block.timestamp + 45 seconds);
+    uGlobal = (newMarket.floatingDebt() + newMarket.floatingBackupBorrowed()).divWadUp(newMarket.floatingAssets());
+    globalUtilizationAverage = newMarket.previewGlobalUtilizationAverage();
+    assertApproxEqRel(globalUtilizationAverage, uGlobal, 0.0001e18);
+  }
+
+  function testGlobalUtilizationAverageWithLeverageOperations() external {
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+    Market newMarket = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    newMarket.initialize(
+      "USDC",
+      7,
+      2e18,
+      new InterestRateModel(
+        Parameters({
+          minRate: 0.05e18,
+          naturalRate: 0.11e18,
+          maxUtilization: 1.3e18,
+          naturalUtilization: 0.88e18,
+          growthSpeed: 1.3e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.3e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.2e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 18.25e18
+        }),
+        newMarket
+      ),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0.05e18,
+      0.000053e18,
+      0.23e18
+    );
+    newMarket.setDampSpeed(
+      newMarket.floatingAssetsDampSpeedUp(),
+      newMarket.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    newMarket.setFixedBorrowThreshold(1e18);
+    auditor.enableMarket(newMarket, IPriceFeed(auditor.BASE_FEED()), 0.91e18);
+    asset.mint(address(this), 10_000_000 ether);
+    asset.approve(address(newMarket), type(uint256).max);
+    market.deposit(500_000 ether, address(this));
+    auditor.enterMarket(market);
+
+    newMarket.deposit(1_350_000 ether, address(this));
+    vm.warp(block.timestamp + 3 days);
+    newMarket.borrow(1_160_000 ether, address(this), address(this));
+
+    vm.warp(block.timestamp + 25 seconds);
+
+    uint256 floatingAssets = newMarket.floatingAssets();
+    uint256 floatingDebt = newMarket.floatingDebt();
+    uint256 uGlobal = (floatingDebt + newMarket.floatingBackupBorrowed()).divWadUp(floatingAssets);
+    uint256 globalUtilizationAverage = newMarket.previewGlobalUtilizationAverage();
+    assertEq(uGlobal, globalUtilizationAverage);
+
+    newMarket.deposit(120_000 ether, address(this));
+
+    floatingAssets = newMarket.floatingAssets();
+    floatingDebt = newMarket.floatingDebt();
+    uGlobal = (floatingDebt + newMarket.floatingBackupBorrowed()).divWadUp(floatingAssets);
+    globalUtilizationAverage = newMarket.previewGlobalUtilizationAverage();
+    assertGt(globalUtilizationAverage, uGlobal.mulWadDown(1.05e18));
+
+    for (uint256 i = 0; i < 10; i++) {
+      vm.warp(block.timestamp + 3);
+      newMarket.borrow(45_000 ether, address(this), address(this));
+      floatingAssets = newMarket.floatingAssets();
+      floatingDebt = newMarket.floatingDebt();
+      uGlobal = (floatingDebt + newMarket.floatingBackupBorrowed()).divWadUp(floatingAssets);
+      globalUtilizationAverage = newMarket.previewGlobalUtilizationAverage();
+      assertGt(globalUtilizationAverage, uGlobal);
+
+      vm.warp(block.timestamp + 3);
+      newMarket.deposit(45_000 ether, address(this));
+      floatingAssets = newMarket.floatingAssets();
+      floatingDebt = newMarket.floatingDebt();
+      uGlobal = (floatingDebt + newMarket.floatingBackupBorrowed()).divWadUp(floatingAssets);
+      globalUtilizationAverage = newMarket.previewGlobalUtilizationAverage();
+      assertGt(globalUtilizationAverage, uGlobal);
+
+      // fixed rate should not fluctuate and stay below ~9%
+      assertLt(
+        newMarket.interestRateModel().fixedRate(
+          FixedLib.INTERVAL,
+          newMarket.maxFuturePools(),
+          0,
+          floatingDebt.divWadUp(floatingAssets),
+          floatingDebt.divWadUp(floatingAssets),
+          newMarket.previewGlobalUtilizationAverage()
+        ),
+        0.086e18
+      );
+    }
   }
 
   function testSetInterestRateModelShouldUpdateFloatingDebt() external {
@@ -1982,7 +2198,9 @@ contract MarketTest is Test {
 
     vm.warp(250);
     market.borrowAtMaturity(FixedLib.INTERVAL, 1, 2, address(this), address(this));
-    uint256 supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedUp() * (250 - 218))));
+    uint256 supplyAverageFactor = uint256(
+      1e18 - FixedPointMathLib.expWad(-int256(market.floatingAssetsDampSpeedUp() * (250 - 218)))
+    );
     assertEq(
       market.previewFloatingAssetsAverage(),
       lastFloatingAssetsAverage.mulWadDown(1e18 - supplyAverageFactor) +
@@ -2051,7 +2269,7 @@ contract MarketTest is Test {
 
     vm.warp(219);
     uint256 supplyAverageFactor = uint256(
-      1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (block.timestamp - 218)))
+      1e18 - FixedPointMathLib.expWad(-int256(market.floatingAssetsDampSpeedDown() * (block.timestamp - 218)))
     );
     assertEq(
       market.previewFloatingAssetsAverage(),
@@ -2062,7 +2280,7 @@ contract MarketTest is Test {
 
     vm.warp(221);
     supplyAverageFactor = uint256(
-      1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (block.timestamp - 218)))
+      1e18 - FixedPointMathLib.expWad(-int256(market.floatingAssetsDampSpeedDown() * (block.timestamp - 218)))
     );
     assertEq(
       market.previewFloatingAssetsAverage(),
@@ -2732,6 +2950,13 @@ contract MarketTest is Test {
       0.0046e18,
       0.42e18
     );
+    marketStETH.setDampSpeed(
+      marketStETH.floatingAssetsDampSpeedUp(),
+      marketStETH.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    marketStETH.setFixedBorrowThreshold(1e18);
     PriceFeedWrapper priceFeedWrapper = new PriceFeedWrapper(
       new MockPriceFeed(18, 0.99e18),
       address(stETH),
@@ -2766,6 +2991,13 @@ contract MarketTest is Test {
       0.0046e18,
       0.42e18
     );
+    marketWBTC.setDampSpeed(
+      marketWBTC.floatingAssetsDampSpeedUp(),
+      marketWBTC.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    marketWBTC.setFixedBorrowThreshold(1e18);
     PriceFeedDouble priceFeedDouble = new PriceFeedDouble(
       new MockPriceFeed(18, 14 ether),
       new MockPriceFeed(8, 99000000)
@@ -2803,6 +3035,13 @@ contract MarketTest is Test {
         0.0046e18,
         0.42e18
       );
+      markets[i].setDampSpeed(
+        markets[i].floatingAssetsDampSpeedUp(),
+        markets[i].floatingAssetsDampSpeedDown(),
+        0.23e18,
+        0.000053e18
+      );
+      markets[i].setFixedBorrowThreshold(1e18);
 
       auditor.enableMarket(markets[i], daiPriceFeed, 0.8e18);
       asset.mint(BOB, 50_000 ether);
@@ -3327,8 +3566,8 @@ contract MarketHarness is Market {
     uint256 penaltyRate_,
     uint256 backupFeeRate_,
     uint128 reserveFactor_,
-    uint256 dampSpeedUp_,
-    uint256 dampSpeedDown_
+    uint256 floatingAssetsDampSpeedUp_,
+    uint256 floatingAssetsDampSpeedDown_
   ) Market(asset_, auditor_) {
     // solhint-disable-next-line no-inline-assembly
     assembly {
@@ -3341,7 +3580,7 @@ contract MarketHarness is Market {
     setPenaltyRate(penaltyRate_);
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
-    setDampSpeed(dampSpeedUp_, dampSpeedDown_);
+    setDampSpeed(floatingAssetsDampSpeedUp_, floatingAssetsDampSpeedDown_, 0, 0);
   }
 
   function setSupply(uint256 supply) external {
