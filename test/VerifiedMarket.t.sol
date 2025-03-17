@@ -77,6 +77,7 @@ contract VerifiedMarketTest is MarketTest {
       0.0046e18,
       0.42e18
     );
+    market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
     vm.label(address(market), "MarketDAI");
 
     marketWETHPriceFeed = MockPriceFeed(address(auditor.BASE_FEED()));

@@ -48,8 +48,8 @@ contract Market is MarketBase {
     uint256 penaltyRate_,
     uint256 backupFeeRate_,
     uint128 reserveFactor_,
-    uint256 dampSpeedUp_,
-    uint256 dampSpeedDown_
+    uint256 floatingAssetsDampSpeedUp_,
+    uint256 floatingAssetsDampSpeedDown_
   ) external {
     // solhint-enable no-unused-vars
     delegateToExtension();
@@ -234,14 +234,15 @@ contract Market is MarketBase {
     }
     uint256 fee;
     {
-      uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
+      uint256 memFloatingAssets = floatingAssets;
       uint256 memFloatingDebt = floatingDebt;
       uint256 fixedRate = interestRateModel.fixedRate(
         maturity,
         maxFuturePools,
-        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssetsAverage),
-        floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
-        globalUtilization(memFloatingAssetsAverage, memFloatingDebt, floatingBackupBorrowed)
+        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssets),
+        floatingUtilization(memFloatingAssets, memFloatingDebt),
+        globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed),
+        previewGlobalUtilizationAverage()
       );
       fee = assets.mulWadUp(fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     }
@@ -353,16 +354,16 @@ contract Market is MarketBase {
 
     // verify if there are any penalties/fee for the account because of early withdrawal, if so discount
     if (block.timestamp < maturity) {
-      uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
+      uint256 memFloatingAssets = floatingAssets;
       uint256 memFloatingDebt = floatingDebt;
-      uint256 memFloatingBackupBorrowed = floatingBackupBorrowed;
 
       uint256 fixedRate = interestRateModel.fixedRate(
         maturity,
         maxFuturePools,
-        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssetsAverage),
-        floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
-        globalUtilization(memFloatingAssetsAverage, memFloatingDebt, memFloatingBackupBorrowed)
+        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssets),
+        floatingUtilization(memFloatingAssets, memFloatingDebt),
+        globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed),
+        previewGlobalUtilizationAverage()
       );
       assetsDiscounted = effectiveAssets.divWadDown(1e18 + fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     } else {
@@ -688,7 +689,7 @@ contract Market is MarketBase {
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be withdrawn from the floating pool.
   function beforeWithdraw(uint256 assets, uint256) internal override whenNotPaused {
-    updateFloatingAssetsAverage();
+    updateAverages();
     depositToTreasury(updateFloatingDebt());
     uint256 earnings = accrueAccumulatedEarnings();
     uint256 newFloatingAssets = floatingAssets + earnings - assets;
@@ -702,7 +703,7 @@ contract Market is MarketBase {
   function afterDeposit(uint256 assets, uint256 shares) internal override whenNotPaused whenNotFrozen {
     if (shares + totalSupply > maxSupply) revert MaxSupplyExceeded();
 
-    updateFloatingAssetsAverage();
+    updateAverages();
     uint256 treasuryFee = updateFloatingDebt();
     uint256 earnings = accrueAccumulatedEarnings();
     floatingAssets += earnings + assets;

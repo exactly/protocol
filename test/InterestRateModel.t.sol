@@ -23,7 +23,7 @@ contract InterestRateModelTest is Test {
   InterestRateModelHarness internal irm;
 
   function testFixedBorrowRate() external {
-    assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18), 63726888252924763);
+    assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18, 0.75e18), 63726888252924763);
   }
 
   function testFuzzFixedRateTimeSensitivity(uint256 maxPools, uint256 maturity, uint256 intervals) external {
@@ -36,6 +36,7 @@ contract InterestRateModelTest is Test {
       6,
       0.5e18,
       0.3e18,
+      0.8e18,
       0.8e18
     );
     skip(intervals * FixedLib.INTERVAL);
@@ -44,6 +45,7 @@ contract InterestRateModelTest is Test {
       6,
       0.5e18,
       0.3e18,
+      0.8e18,
       0.8e18
     );
     assertEq(rate, rate2);
@@ -185,7 +187,7 @@ contract InterestRateModelTest is Test {
       )
     );
     uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
-    uint256 rate = irm.fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal);
+    uint256 rate = irm.fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal, uGlobal);
 
     assertLe(rate, p.maxRate, "rate > maxRate");
     assertApproxEqRel(rate, refRate, 0.00000002e16, "rate != refRate");
@@ -241,6 +243,8 @@ contract InterestRateModelTest is Test {
       type(uint128).max,
       type(uint128).max
     );
+    market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
+    market.setFixedBorrowThreshold(1e18);
     asset.mint(address(this), type(uint128).max);
     asset.approve(address(market), type(uint128).max);
     if (floatingAssets != 0) market.deposit(floatingAssets, address(this));
@@ -317,8 +321,8 @@ contract InterestRateModelTest is Test {
       Market(address(0))
     );
 
-    uint256 rate = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed, uFloating, uGlobal);
-    uint256 rate2 = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed2, uFloating, uGlobal);
+    uint256 rate = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed, uFloating, uGlobal, uGlobal);
+    uint256 rate2 = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed2, uFloating, uGlobal, uGlobal);
     assertGe(rate2 + 2e2, rate, "rate2 < rate"); // HACK
   }
 
@@ -327,23 +331,23 @@ contract InterestRateModelTest is Test {
     vm.warp(FixedLib.INTERVAL);
 
     vm.expectRevert(AlreadyMatured.selector);
-    irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.3e18, 0.8e18);
+    irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.3e18, 0.8e18, 0.8e18);
   }
 
   function testFixedRateRevertUtilizationExceeded() external {
     irm = deployDefault();
 
     vm.expectRevert(UtilizationExceeded.selector);
-    irm.fixedRate(FixedLib.INTERVAL, 25, 0.9e18, 0.3e18, 0.8e18);
+    irm.fixedRate(FixedLib.INTERVAL, 25, 0.9e18, 0.3e18, 0.8e18, 0.8e18);
 
     vm.expectRevert(UtilizationExceeded.selector);
-    irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.9e18, 0.8e18);
+    irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.9e18, 0.8e18, 0.8e18);
   }
 
   function testMinTimeToMaturity() external {
     irm = deployDefault();
     vm.warp(FixedLib.INTERVAL - 1);
-    uint256 fixedRate = irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.3e18, 0.8e18);
+    uint256 fixedRate = irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.3e18, 0.8e18, 0.8e18);
     uint256 floatingRate = irm.floatingRate(0.3e18, 0.8e18);
     assertApproxEqRel(fixedRate, floatingRate, 4e13);
   }

@@ -62,6 +62,13 @@ contract RewardsControllerTest is Test {
       0.0046e18,
       0.42e18
     );
+    marketUSDC.setDampSpeed(
+      marketUSDC.floatingAssetsDampSpeedUp(),
+      marketUSDC.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    marketUSDC.setFixedBorrowThreshold(1e18);
     vm.label(address(marketUSDC), "MarketUSDC");
     auditor.enableMarket(marketUSDC, new MockPriceFeed(18, 1e18), 0.8e18);
 
@@ -78,6 +85,13 @@ contract RewardsControllerTest is Test {
       0.0046e18,
       0.42e18
     );
+    marketWETH.setDampSpeed(
+      marketWETH.floatingAssetsDampSpeedUp(),
+      marketWETH.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    marketWETH.setFixedBorrowThreshold(1e18);
     vm.label(address(marketWETH), "MarketWETH");
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18);
 
@@ -94,6 +108,13 @@ contract RewardsControllerTest is Test {
       0.0046e18,
       0.42e18
     );
+    marketWBTC.setDampSpeed(
+      marketWBTC.floatingAssetsDampSpeedUp(),
+      marketWBTC.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    marketWBTC.setFixedBorrowThreshold(1e18);
     vm.label(address(marketWBTC), "MarketWBTC");
     auditor.enableMarket(marketWBTC, new MockPriceFeed(18, 20_000e18), 0.9e18);
 
@@ -1798,6 +1819,8 @@ contract RewardsControllerTest is Test {
       0.0046e18,
       0.42e18
     );
+    market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
+    market.setFixedBorrowThreshold(1e18);
     auditor.enableMarket(market, new MockPriceFeed(18, 1e18), 0.8e18);
 
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);

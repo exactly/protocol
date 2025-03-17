@@ -89,7 +89,7 @@ contract InterestRateModel {
     auxSigmoid = int256(naturalUtilization.divWadDown(1e18 - naturalUtilization)).lnWad();
 
     // reverts if it's an invalid curve (such as one yielding a negative interest rate).
-    fixedRate(block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL), 2, 1, 1, 2);
+    fixedRate(block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL), 2, 1, 1, 2, 2);
     baseRate(1e18 - 1, 1e18 - 1);
   }
 
@@ -99,17 +99,19 @@ contract InterestRateModel {
   /// @param uFixed fixed utilization of the pool.
   /// @param uFloating floating utilization of the pool.
   /// @param uGlobal global utilization of the pool.
+  /// @param uGlobalAverage global utilization average of the pool.
   /// @return the minimum between `base * spread` and `maxRate` with given conditions.
   function fixedRate(
     uint256 maturity,
     uint256 maxPools,
     uint256 uFixed,
     uint256 uFloating,
-    uint256 uGlobal
+    uint256 uGlobal,
+    uint256 uGlobalAverage
   ) public view returns (uint256) {
     if (block.timestamp >= maturity) revert AlreadyMatured();
-    if (uFixed > uGlobal) revert UtilizationExceeded();
-    if (uGlobal == 0) return baseRate(uFloating, 0);
+    if (uFixed > uGlobal || uFloating > uGlobal) revert UtilizationExceeded();
+    if (uGlobal == 0) return baseRate(0, 0);
 
     FixedVars memory v;
     v.sqFNatPools = (maxPools * 1e18).divWadDown(fixedAllocation);
@@ -131,7 +133,7 @@ contract InterestRateModel {
               1e18)) /
           1e18)) /
       1e18).toUint256();
-    uint256 base = baseRate(uFloating, uGlobal);
+    uint256 base = baseRate(uFloating, uGlobalAverage);
 
     if (base >= maxRate.divWadDown(spread)) return maxRate;
     return base.mulWadUp(spread);
@@ -142,7 +144,6 @@ contract InterestRateModel {
   /// @param uGlobal global utilization of the pool.
   /// @return the base rate, without capping.
   function baseRate(uint256 uFloating, uint256 uGlobal) internal view returns (uint256) {
-    if (uFloating > uGlobal) revert UtilizationExceeded();
     if (uGlobal >= 1e18) return type(uint256).max;
 
     uint256 r = ((floatingCurveA.divWadDown(floatingMaxUtilization - uFloating)).toInt256() + floatingCurveB)
@@ -165,6 +166,7 @@ contract InterestRateModel {
   /// @param uGlobal global utilization of the pool.
   /// @return the minimum between `baseRate` and `maxRate` with given conditions.
   function floatingRate(uint256 uFloating, uint256 uGlobal) public view returns (uint256) {
+    if (uFloating > uGlobal) revert UtilizationExceeded();
     return Math.min(baseRate(uFloating, uGlobal), maxRate);
   }
 
@@ -200,7 +202,7 @@ contract InterestRateModel {
     uint256
   ) external view returns (uint256) {
     if (block.timestamp >= maturity) revert AlreadyMatured();
-    uint256 floatingAssets = previewFloatingAssetsAverage(maturity);
+    uint256 floatingAssets = market.floatingAssets();
     uint256 floatingDebt = market.totalFloatingBorrowAssets();
     uint256 newBorrowed = borrowed + amount;
     uint256 backupDebtAddition = newBorrowed - Math.min(Math.max(borrowed, supplied), newBorrowed);
@@ -211,33 +213,29 @@ contract InterestRateModel {
         market.maxFuturePools(),
         fixedUtilization(supplied, newBorrowed, floatingAssets),
         floatingAssets != 0 ? floatingDebt.divWadUp(floatingAssets) : 0,
-        globalUtilization(floatingAssets, floatingDebt, market.floatingBackupBorrowed() + backupDebtAddition)
+        globalUtilization(floatingAssets, floatingDebt, market.floatingBackupBorrowed() + backupDebtAddition),
+        market.previewGlobalUtilizationAverage()
       ).mulDivDown(maturity - block.timestamp, 365 days);
   }
 
   /// @dev deprecated in favor of `fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal)`
   function minFixedRate(uint256, uint256, uint256) external view returns (uint256 rate, uint256 utilization) {
     uint256 floatingAssets = market.floatingAssetsAverage();
-    uint256 floatingDebt = market.totalFloatingBorrowAssets();
-    utilization = globalUtilization(floatingAssets, floatingDebt, market.floatingBackupBorrowed());
-    rate = baseRate(floatingAssets != 0 ? floatingDebt.divWadUp(floatingAssets) : 0, utilization);
+    utilization = market.previewGlobalUtilizationAverage();
+    uint256 uFloating = floatingAssets != 0 ? market.floatingDebt().divWadUp(floatingAssets) : 0;
+    if (uFloating > utilization) revert UtilizationExceeded();
+    rate = baseRate(uFloating, utilization);
   }
 
-  function previewFloatingAssetsAverage(uint256 maturity) internal view returns (uint256) {
-    FixedLib.Pool memory pool;
-    (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
-    uint256 memFloatingAssets = market.floatingAssets() +
-      pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual);
-    uint256 memFloatingAssetsAverage = market.floatingAssetsAverage();
-    uint256 averageFactor = (1e18 -
-      (
-        -int256(
-          memFloatingAssets < memFloatingAssetsAverage
-            ? market.dampSpeedDown()
-            : market.dampSpeedUp() * (block.timestamp - market.lastAverageUpdate())
-        )
-      ).expWad()).toUint256();
-    return memFloatingAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(memFloatingAssets);
+  /// @dev deprecated in favor of `fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal, uGlobalAverage)`
+  function fixedRate(
+    uint256 maturity,
+    uint256 maxPools,
+    uint256 uFixed,
+    uint256 uFloating,
+    uint256 uGlobal
+  ) external view returns (uint256) {
+    return fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal, market.previewGlobalUtilizationAverage());
   }
 
   function globalUtilization(

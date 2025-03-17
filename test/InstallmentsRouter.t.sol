@@ -51,6 +51,8 @@ contract InstallmentsRouterTest is Test {
       0.0046e18,
       0.42e18
     );
+    market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
+    market.setFixedBorrowThreshold(1e18);
     vm.label(address(market), "market");
 
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
@@ -66,6 +68,13 @@ contract InstallmentsRouterTest is Test {
       0.0046e18,
       0.42e18
     );
+    marketWETH.setDampSpeed(
+      marketWETH.floatingAssetsDampSpeedUp(),
+      marketWETH.floatingAssetsDampSpeedDown(),
+      0.23e18,
+      0.000053e18
+    );
+    marketWETH.setFixedBorrowThreshold(1e18);
     vm.label(address(marketWETH), "marketWETH");
 
     auditor.enableMarket(market, new MockPriceFeed(18, 1e18), 0.8e18);

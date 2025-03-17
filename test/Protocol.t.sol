@@ -92,6 +92,13 @@ contract ProtocolTest is Test {
         0.0046e18,
         0.42e18
       );
+      market.setDampSpeed(
+        market.floatingAssetsDampSpeedUp(),
+        market.floatingAssetsDampSpeedDown(),
+        0.23e18,
+        0.000053e18
+      );
+      market.setFixedBorrowThreshold(1e18);
       vm.label(address(market), string.concat("Market", i.toString()));
       MockPriceFeed priceFeed = new MockPriceFeed(18, 1e18);
       // market.setTreasury(address(this), 0.1e18);
@@ -1035,8 +1042,8 @@ contract ProtocolTest is Test {
       unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual);
     uint256 floatingAssetsAverage = market.floatingAssetsAverage();
     uint256 dampSpeedFactor = floatingDepositAssets < floatingAssetsAverage
-      ? market.dampSpeedDown()
-      : market.dampSpeedUp();
+      ? market.floatingAssetsDampSpeedDown()
+      : market.floatingAssetsDampSpeedUp();
     uint256 averageFactor = uint256(
       1e18 - (-int256(dampSpeedFactor * (block.timestamp - market.lastAverageUpdate()))).expWad()
     );

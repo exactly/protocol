@@ -26,8 +26,8 @@ contract MarketExtension is MarketBase {
     uint256 penaltyRate_,
     uint256 backupFeeRate_,
     uint128 reserveFactor_,
-    uint256 dampSpeedUp_,
-    uint256 dampSpeedDown_
+    uint256 floatingAssetsDampSpeedUp_,
+    uint256 floatingAssetsDampSpeedDown_
   ) external initializer {
     __AccessControl_init();
     __Pausable_init();
@@ -47,7 +47,7 @@ contract MarketExtension is MarketBase {
     setPenaltyRate(penaltyRate_);
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
-    setDampSpeed(dampSpeedUp_, dampSpeedDown_);
+    setDampSpeed(floatingAssetsDampSpeedUp_, floatingAssetsDampSpeedDown_, 0, 0);
   }
 
   function transfer(address to, uint256 shares) public virtual override whenNotPaused returns (bool) {
