@@ -157,6 +157,12 @@ const func: DeployFunction = async ({
       await executeOrPropose(market, "setDampSpeed", [dampSpeedUp, dampSpeedDown]);
     }
     if (
+      (await market.floatingAssetsDampSpeedUp()) !== dampSpeedUp ||
+      (await market.floatingAssetsDampSpeedDown()) !== dampSpeedDown
+    ) {
+      await executeOrPropose(market, "setDampSpeed", [dampSpeedUp, dampSpeedDown, 0, 0]);
+    }
+    if (
       (await market.treasury()).toLowerCase() !== treasury.toLowerCase() ||
       (await market.treasuryFeeRate()) !== treasuryFeeRate
     ) {

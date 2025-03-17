@@ -28,14 +28,6 @@ contract Market is MarketBase {
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   MarketExtension public immutable extension;
 
-  /// @notice Flag to prevent new borrows and deposits.
-  bool public isFrozen;
-
-  /// @notice Tracks account's total amount of fixed deposits and borrows.
-  mapping(address account => FixedOps consolidated) public fixedConsolidated;
-  /// @notice Tracks the total amount of fixed deposits and borrows.
-  FixedOps public fixedOps;
-
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
     auditor = auditor_;
@@ -56,8 +48,8 @@ contract Market is MarketBase {
     uint256 penaltyRate_,
     uint256 backupFeeRate_,
     uint128 reserveFactor_,
-    uint256 dampSpeedUp_,
-    uint256 dampSpeedDown_
+    uint256 floatingAssetsDampSpeedUp_,
+    uint256 floatingAssetsDampSpeedDown_
   ) external {
     // solhint-enable no-unused-vars
     delegateToExtension();
@@ -242,14 +234,15 @@ contract Market is MarketBase {
     }
     uint256 fee;
     {
-      uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
+      uint256 memFloatingAssets = floatingAssets;
       uint256 memFloatingDebt = floatingDebt;
       uint256 fixedRate = interestRateModel.fixedRate(
         maturity,
         maxFuturePools,
-        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssetsAverage),
-        floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
-        globalUtilization(memFloatingAssetsAverage, memFloatingDebt, floatingBackupBorrowed)
+        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssets),
+        floatingUtilization(memFloatingAssets, memFloatingDebt),
+        globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed),
+        previewGlobalUtilizationAverage()
       );
       fee = assets.mulWadUp(fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     }
@@ -361,16 +354,16 @@ contract Market is MarketBase {
 
     // verify if there are any penalties/fee for the account because of early withdrawal, if so discount
     if (block.timestamp < maturity) {
-      uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
+      uint256 memFloatingAssets = floatingAssets;
       uint256 memFloatingDebt = floatingDebt;
-      uint256 memFloatingBackupBorrowed = floatingBackupBorrowed;
 
       uint256 fixedRate = interestRateModel.fixedRate(
         maturity,
         maxFuturePools,
-        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssetsAverage),
-        floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
-        globalUtilization(memFloatingAssetsAverage, memFloatingDebt, memFloatingBackupBorrowed)
+        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssets),
+        floatingUtilization(memFloatingAssets, memFloatingDebt),
+        globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed),
+        previewGlobalUtilizationAverage()
       );
       assetsDiscounted = effectiveAssets.divWadDown(1e18 + fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     } else {
@@ -696,7 +689,7 @@ contract Market is MarketBase {
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be withdrawn from the floating pool.
   function beforeWithdraw(uint256 assets, uint256) internal override whenNotPaused {
-    updateFloatingAssetsAverage();
+    updateAverages();
     depositToTreasury(updateFloatingDebt());
     uint256 earnings = accrueAccumulatedEarnings();
     uint256 newFloatingAssets = floatingAssets + earnings - assets;
@@ -710,7 +703,7 @@ contract Market is MarketBase {
   function afterDeposit(uint256 assets, uint256) internal override whenNotPaused whenNotFrozen {
     if (assets + totalAssets() > maxTotalAssets) revert MaxTotalAssetsExceeded();
 
-    updateFloatingAssetsAverage();
+    updateAverages();
     uint256 treasuryFee = updateFloatingDebt();
     uint256 earnings = accrueAccumulatedEarnings();
     floatingAssets += earnings + assets;
@@ -1087,14 +1080,6 @@ contract Market is MarketBase {
 
   /// @notice Emitted when `account` sets the `isFrozen` flag.
   event Frozen(address indexed account, bool isFrozen);
-
-  /// @notice Stores amount of fixed deposits and borrows.
-  /// @param deposits amount of fixed deposits.
-  /// @param borrows amount of fixed borrows.
-  struct FixedOps {
-    uint256 deposits;
-    uint256 borrows;
-  }
 }
 
 error Disagreement();
