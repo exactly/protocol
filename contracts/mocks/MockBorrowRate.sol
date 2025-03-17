@@ -15,6 +15,10 @@ contract MockBorrowRate {
     return borrowRate;
   }
 
+  function floatingRate(uint256) external view returns (uint256) {
+    return borrowRate;
+  }
+
   function fixedRate(uint256 maturity, uint256, uint256, uint256, uint256, uint256) external view returns (uint256) {
     return borrowRate.mulDivUp(365 days, maturity - block.timestamp);
   }

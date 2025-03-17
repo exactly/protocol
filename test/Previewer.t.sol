@@ -282,7 +282,7 @@ contract PreviewerTest is Test {
     vm.warp(5301 seconds);
     preview = previewer.previewBorrowAtMaturity(market, maturity, 2.33 ether);
 
-    assertEq(preview.utilization, uint256(2.33 ether).divWadUp(1.47 ether + market.floatingAssets()));
+    assertEq(preview.utilization, uint256(2.33 ether - 1.47 ether).divWadUp(market.floatingAssets()));
   }
 
   function testPreviewBorrowAtMaturityWithZeroAmount() external {
