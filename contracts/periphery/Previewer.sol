@@ -202,17 +202,14 @@ contract Previewer {
     if (block.timestamp > maturity) revert AlreadyMatured();
     FixedLib.Pool memory pool;
     (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
-    uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage(
-      market,
-      pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual)
-    );
+    uint256 floatingAssets = market.floatingAssets();
 
     return
       FixedPreview({
         maturity: maturity,
         assets: assets + fixedDepositYield(market, maturity, assets),
-        utilization: memFloatingAssetsAverage > 0
-          ? pool.borrowed.divWadUp(pool.supplied + assets + memFloatingAssetsAverage)
+        utilization: (floatingAssets > 0 && pool.borrowed > pool.supplied + assets)
+          ? (pool.borrowed - assets - pool.supplied).divWadUp(floatingAssets)
           : 0
       });
   }
@@ -267,7 +264,9 @@ contract Previewer {
               365 days
             )
           ),
-        utilization: floatingAssets > 0 ? (pool.borrowed + assets).divWadUp(pool.supplied + floatingAssets) : 0
+        utilization: (floatingAssets > 0 && pool.borrowed + assets > pool.supplied)
+          ? (pool.borrowed + assets - pool.supplied).divWadUp(floatingAssets)
+          : 0
       });
   }
 
@@ -306,13 +305,8 @@ contract Previewer {
     uint256 positionAssets,
     address owner
   ) public view returns (FixedPreview memory) {
-    (FixedLib.Pool memory pool, uint256 principal, uint256 memFloatingAssetsAverage) = previewData(
-      market,
-      maturity,
-      positionAssets,
-      owner,
-      false
-    );
+    (FixedLib.Pool memory pool, uint256 principal) = previewData(market, maturity, positionAssets, owner, false);
+    uint256 floatingAssets = market.floatingAssets() + newFloatingDebt(market);
 
     return
       FixedPreview({
@@ -325,12 +319,12 @@ contract Previewer {
                 positionAssets,
                 pool.borrowed,
                 pool.supplied,
-                memFloatingAssetsAverage
+                floatingAssets
               )
           )
           : positionAssets,
-        utilization: memFloatingAssetsAverage > 0
-          ? pool.borrowed.divWadUp(pool.supplied + memFloatingAssetsAverage - principal)
+        utilization: floatingAssets > 0 && pool.borrowed > pool.supplied + principal
+          ? (pool.borrowed - principal - pool.supplied).divWadUp(floatingAssets)
           : 0
       });
   }
@@ -347,13 +341,8 @@ contract Previewer {
     uint256 positionAssets,
     address borrower
   ) public view returns (FixedPreview memory) {
-    (FixedLib.Pool memory pool, uint256 principal, uint256 memFloatingAssetsAverage) = previewData(
-      market,
-      maturity,
-      positionAssets,
-      borrower,
-      true
-    );
+    (FixedLib.Pool memory pool, uint256 principal) = previewData(market, maturity, positionAssets, borrower, true);
+    uint256 floatingAssets = market.floatingAssets() + newFloatingDebt(market);
 
     return
       FixedPreview({
@@ -361,10 +350,8 @@ contract Previewer {
         assets: block.timestamp < maturity
           ? positionAssets - fixedDepositYield(market, maturity, principal)
           : positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate()),
-        utilization: memFloatingAssetsAverage > 0
-          ? (pool.borrowed > principal ? pool.borrowed - principal : 0).divWadUp(
-            pool.supplied + memFloatingAssetsAverage
-          )
+        utilization: floatingAssets > 0 && pool.borrowed > pool.supplied + principal
+          ? (pool.borrowed - principal - pool.supplied).divWadUp(floatingAssets)
           : 0
       });
   }
@@ -375,22 +362,13 @@ contract Previewer {
     uint256 positionAssets,
     address account,
     bool isRepay
-  ) internal view returns (FixedLib.Pool memory pool, uint256, uint256) {
+  ) internal view returns (FixedLib.Pool memory pool, uint256) {
     (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
     FixedLib.Position memory position;
     (position.principal, position.fee) = isRepay
       ? market.fixedBorrowPositions(maturity, account)
       : market.fixedDepositPositions(maturity, account);
-    return (
-      pool,
-      position.scaleProportionally(positionAssets).principal,
-      previewFloatingAssetsAverage(
-        market,
-        maturity > pool.lastAccrual
-          ? pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual)
-          : (isRepay ? pool.unassignedEarnings * (block.timestamp - pool.lastAccrual) : pool.unassignedEarnings)
-      )
-    );
+    return (pool, position.scaleProportionally(positionAssets).principal);
   }
 
   function fixedPools(Market market) internal view returns (FixedPool[] memory pools) {
