@@ -144,8 +144,11 @@ const func: DeployFunction = async ({
     if ((await market.interestRateModel()).toLowerCase() !== interestRateModel.toLowerCase()) {
       await executeOrPropose(market, "setInterestRateModel", [interestRateModel]);
     }
-    if ((await market.dampSpeedUp()) !== dampSpeedUp || (await market.dampSpeedDown()) !== dampSpeedDown) {
-      await executeOrPropose(market, "setDampSpeed", [dampSpeedUp, dampSpeedDown]);
+    if (
+      (await market.floatingAssetsDampSpeedUp()) !== dampSpeedUp ||
+      (await market.floatingAssetsDampSpeedDown()) !== dampSpeedDown
+    ) {
+      await executeOrPropose(market, "setDampSpeed", [dampSpeedUp, dampSpeedDown, 0, 0]);
     }
     if (
       (await market.treasury()).toLowerCase() !== treasury.toLowerCase() ||

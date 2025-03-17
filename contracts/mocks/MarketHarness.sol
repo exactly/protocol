@@ -29,7 +29,7 @@ contract MarketHarness is Market {
     setPenaltyRate(penaltyRate_);
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
-    setDampSpeed(dampSpeedUp_, dampSpeedDown_);
+    setDampSpeed(dampSpeedUp_, dampSpeedDown_, 0, 0);
   }
 
   function borrowMaturityWithReturnValue(

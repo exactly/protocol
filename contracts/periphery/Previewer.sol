@@ -251,29 +251,25 @@ contract Previewer {
   ) public view returns (FixedPreview memory) {
     FixedLib.Pool memory pool;
     (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
-    uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage(
-      market,
-      maturity > pool.lastAccrual
-        ? pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual)
-        : pool.unassignedEarnings
-    );
+    uint256 floatingAssets = market.floatingAssets() +
+      (
+        maturity > pool.lastAccrual
+          ? pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual)
+          : pool.unassignedEarnings
+      ) +
+      newFloatingDebt(market);
 
-    uint256 fees = assets.mulWadUp(
-      market.interestRateModel().fixedBorrowRate(
-        maturity,
-        assets,
-        pool.borrowed,
-        pool.supplied,
-        memFloatingAssetsAverage
-      )
-    );
     return
       FixedPreview({
         maturity: maturity,
-        assets: assets + fees,
-        utilization: memFloatingAssetsAverage > 0
-          ? (pool.borrowed + assets).divWadUp(pool.supplied + memFloatingAssetsAverage)
-          : 0
+        assets: assets +
+          assets.mulWadUp(
+            fixedRate(market, maturity, pool, floatingAssets, assets).mulDivDown(
+              block.timestamp <= maturity ? maturity - block.timestamp : 0,
+              365 days
+            )
+          ),
+        utilization: floatingAssets > 0 ? (pool.borrowed + assets).divWadUp(pool.supplied + floatingAssets) : 0
       });
   }
 
@@ -450,7 +446,8 @@ contract Previewer {
           f.maxFuturePools,
           f.fixedUtilization,
           f.floatingUtilization,
-          f.globalUtilization
+          f.globalUtilization,
+          market.previewGlobalUtilizationAverage()
         )
       });
       unchecked {
@@ -566,6 +563,44 @@ contract Previewer {
     }
   }
 
+  function fixedRate(
+    Market market,
+    uint256 maturity,
+    FixedLib.Pool memory pool,
+    uint256 floatingAssets,
+    uint256 assets
+  ) internal view returns (uint256) {
+    uint256 globalUtilization = floatingAssets != 0
+      ? (market.totalFloatingBorrowAssets() +
+        market.floatingBackupBorrowed() +
+        pool.borrowed +
+        assets -
+        Math.min(Math.max(pool.borrowed, pool.supplied), pool.borrowed + assets)).divWadUp(floatingAssets)
+      : 0;
+    uint256 memGlobalUtilizationAverage = market.globalUtilizationAverage();
+    uint256 averageFactor = uint256(
+      1e18 -
+        (
+          -int256(
+            globalUtilization < memGlobalUtilizationAverage
+              ? market.uDampSpeedDown()
+              : market.uDampSpeedUp() * (block.timestamp - market.lastAverageUpdate())
+          )
+        ).expWad()
+    );
+    return
+      market.interestRateModel().fixedRate(
+        maturity,
+        market.maxFuturePools(),
+        floatingAssets != 0 && pool.borrowed + assets > pool.supplied
+          ? (pool.borrowed + assets - pool.supplied).divWadUp(floatingAssets)
+          : 0,
+        floatingAssets != 0 ? market.totalFloatingBorrowAssets().divWadUp(floatingAssets) : 0,
+        globalUtilization,
+        memGlobalUtilizationAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(globalUtilization)
+      );
+  }
+
   function previewFloatingAssetsAverage(Market market, uint256 backupEarnings) internal view returns (uint256) {
     uint256 memFloatingAssets = market.floatingAssets() + backupEarnings;
     uint256 memFloatingAssetsAverage = market.floatingAssetsAverage();
@@ -574,8 +609,8 @@ contract Previewer {
         (
           -int256(
             memFloatingAssets < memFloatingAssetsAverage
-              ? market.dampSpeedDown()
-              : market.dampSpeedUp() * (block.timestamp - market.lastAverageUpdate())
+              ? market.floatingAssetsDampSpeedDown()
+              : market.floatingAssetsDampSpeedUp() * (block.timestamp - market.lastAverageUpdate())
           )
         ).expWad()
     );
