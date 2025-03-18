@@ -4,8 +4,10 @@ pragma solidity ^0.8.17;
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable-v4/utils/math/MathUpgradeable.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
-import { InterestRateModel as IRM, Parameters, AlreadyMatured } from "../InterestRateModel.sol";
+import { InterestRateModel as IRM, Parameters } from "../InterestRateModel.sol";
 import { RewardsController } from "../RewardsController.sol";
+import { PreviewerLib } from "../utils/PreviewerLib.sol";
+import { FixedPreviewer } from "./FixedPreviewer.sol";
 import { FixedLib } from "../utils/FixedLib.sol";
 import { Auditor, IPriceFeed } from "../Auditor.sol";
 import { Market } from "../Market.sol";
@@ -15,14 +17,14 @@ import { Market } from "../Market.sol";
 contract Previewer {
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for int256;
-  using FixedLib for FixedLib.Position;
-  using FixedLib for FixedLib.Pool;
-  using FixedLib for uint256;
+  using PreviewerLib for Market;
 
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IPriceFeed public immutable basePriceFeed;
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  FixedPreviewer public immutable fixedPreviewer;
 
   struct MarketAccount {
     // market
@@ -90,12 +92,6 @@ contract Previewer {
     FixedLib.Position position;
   }
 
-  struct FixedPreview {
-    uint256 maturity;
-    uint256 assets;
-    uint256 utilization;
-  }
-
   struct FixedPool {
     uint256 maturity;
     uint256 borrowed;
@@ -108,9 +104,10 @@ contract Previewer {
   }
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(Auditor auditor_, IPriceFeed basePriceFeed_) {
+  constructor(Auditor auditor_, IPriceFeed basePriceFeed_, FixedPreviewer fixedPreviewer_) {
     auditor = auditor_;
     basePriceFeed = basePriceFeed_;
+    fixedPreviewer = fixedPreviewer_;
   }
 
   /// @notice Function to get a certain account extended data.
@@ -175,206 +172,24 @@ contract Previewer {
           account,
           a.fixedDeposits,
           market.fixedDepositPositions,
-          this.previewWithdrawAtMaturity
+          fixedPreviewer.previewWithdrawAtMaturity
         ),
         fixedBorrowPositions: fixedPositions(
           market,
           account,
           a.fixedBorrows,
           market.fixedBorrowPositions,
-          this.previewRepayAtMaturity
+          fixedPreviewer.previewRepayAtMaturity
         ),
         claimableRewards: claimableRewards(market, account)
       });
     }
   }
 
-  /// @notice Gets the assets plus yield offered by a maturity when depositing a certain amount.
-  /// @param market address of the market.
-  /// @param maturity maturity date/pool where the assets will be deposited.
-  /// @param assets amount of assets that will be deposited.
-  /// @return amount plus yield that the depositor will receive after maturity.
-  function previewDepositAtMaturity(
-    Market market,
-    uint256 maturity,
-    uint256 assets
-  ) public view returns (FixedPreview memory) {
-    if (block.timestamp > maturity) revert AlreadyMatured();
-    FixedLib.Pool memory pool;
-    (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
-    uint256 floatingAssets = market.floatingAssets();
-
-    return
-      FixedPreview({
-        maturity: maturity,
-        assets: assets + fixedDepositYield(market, maturity, assets),
-        utilization: (floatingAssets > 0 && pool.borrowed > pool.supplied + assets)
-          ? (pool.borrowed - assets - pool.supplied).divWadUp(floatingAssets)
-          : 0
-      });
-  }
-
-  /// @notice Gets the assets plus yield offered by all VALID maturities when depositing a certain amount.
-  /// @param market address of the market.
-  /// @param assets amount of assets that will be deposited.
-  /// @return previews array containing amount plus yield that account will receive after each maturity.
-  function previewDepositAtAllMaturities(
-    Market market,
-    uint256 assets
-  ) external view returns (FixedPreview[] memory previews) {
-    uint256 maxFuturePools = market.maxFuturePools();
-    uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
-    previews = new FixedPreview[](maxFuturePools);
-    for (uint256 i = 0; i < maxFuturePools; ) {
-      previews[i] = previewDepositAtMaturity(market, maturity, assets);
-      maturity += FixedLib.INTERVAL;
-      unchecked {
-        ++i;
-      }
-    }
-  }
-
-  /// @notice Gets the amount plus fees to be repaid at maturity when borrowing certain amount of assets.
-  /// @param market address of the market.
-  /// @param maturity maturity date/pool where the assets will be borrowed.
-  /// @param assets amount of assets that will be borrowed.
-  /// @return positionAssets amount plus fees that the depositor will repay at maturity.
-  function previewBorrowAtMaturity(
-    Market market,
-    uint256 maturity,
-    uint256 assets
-  ) public view returns (FixedPreview memory) {
-    FixedLib.Pool memory pool;
-    (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
-    uint256 floatingAssets = market.floatingAssets() +
-      (
-        maturity > pool.lastAccrual
-          ? pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual)
-          : pool.unassignedEarnings
-      ) +
-      newFloatingDebt(market);
-
-    return
-      FixedPreview({
-        maturity: maturity,
-        assets: assets +
-          assets.mulWadUp(
-            fixedRate(market, maturity, pool, floatingAssets, assets).mulDivDown(
-              block.timestamp <= maturity ? maturity - block.timestamp : 0,
-              365 days
-            )
-          ),
-        utilization: (floatingAssets > 0 && pool.borrowed + assets > pool.supplied)
-          ? (pool.borrowed + assets - pool.supplied).divWadUp(floatingAssets)
-          : 0
-      });
-  }
-
-  /// @notice Gets the assets plus fees offered by all VALID maturities when borrowing a certain amount.
-  /// @param market address of the market.
-  /// @param assets amount of assets that will be borrowed.
-  /// @return previews array containing amount plus yield that account will receive after each maturity.
-  function previewBorrowAtAllMaturities(
-    Market market,
-    uint256 assets
-  ) external view returns (FixedPreview[] memory previews) {
-    uint256 maxFuturePools = market.maxFuturePools();
-    uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
-    previews = new FixedPreview[](maxFuturePools);
-    for (uint256 i = 0; i < maxFuturePools; ) {
-      try this.previewBorrowAtMaturity(market, maturity, assets) returns (FixedPreview memory preview) {
-        previews[i] = preview;
-      } catch {
-        previews[i] = FixedPreview({ maturity: maturity, assets: type(uint256).max, utilization: type(uint256).max });
-      }
-      maturity += FixedLib.INTERVAL;
-      unchecked {
-        ++i;
-      }
-    }
-  }
-
-  /// @notice Gets the amount to be withdrawn for a certain positionAmount of assets at maturity.
-  /// @param market address of the market.
-  /// @param maturity maturity date/pool where the assets will be withdrawn.
-  /// @param positionAssets amount of assets that will be tried to withdraw.
-  /// @return withdrawAssets amount that will be withdrawn.
-  function previewWithdrawAtMaturity(
-    Market market,
-    uint256 maturity,
-    uint256 positionAssets,
-    address owner
-  ) public view returns (FixedPreview memory) {
-    (FixedLib.Pool memory pool, uint256 principal) = previewData(market, maturity, positionAssets, owner, false);
-    uint256 floatingAssets = market.floatingAssets() + newFloatingDebt(market);
-
-    return
-      FixedPreview({
-        maturity: maturity,
-        assets: block.timestamp < maturity
-          ? positionAssets.divWadDown(
-            1e18 +
-              market.interestRateModel().fixedBorrowRate(
-                maturity,
-                positionAssets,
-                pool.borrowed,
-                pool.supplied,
-                floatingAssets
-              )
-          )
-          : positionAssets,
-        utilization: floatingAssets > 0 && pool.borrowed > pool.supplied + principal
-          ? (pool.borrowed - principal - pool.supplied).divWadUp(floatingAssets)
-          : 0
-      });
-  }
-
-  /// @notice Gets the assets that will be repaid when repaying a certain amount at the current maturity.
-  /// @param market address of the market.
-  /// @param maturity maturity date/pool where the assets will be repaid.
-  /// @param positionAssets amount of assets that will be subtracted from the position.
-  /// @param borrower address of the borrower.
-  /// @return repayAssets amount of assets that will be repaid.
-  function previewRepayAtMaturity(
-    Market market,
-    uint256 maturity,
-    uint256 positionAssets,
-    address borrower
-  ) public view returns (FixedPreview memory) {
-    (FixedLib.Pool memory pool, uint256 principal) = previewData(market, maturity, positionAssets, borrower, true);
-    uint256 floatingAssets = market.floatingAssets() + newFloatingDebt(market);
-
-    return
-      FixedPreview({
-        maturity: maturity,
-        assets: block.timestamp < maturity
-          ? positionAssets - fixedDepositYield(market, maturity, principal)
-          : positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate()),
-        utilization: floatingAssets > 0 && pool.borrowed > pool.supplied + principal
-          ? (pool.borrowed - principal - pool.supplied).divWadUp(floatingAssets)
-          : 0
-      });
-  }
-
-  function previewData(
-    Market market,
-    uint256 maturity,
-    uint256 positionAssets,
-    address account,
-    bool isRepay
-  ) internal view returns (FixedLib.Pool memory pool, uint256) {
-    (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
-    FixedLib.Position memory position;
-    (position.principal, position.fee) = isRepay
-      ? market.fixedBorrowPositions(maturity, account)
-      : market.fixedDepositPositions(maturity, account);
-    return (pool, position.scaleProportionally(positionAssets).principal);
-  }
-
   function fixedPools(Market market) internal view returns (FixedPool[] memory pools) {
     FixedPoolVars memory f;
     f.totalFloatingBorrowAssets = market.totalFloatingBorrowAssets();
-    f.freshFloatingDebt = newFloatingDebt(market);
+    f.freshFloatingDebt = market.newFloatingDebt();
     f.maxFuturePools = market.maxFuturePools();
     pools = new FixedPool[](f.maxFuturePools);
     for (uint256 i = 0; i < f.maxFuturePools; ) {
@@ -539,44 +354,6 @@ contract Previewer {
     }
   }
 
-  function fixedRate(
-    Market market,
-    uint256 maturity,
-    FixedLib.Pool memory pool,
-    uint256 floatingAssets,
-    uint256 assets
-  ) internal view returns (uint256) {
-    uint256 globalUtilization = floatingAssets != 0
-      ? (market.totalFloatingBorrowAssets() +
-        market.floatingBackupBorrowed() +
-        pool.borrowed +
-        assets -
-        Math.min(Math.max(pool.borrowed, pool.supplied), pool.borrowed + assets)).divWadUp(floatingAssets)
-      : 0;
-    uint256 memGlobalUtilizationAverage = market.globalUtilizationAverage();
-    uint256 averageFactor = uint256(
-      1e18 -
-        (
-          -int256(
-            globalUtilization < memGlobalUtilizationAverage
-              ? market.uDampSpeedDown()
-              : market.uDampSpeedUp() * (block.timestamp - market.lastAverageUpdate())
-          )
-        ).expWad()
-    );
-    return
-      market.interestRateModel().fixedRate(
-        maturity,
-        market.maxFuturePools(),
-        floatingAssets != 0 && pool.borrowed + assets > pool.supplied
-          ? (pool.borrowed + assets - pool.supplied).divWadUp(floatingAssets)
-          : 0,
-        floatingAssets != 0 ? market.totalFloatingBorrowAssets().divWadUp(floatingAssets) : 0,
-        globalUtilization,
-        memGlobalUtilizationAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(globalUtilization)
-      );
-  }
-
   function previewFloatingAssetsAverage(Market market, uint256 backupEarnings) internal view returns (uint256) {
     uint256 memFloatingAssets = market.floatingAssets() + backupEarnings;
     uint256 memFloatingAssetsAverage = market.floatingAssetsAverage();
@@ -594,7 +371,7 @@ contract Previewer {
   }
 
   function floatingAvailableAssets(Market market) internal view returns (uint256) {
-    uint256 freshFloatingDebt = newFloatingDebt(market);
+    uint256 freshFloatingDebt = market.newFloatingDebt();
     uint256 maxAssets = (market.floatingAssets() + freshFloatingDebt).mulWadDown(1e18 - market.reserveFactor());
     return maxAssets - Math.min(maxAssets, market.floatingBackupBorrowed() + market.floatingDebt() + freshFloatingDebt);
   }
@@ -604,7 +381,7 @@ contract Previewer {
     address account,
     uint256 packedMaturities,
     function(uint256, address) external view returns (uint256, uint256) getPosition,
-    function(Market, uint256, uint256, address) external view returns (FixedPreview memory) previewValue
+    function(Market, uint256, uint256, address) external view returns (FixedPreviewer.FixedPreview memory) previewValue
   ) internal view returns (FixedPosition[] memory userMaturityPositions) {
     uint256 userMaturityCount = 0;
     FixedPosition[] memory allMaturityPositions = new FixedPosition[](224);
@@ -618,7 +395,9 @@ contract Previewer {
           positionAssets = principal + fee;
           allMaturityPositions[userMaturityCount].position = FixedLib.Position(principal, fee);
         }
-        try previewValue(market, maturity, positionAssets, account) returns (FixedPreview memory fixedPreview) {
+        try previewValue(market, maturity, positionAssets, account) returns (
+          FixedPreviewer.FixedPreview memory fixedPreview
+        ) {
           allMaturityPositions[userMaturityCount].previewValue = fixedPreview.assets;
         } catch {
           allMaturityPositions[userMaturityCount].previewValue = positionAssets;
@@ -637,28 +416,6 @@ contract Previewer {
         ++i;
       }
     }
-  }
-
-  function fixedDepositYield(Market market, uint256 maturity, uint256 assets) internal view returns (uint256 yield) {
-    FixedLib.Pool memory pool;
-    (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
-    if (maturity > pool.lastAccrual) {
-      pool.unassignedEarnings -= pool.unassignedEarnings.mulDivDown(
-        block.timestamp - pool.lastAccrual,
-        maturity - pool.lastAccrual
-      );
-    }
-    (yield, ) = pool.calculateDeposit(assets, market.backupFeeRate());
-  }
-
-  function newFloatingDebt(Market market) internal view returns (uint256) {
-    return
-      market.floatingDebt().mulWadDown(
-        market.interestRateModel().floatingRate(0).mulDivDown(
-          block.timestamp - market.lastFloatingDebtUpdate(),
-          365 days
-        )
-      );
   }
 
   struct RewardsVars {
