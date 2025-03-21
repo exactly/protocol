@@ -231,7 +231,7 @@ contract InterestRateModelTest is Test {
       }),
       market
     );
-    market.initialize("", 2, 2e18, irm, 2e16 / uint256(1 days), 1e17, 0, type(uint128).max, type(uint128).max);
+    market.initialize(2, 2e18, irm, 2e16 / uint256(1 days), 1e17, 0, type(uint128).max, type(uint128).max);
     market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
     market.setFixedBorrowThreshold(1e18);
     asset.mint(address(this), type(uint128).max);

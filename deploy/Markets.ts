@@ -123,9 +123,6 @@ const func: DeployFunction = async ({
       }),
     );
 
-    if ((await market.symbol()) !== `exa${assetSymbol}` || (await market.name()) !== `exactly ${assetSymbol}`) {
-      await executeOrPropose(market, "setAssetSymbol", [assetSymbol]);
-    }
     if ((await market.maxFuturePools()) !== BigInt(finance.futurePools)) {
       await executeOrPropose(market, "setMaxFuturePools", [finance.futurePools]);
     }
