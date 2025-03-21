@@ -40,7 +40,6 @@ contract InstallmentsRouterTest is Test {
 
     market = Market(address(new ERC1967Proxy(address(new Market(usdc, auditor)), "")));
     market.initialize(
-      "USDC.e",
       3,
       1e18,
       InterestRateModel(address(new MockInterestRateModel(0.1e18))),
@@ -54,7 +53,6 @@ contract InstallmentsRouterTest is Test {
 
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
       3,
       1e18,
       InterestRateModel(address(new MockInterestRateModel(0.1e18))),
