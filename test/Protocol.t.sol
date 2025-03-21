@@ -80,7 +80,7 @@ contract ProtocolTest is Test {
         }),
         market
       );
-      market.initialize("", MAX_FUTURE_POOLS, 2e18, irm, PENALTY_RATE, 1e17, RESERVE_FACTOR, 0.0046e18, 0.42e18);
+      market.initialize(MAX_FUTURE_POOLS, 2e18, irm, PENALTY_RATE, 1e17, RESERVE_FACTOR, 0.0046e18, 0.42e18);
       market.setDampSpeed(
         market.floatingAssetsDampSpeedUp(),
         market.floatingAssetsDampSpeedDown(),

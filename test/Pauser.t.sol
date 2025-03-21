@@ -29,7 +29,6 @@ contract PauserTest is Test {
 
     marketA = Market(address(new ERC1967Proxy(address(new Market(new MockERC20("A", "A", 18), auditor)), "")));
     marketA.initialize(
-      "A",
       3,
       1e18,
       InterestRateModel(address(irm)),
@@ -53,7 +52,6 @@ contract PauserTest is Test {
 
     marketB = Market(address(new ERC1967Proxy(address(new Market(new MockERC20("B", "B", 18), auditor)), "")));
     marketB.initialize(
-      "B",
       3,
       1e18,
       InterestRateModel(address(irm)),
