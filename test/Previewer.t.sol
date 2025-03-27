@@ -63,7 +63,7 @@ contract PreviewerTest is Test {
     );
     market.initialize("", 12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
     market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
-    market.setFixedBorrowThreshold(1e18);
+    market.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(market), "MarketDAI");
     auditor.enableMarket(market, daiPriceFeed, 0.8e18);
 
@@ -506,7 +506,7 @@ contract PreviewerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2800e18);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -627,7 +627,7 @@ contract PreviewerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2800e18);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -785,7 +785,7 @@ contract PreviewerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     weth.approve(address(marketWETH), type(uint256).max);
 
@@ -1016,7 +1016,7 @@ contract PreviewerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     ethPriceFeed = new MockPriceFeed(18, 1_000e18);
     auditor.enableMarket(marketWETH, ethPriceFeed, 0.7e18);
     weth.mint(address(this), 50_000 ether);
@@ -1358,7 +1358,7 @@ contract PreviewerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -1446,7 +1446,7 @@ contract PreviewerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -1506,7 +1506,7 @@ contract PreviewerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -1578,7 +1578,7 @@ contract PreviewerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -1705,7 +1705,7 @@ contract PreviewerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(1_000e8);
     daiPriceFeed.setPrice(0.001e18);
@@ -1762,7 +1762,7 @@ contract PreviewerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(1_000e8);
     daiPriceFeed.setPrice(0.001e18);
@@ -2116,7 +2116,7 @@ contract PreviewerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_000e8);
     daiPriceFeed.setPrice(0.0005e18);
@@ -2162,7 +2162,7 @@ contract PreviewerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_000e8);
     daiPriceFeed.setPrice(0.0005e18);

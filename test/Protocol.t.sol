@@ -87,7 +87,7 @@ contract ProtocolTest is Test {
         0.23e18,
         0.000053e18
       );
-      market.setFixedBorrowThreshold(1e18);
+      market.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
       vm.label(address(market), string.concat("Market", i.toString()));
       MockPriceFeed priceFeed = new MockPriceFeed(18, 1e18);
       // market.setTreasury(address(this), 0.1e18);
