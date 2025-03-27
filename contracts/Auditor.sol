@@ -5,6 +5,7 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable-v4/proxy/util
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable-v4/utils/math/MathUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol";
+import { ISequencerFeed, SequencerDown, GracePeriodNotOver } from "./utils/ISequencerFeed.sol";
 import { IPriceFeed } from "./utils/IPriceFeed.sol";
 import { Market } from "./Market.sol";
 
@@ -39,23 +40,32 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @notice Liquidation incentive factors for the liquidator and the lenders of the market where the debt is repaid.
   LiquidationIncentive public liquidationIncentive;
 
+  /// @notice Address of the sequencer feed.
+  ISequencerFeed public sequencerFeed;
+  /// @notice Sequencer's grace period time in seconds.
+  uint256 public immutable GRACE_PERIOD;
+
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(uint256 priceDecimals_) {
+  constructor(uint256 priceDecimals_, uint256 gracePeriod_) {
     priceDecimals = priceDecimals_;
     baseFactor = 10 ** (18 - priceDecimals_);
     basePrice = 10 ** priceDecimals_;
-
+    GRACE_PERIOD = gracePeriod_;
     _disableInitializers();
   }
 
   /// @notice Initializes the contract.
   /// @dev can only be called once.
-  function initialize(LiquidationIncentive memory liquidationIncentive_) external initializer {
+  function initialize(
+    LiquidationIncentive memory liquidationIncentive_,
+    ISequencerFeed sequencerFeed_
+  ) external initializer {
     __AccessControl_init();
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     setLiquidationIncentive(liquidationIncentive_);
+    setSequencerFeed(sequencerFeed_);
   }
 
   /// @notice Allows assets of a certain market to be used as collateral for borrowing other assets.
@@ -326,6 +336,10 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   function assetPrice(IPriceFeed priceFeed) public view returns (uint256) {
     if (address(priceFeed) == BASE_FEED) return basePrice;
 
+    (, int256 answer, uint256 startedAt, , ) = sequencerFeed.latestRoundData();
+    if (answer != 0) revert SequencerDown();
+    if (block.timestamp < startedAt + GRACE_PERIOD) revert GracePeriodNotOver();
+
     int256 price = priceFeed.latestAnswer();
     if (price <= 0) revert InvalidPrice();
     return uint256(price) * baseFactor;
@@ -394,6 +408,13 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     emit LiquidationIncentiveSet(liquidationIncentive_);
   }
 
+  /// @notice Sets the sequencer feed.
+  /// @param sequencerFeed_ new sequencer feed.
+  function setSequencerFeed(ISequencerFeed sequencerFeed_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    sequencerFeed = sequencerFeed_;
+    emit SequencerFeedSet(sequencerFeed_);
+  }
+
   /// @notice Emitted when a new market is listed for borrow/lending.
   /// @param market address of the market that was listed.
   /// @param decimals decimals of the market's underlying asset.
@@ -418,6 +439,10 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @notice Emitted when a new liquidationIncentive has been set.
   /// @param liquidationIncentive represented with 18 decimals.
   event LiquidationIncentiveSet(LiquidationIncentive liquidationIncentive);
+
+  /// @notice Emitted when a new sequencer feed has been set.
+  /// @param sequencerFeed new sequencer feed.
+  event SequencerFeedSet(ISequencerFeed indexed sequencerFeed);
 
   /// @notice Emitted when a market and prie feed is changed by admin.
   /// @param market address of the asset used to get the price.
