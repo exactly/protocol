@@ -213,6 +213,7 @@ contract Market is MarketBase {
     address borrower
   ) external whenNotPaused whenNotFrozen returns (uint256 assetsOwed) {
     if (assets == 0) revert ZeroBorrow();
+    if (!canBorrowAtMaturity(maturity, assets)) revert InsufficientProtocolLiquidity();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
 
@@ -874,6 +875,30 @@ contract Market is MarketBase {
   /// @dev Internal function to avoid code duplication.
   function fixedUtilization(uint256 supplied, uint256 borrowed, uint256 assets) internal pure returns (uint256) {
     return assets != 0 && borrowed > supplied ? (borrowed - supplied).divWadUp(assets) : 0;
+  }
+
+  /// @notice Checks if the account can borrow at a certain fixed pool.
+  /// @param maturity maturity date of the fixed pool.
+  /// @param assets amount of assets to borrow.
+  /// @return true if the account can borrow at the given maturity, false otherwise.
+  function canBorrowAtMaturity(uint256 maturity, uint256 assets) internal view returns (bool) {
+    uint256 maxTime = maxFuturePools * FixedLib.INTERVAL;
+    uint256 totalBorrows;
+    for (uint256 i = maturity; i <= maxTime; i += FixedLib.INTERVAL) {
+      FixedLib.Pool memory pool = fixedPools[i];
+      if (i == maturity) pool.borrowed += assets;
+      totalBorrows += pool.borrowed > pool.supplied ? pool.borrowed - pool.supplied : 0;
+    }
+    uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
+    return
+      memFloatingAssetsAverage > 0
+        ? totalBorrows.divWadDown(memFloatingAssetsAverage) <=
+          uint256(
+            (fixedBorrowThreshold *
+              ((((curveFactor * int256((maturity - block.timestamp).divWadDown(maxTime)).lnWad()) / 1e18).expWad() *
+                minThresholdFactor) / 1e18).expWad()) / 1e18
+          )
+        : true;
   }
 
   /// @notice Emits FixedEarningsUpdate event.

@@ -97,7 +97,11 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   /// @notice Damp speed factor to update `globalUtilizationAverage` when `floatingAssets` is lower.
   uint256 public uDampSpeedDown;
   /// @notice Threshold to prevent fixed borrows when the utilization is too high.
-  uint256 public fixedBorrowThreshold;
+  int256 public fixedBorrowThreshold;
+  /// @notice Convexity degree of the cap function.
+  int256 public curveFactor;
+  /// @notice Minimum fraction of borrows that can be made at a fixed rate.
+  int256 public minThresholdFactor;
 
   /// @notice Deposits amount of assets on behalf of the treasury address.
   /// @param fee amount of assets to be deposited.
@@ -288,10 +292,18 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   }
 
   /// @notice Sets the fixed borrow threshold for the amount of assets that can be borrowed from the supply.
-  /// @param threshold percentage represented with 18 decimals.
-  function setFixedBorrowThreshold(uint256 threshold) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    fixedBorrowThreshold = threshold;
-    emit FixedBorrowThresholdSet(threshold);
+  /// @param fixedBorrowThreshold_ percentage represented with 18 decimals.
+  /// @param curveFactor_ percentage represented with 18 decimals.
+  /// @param minThresholdFactor_ percentage represented with 18 decimals.
+  function setFixedBorrowThreshold(
+    int256 fixedBorrowThreshold_,
+    int256 curveFactor_,
+    int256 minThresholdFactor_
+  ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    fixedBorrowThreshold = fixedBorrowThreshold_;
+    curveFactor = curveFactor_;
+    minThresholdFactor = minThresholdFactor_.lnWad();
+    emit FixedBorrowThresholdSet(fixedBorrowThreshold_, curveFactor_, minThresholdFactor_);
   }
 
   /// @notice Sets the factor used when smoothly accruing earnings to the floating pool.
@@ -361,8 +373,10 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   );
 
   /// @notice Emitted when the fixedBorrowThreshold is changed by admin.
-  /// @param threshold represented with 18 decimals.
-  event FixedBorrowThresholdSet(uint256 threshold);
+  /// @param fixedBorrowThreshold_ percentage represented with 18 decimals.
+  /// @param curveFactor_ percentage represented with 18 decimals.
+  /// @param minThresholdFactor_ percentage represented with 18 decimals.
+  event FixedBorrowThresholdSet(int256 fixedBorrowThreshold_, int256 curveFactor_, int256 minThresholdFactor_);
 
   /// @notice Emitted when the earningsAccumulatorSmoothFactor is changed by admin.
   /// @param earningsAccumulatorSmoothFactor factor represented with 18 decimals.

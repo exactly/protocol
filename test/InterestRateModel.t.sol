@@ -244,7 +244,7 @@ contract InterestRateModelTest is Test {
       type(uint128).max
     );
     market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
-    market.setFixedBorrowThreshold(1e18);
+    market.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     asset.mint(address(this), type(uint128).max);
     asset.approve(address(market), type(uint128).max);
     if (floatingAssets != 0) market.deposit(floatingAssets, address(this));
