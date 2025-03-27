@@ -75,7 +75,7 @@ contract MarketTest is Test {
       0.42e18
     );
     market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
-    market.setFixedBorrowThreshold(1e18);
+    market.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(market), "MarketDAI");
     daiPriceFeed = new MockPriceFeed(18, 1e18);
 
@@ -98,7 +98,7 @@ contract MarketTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(marketWETH), "MarketWETH");
 
     auditor.enableMarket(market, daiPriceFeed, 0.8e18);
@@ -582,7 +582,7 @@ contract MarketTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketHarness.setFixedBorrowThreshold(1e18);
+    marketHarness.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     uint256 maturity = FixedLib.INTERVAL * 2;
     asset.mint(address(this), 50_000 ether);
     asset.approve(address(marketHarness), 50_000 ether);
@@ -623,7 +623,7 @@ contract MarketTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketHarness.setFixedBorrowThreshold(1e18);
+    marketHarness.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     uint256 maturity = FixedLib.INTERVAL * 2;
     asset.mint(address(this), 50_000 ether);
     asset.approve(address(marketHarness), 50_000 ether);
@@ -790,7 +790,7 @@ contract MarketTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketUSDC.setFixedBorrowThreshold(1e18);
+    marketUSDC.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(marketUSDC), "MarketUSDC");
     MockPriceFeed usdcPriceFeed = new MockPriceFeed(18, 1e18);
     auditor.enableMarket(marketUSDC, usdcPriceFeed, 0.8e18);
@@ -1142,7 +1142,7 @@ contract MarketTest is Test {
       0.23e18,
       0.000053e18
     );
-    newMarket.setFixedBorrowThreshold(1e18);
+    newMarket.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(newMarket, IPriceFeed(auditor.BASE_FEED()), 0.91e18);
     asset.mint(address(this), 10_000_000 ether);
     asset.approve(address(newMarket), type(uint256).max);
@@ -1225,7 +1225,7 @@ contract MarketTest is Test {
       0.23e18,
       0.000053e18
     );
-    newMarket.setFixedBorrowThreshold(1e18);
+    newMarket.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(newMarket, IPriceFeed(auditor.BASE_FEED()), 0.91e18);
     asset.mint(address(this), 10_000_000 ether);
     asset.approve(address(newMarket), type(uint256).max);
@@ -2937,7 +2937,7 @@ contract MarketTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketStETH.setFixedBorrowThreshold(1e18);
+    marketStETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     PriceFeedWrapper priceFeedWrapper = new PriceFeedWrapper(
       new MockPriceFeed(18, 0.99e18),
       address(stETH),
@@ -2979,7 +2979,7 @@ contract MarketTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWBTC.setFixedBorrowThreshold(1e18);
+    marketWBTC.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     PriceFeedDouble priceFeedDouble = new PriceFeedDouble(
       new MockPriceFeed(18, 14 ether),
       new MockPriceFeed(8, 99000000)
@@ -3024,7 +3024,7 @@ contract MarketTest is Test {
         0.23e18,
         0.000053e18
       );
-      markets[i].setFixedBorrowThreshold(1e18);
+      markets[i].setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
 
       auditor.enableMarket(markets[i], daiPriceFeed, 0.8e18);
       asset_.mint(BOB, 50_000 ether);
@@ -3217,6 +3217,18 @@ contract MarketTest is Test {
     assertEq(fixedBorrows, 0);
     assertEq(totalFixedDeposits, 200 ether);
     assertEq(totalFixedBorrows, 200 ether);
+  }
+
+  function testCanBorrowAtMaturity() external {
+    market.setFixedBorrowThreshold(0.4e18, 0.5e18, 0.25e18);
+    market.deposit(1_000 ether, address(this));
+
+    vm.warp(1 days);
+    vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 300 ether, type(uint256).max, address(this), address(this));
+
+    market.setFixedBorrowThreshold(0.8e18, 0.5e18, 0.25e18);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 300 ether, type(uint256).max, address(this), address(this));
   }
 
   function testPausable() external {
