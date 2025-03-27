@@ -8,7 +8,7 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { Auditor, IPriceFeed } from "../contracts/Auditor.sol";
-import { Market } from "../contracts/Market.sol";
+import { Market, Parameters } from "../contracts/Market.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import {
   ERC20,
@@ -51,70 +51,70 @@ contract RewardsControllerTest is Test {
 
     marketUSDC = Market(address(new ERC1967Proxy(address(new Market(usdc, auditor)), "")));
     marketUSDC.initialize(
-      "USDC.e",
-      3,
-      type(uint256).max,
-      1e18,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      Parameters({
+        assetSymbol: "USDC.e",
+        maxFuturePools: 3,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketUSDC.setDampSpeed(
-      marketUSDC.floatingAssetsDampSpeedUp(),
-      marketUSDC.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketUSDC.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(marketUSDC), "MarketUSDC");
     auditor.enableMarket(marketUSDC, new MockPriceFeed(18, 1e18), 0.8e18);
 
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      3,
-      type(uint256).max,
-      1e18,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      Parameters({
+        assetSymbol: "WETH",
+        maxFuturePools: 3,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(marketWETH), "MarketWETH");
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18);
 
     marketWBTC = Market(address(new ERC1967Proxy(address(new Market(wbtc, auditor)), "")));
     marketWBTC.initialize(
-      "WBTC",
-      3,
-      type(uint256).max,
-      1e18,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      Parameters({
+        assetSymbol: "WBTC",
+        maxFuturePools: 3,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWBTC.setDampSpeed(
-      marketWBTC.floatingAssetsDampSpeedUp(),
-      marketWBTC.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWBTC.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(marketWBTC), "MarketWBTC");
     auditor.enableMarket(marketWBTC, new MockPriceFeed(18, 20_000e18), 0.9e18);
 
@@ -1808,19 +1808,24 @@ contract RewardsControllerTest is Test {
     MockERC20 asset = new MockERC20("Asset", "AST", 6);
     Market market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     market.initialize(
-      "AST",
-      3,
-      type(uint256).max,
-      1e18,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      Parameters({
+        assetSymbol: "AST",
+        maxFuturePools: 3,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
-    market.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(market, new MockPriceFeed(18, 1e18), 0.8e18);
 
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);

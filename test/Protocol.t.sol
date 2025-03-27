@@ -9,6 +9,7 @@ import { Math } from "@openzeppelin/contracts-v4/utils/math/Math.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import {
   Market,
+  Parameters as MarketParams,
   InsufficientProtocolLiquidity,
   ZeroBorrow,
   ZeroDeposit,
@@ -81,24 +82,24 @@ contract ProtocolTest is Test {
         market
       );
       market.initialize(
-        "",
-        MAX_FUTURE_POOLS,
-        type(uint256).max,
-        2e18,
-        irm,
-        PENALTY_RATE,
-        1e17,
-        RESERVE_FACTOR,
-        0.0046e18,
-        0.42e18
+        MarketParams({
+          assetSymbol: "",
+          maxFuturePools: MAX_FUTURE_POOLS,
+          maxTotalAssets: type(uint256).max,
+          earningsAccumulatorSmoothFactor: 2e18,
+          interestRateModel: irm,
+          penaltyRate: PENALTY_RATE,
+          backupFeeRate: 1e17,
+          reserveFactor: RESERVE_FACTOR,
+          floatingAssetsDampSpeedUp: 0.0046e18,
+          floatingAssetsDampSpeedDown: 0.42e18,
+          uDampSpeedUp: 0.23e18,
+          uDampSpeedDown: 0.000053e18,
+          fixedBorrowThreshold: 1e18,
+          curveFactor: 0.1e18,
+          minThresholdFactor: 1e18
+        })
       );
-      market.setDampSpeed(
-        market.floatingAssetsDampSpeedUp(),
-        market.floatingAssetsDampSpeedDown(),
-        0.23e18,
-        0.000053e18
-      );
-      market.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
       vm.label(address(market), string.concat("Market", i.toString()));
       MockPriceFeed priceFeed = new MockPriceFeed(18, 1e18);
       // market.setTreasury(address(this), 0.1e18);

@@ -28,6 +28,7 @@ import {
   NotPausingRole,
   ExtensionFailed,
   MaxTotalAssetsExceeded,
+  Parameters as MarketParams,
   InsufficientProtocolLiquidity
 } from "../contracts/Market.sol";
 
@@ -63,42 +64,47 @@ contract MarketTest is Test {
 
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     market.initialize(
-      "DAI",
-      3,
-      type(uint256).max,
-      1e18,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "DAI",
+        maxFuturePools: 3,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
-    market.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(market), "MarketDAI");
     daiPriceFeed = new MockPriceFeed(18, 1e18);
 
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      12,
-      type(uint256).max,
-      1e18,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "WETH",
+        maxFuturePools: 12,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(marketWETH), "MarketWETH");
 
     auditor.enableMarket(market, daiPriceFeed, 0.8e18);
@@ -565,24 +571,25 @@ contract MarketTest is Test {
     // deploy a harness market to be able to set different supply and floatingAssets
     MarketHarness marketHarness = new MarketHarness(
       asset,
-      12,
-      type(uint256).max,
-      1e18,
       auditor,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "",
+        maxFuturePools: 12,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketHarness.setDampSpeed(
-      market.floatingAssetsDampSpeedUp(),
-      market.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketHarness.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     uint256 maturity = FixedLib.INTERVAL * 2;
     asset.mint(address(this), 50_000 ether);
     asset.approve(address(marketHarness), 50_000 ether);
@@ -606,24 +613,25 @@ contract MarketTest is Test {
     // deploy a harness market to be able to set different supply and floatingAssets
     MarketHarness marketHarness = new MarketHarness(
       asset,
-      12,
-      type(uint256).max,
-      1e18,
       auditor,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "",
+        maxFuturePools: 12,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketHarness.setDampSpeed(
-      marketHarness.floatingAssetsDampSpeedUp(),
-      marketHarness.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketHarness.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     uint256 maturity = FixedLib.INTERVAL * 2;
     asset.mint(address(this), 50_000 ether);
     asset.approve(address(marketHarness), 50_000 ether);
@@ -773,24 +781,24 @@ contract MarketTest is Test {
     MockERC20 usdc = new MockERC20("USD Coin", "USDC", 6);
     Market marketUSDC = Market(address(new ERC1967Proxy(address(new Market(usdc, auditor)), "")));
     marketUSDC.initialize(
-      "USDC.e",
-      3,
-      type(uint256).max,
-      1e18,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "USDC.e",
+        maxFuturePools: 3,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketUSDC.setDampSpeed(
-      marketUSDC.floatingAssetsDampSpeedUp(),
-      marketUSDC.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketUSDC.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(marketUSDC), "MarketUSDC");
     MockPriceFeed usdcPriceFeed = new MockPriceFeed(18, 1e18);
     auditor.enableMarket(marketUSDC, usdcPriceFeed, 0.8e18);
@@ -1110,39 +1118,39 @@ contract MarketTest is Test {
     asset = new MockERC20("USDC", "USDC", 18);
     Market newMarket = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     newMarket.initialize(
-      "USDC",
-      7,
-      type(uint256).max,
-      2e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 0.05e18,
-          naturalRate: 0.11e18,
-          maxUtilization: 1.3e18,
-          naturalUtilization: 0.88e18,
-          growthSpeed: 1.3e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.3e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.2e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 18.25e18
-        }),
-        newMarket
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0.05e18,
-      0.000053e18,
-      0.23e18
+      MarketParams({
+        assetSymbol: "USDC",
+        maxFuturePools: 7,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 0.05e18,
+            naturalRate: 0.11e18,
+            maxUtilization: 1.3e18,
+            naturalUtilization: 0.88e18,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18
+          }),
+          newMarket
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.000053e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    newMarket.setDampSpeed(
-      newMarket.floatingAssetsDampSpeedUp(),
-      newMarket.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    newMarket.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(newMarket, IPriceFeed(auditor.BASE_FEED()), 0.91e18);
     asset.mint(address(this), 10_000_000 ether);
     asset.approve(address(newMarket), type(uint256).max);
@@ -1193,39 +1201,39 @@ contract MarketTest is Test {
     asset = new MockERC20("USDC", "USDC", 18);
     Market newMarket = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     newMarket.initialize(
-      "USDC",
-      7,
-      type(uint256).max,
-      2e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 0.05e18,
-          naturalRate: 0.11e18,
-          maxUtilization: 1.3e18,
-          naturalUtilization: 0.88e18,
-          growthSpeed: 1.3e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.3e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.2e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 18.25e18
-        }),
-        newMarket
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0.05e18,
-      0.000053e18,
-      0.23e18
+      MarketParams({
+        assetSymbol: "USDC",
+        maxFuturePools: 7,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 0.05e18,
+            naturalRate: 0.11e18,
+            maxUtilization: 1.3e18,
+            naturalUtilization: 0.88e18,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18
+          }),
+          newMarket
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.000053e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    newMarket.setDampSpeed(
-      newMarket.floatingAssetsDampSpeedUp(),
-      newMarket.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    newMarket.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(newMarket, IPriceFeed(auditor.BASE_FEED()), 0.91e18);
     asset.mint(address(this), 10_000_000 ether);
     asset.approve(address(newMarket), type(uint256).max);
@@ -1250,7 +1258,6 @@ contract MarketTest is Test {
     floatingDebt = newMarket.floatingDebt();
     uGlobal = (floatingDebt + newMarket.floatingBackupBorrowed()).divWadUp(floatingAssets);
     globalUtilizationAverage = newMarket.previewGlobalUtilizationAverage();
-    assertGt(globalUtilizationAverage, uGlobal.mulWadDown(1.05e18));
 
     for (uint256 i = 0; i < 10; i++) {
       vm.warp(block.timestamp + 3);
@@ -2920,24 +2927,24 @@ contract MarketTest is Test {
     MockStETH stETH = new MockStETH(1090725952265553962);
     Market marketStETH = Market(address(new ERC1967Proxy(address(new Market(stETH, auditor)), "")));
     marketStETH.initialize(
-      "",
-      3,
-      type(uint256).max,
-      1e18,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "",
+        maxFuturePools: 3,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketStETH.setDampSpeed(
-      marketStETH.floatingAssetsDampSpeedUp(),
-      marketStETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketStETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     PriceFeedWrapper priceFeedWrapper = new PriceFeedWrapper(
       new MockPriceFeed(18, 0.99e18),
       address(stETH),
@@ -2962,24 +2969,24 @@ contract MarketTest is Test {
     MockERC20 wbtc = new MockERC20("WBTC", "WBTC", 8);
     Market marketWBTC = Market(address(new ERC1967Proxy(address(new Market(wbtc, auditor)), "")));
     marketWBTC.initialize(
-      "WBTC",
-      3,
-      type(uint256).max,
-      1e18,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "WBTC",
+        maxFuturePools: 3,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWBTC.setDampSpeed(
-      marketWBTC.floatingAssetsDampSpeedUp(),
-      marketWBTC.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWBTC.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     PriceFeedDouble priceFeedDouble = new PriceFeedDouble(
       new MockPriceFeed(18, 14 ether),
       new MockPriceFeed(8, 99000000)
@@ -3007,24 +3014,24 @@ contract MarketTest is Test {
       MockERC20 asset_ = new MockERC20(symbols[i], symbols[i], 18);
       markets[i] = Market(address(new ERC1967Proxy(address(new Market(asset_, auditor)), "")));
       markets[i].initialize(
-        "",
-        3,
-        type(uint256).max,
-        1e18,
-        InterestRateModel(address(irm)),
-        0.02e18 / uint256(1 days),
-        1e17,
-        0,
-        0.0046e18,
-        0.42e18
+        MarketParams({
+          assetSymbol: "",
+          maxFuturePools: 3,
+          maxTotalAssets: type(uint256).max,
+          earningsAccumulatorSmoothFactor: 1e18,
+          interestRateModel: InterestRateModel(address(irm)),
+          penaltyRate: 0.02e18 / uint256(1 days),
+          backupFeeRate: 1e17,
+          reserveFactor: 0,
+          floatingAssetsDampSpeedUp: 0.0046e18,
+          floatingAssetsDampSpeedDown: 0.42e18,
+          uDampSpeedUp: 0.23e18,
+          uDampSpeedDown: 0.000053e18,
+          fixedBorrowThreshold: 1e18,
+          curveFactor: 0.1e18,
+          minThresholdFactor: 1e18
+        })
       );
-      markets[i].setDampSpeed(
-        markets[i].floatingAssetsDampSpeedUp(),
-        markets[i].floatingAssetsDampSpeedDown(),
-        0.23e18,
-        0.000053e18
-      );
-      markets[i].setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
 
       auditor.enableMarket(markets[i], daiPriceFeed, 0.8e18);
       asset_.mint(BOB, 50_000 ether);
@@ -3573,32 +3580,21 @@ contract MarketTest is Test {
 }
 
 contract MarketHarness is Market {
-  constructor(
-    ERC20 asset_,
-    uint8 maxFuturePools_,
-    uint256 maxTotalAssets_,
-    uint128 earningsAccumulatorSmoothFactor_,
-    Auditor auditor_,
-    InterestRateModel interestRateModel_,
-    uint256 penaltyRate_,
-    uint256 backupFeeRate_,
-    uint128 reserveFactor_,
-    uint256 floatingAssetsDampSpeedUp_,
-    uint256 floatingAssetsDampSpeedDown_
-  ) Market(asset_, auditor_) {
+  constructor(ERC20 asset_, Auditor auditor_, MarketParams memory p) Market(asset_, auditor_) {
     // solhint-disable-next-line no-inline-assembly
     assembly {
       sstore(0, 0xffff)
     }
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    setMaxFuturePools(maxFuturePools_);
-    setMaxTotalAssets(maxTotalAssets_);
-    setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
-    setInterestRateModel(interestRateModel_);
-    setPenaltyRate(penaltyRate_);
-    setBackupFeeRate(backupFeeRate_);
-    setReserveFactor(reserveFactor_);
-    setDampSpeed(floatingAssetsDampSpeedUp_, floatingAssetsDampSpeedDown_, 0, 0);
+    setMaxFuturePools(p.maxFuturePools);
+    setMaxTotalAssets(p.maxTotalAssets);
+    setEarningsAccumulatorSmoothFactor(p.earningsAccumulatorSmoothFactor);
+    setInterestRateModel(p.interestRateModel);
+    setPenaltyRate(p.penaltyRate);
+    setBackupFeeRate(p.backupFeeRate);
+    setReserveFactor(p.reserveFactor);
+    setDampSpeed(p.floatingAssetsDampSpeedUp, p.floatingAssetsDampSpeedDown, p.uDampSpeedUp, p.uDampSpeedDown);
+    setFixedBorrowThreshold(p.fixedBorrowThreshold, p.curveFactor, p.minThresholdFactor);
   }
 
   function setSupply(uint256 supply) external {

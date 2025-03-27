@@ -62,16 +62,22 @@ const func: DeployFunction = async ({
               init: {
                 methodName: "initialize",
                 args: [
-                  assetSymbol,
-                  finance.futurePools,
-                  config.maxAssets,
-                  earningsAccumulatorSmoothFactor,
-                  ZeroAddress, // irm
-                  penaltyRate,
-                  backupFeeRate,
-                  reserveFactor,
-                  dampSpeedUp,
-                  dampSpeedDown,
+                  {
+                    maxFuturePools: finance.futurePools,
+                    maxTotalAssets: config.maxAssets,
+                    earningsAccumulatorSmoothFactor: earningsAccumulatorSmoothFactor,
+                    interestRateModel: ZeroAddress, // irm
+                    penaltyRate: penaltyRate,
+                    backupFeeRate: backupFeeRate,
+                    reserveFactor: reserveFactor,
+                    floatingAssetsDampSpeedUp: dampSpeedUp,
+                    floatingAssetsDampSpeedDown: dampSpeedDown,
+                    uDampSpeedUp: 0,
+                    uDampSpeedDown: 0,
+                    fixedBorrowThreshold: 1e18,
+                    curveFactor: 0.1e18,
+                    minThresholdFactor: 1e18,
+                  },
                 ],
               },
             },

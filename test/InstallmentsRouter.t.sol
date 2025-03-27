@@ -7,11 +7,11 @@ import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { WETH } from "solmate/src/tokens/WETH.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
+import { Market, Parameters } from "../contracts/Market.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
 import {
   ERC20,
   Permit,
-  Market,
   Auditor,
   Disagreement,
   MarketNotListed,
@@ -40,41 +40,46 @@ contract InstallmentsRouterTest is Test {
 
     market = Market(address(new ERC1967Proxy(address(new Market(usdc, auditor)), "")));
     market.initialize(
-      "USDC.e",
-      3,
-      type(uint256).max,
-      1e18,
-      InterestRateModel(address(new MockInterestRateModel(0.1e18))),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      Parameters({
+        assetSymbol: "USDC.e",
+        maxFuturePools: 3,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(new MockInterestRateModel(0.1e18))),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
-    market.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(market), "market");
 
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      3,
-      type(uint256).max,
-      1e18,
-      InterestRateModel(address(new MockInterestRateModel(0.1e18))),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      Parameters({
+        assetSymbol: "WETH",
+        maxFuturePools: 3,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(new MockInterestRateModel(0.1e18))),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(marketWETH), "marketWETH");
 
     auditor.enableMarket(market, new MockPriceFeed(18, 1e18), 0.8e18);
