@@ -8,7 +8,7 @@ import { Test } from "forge-std/Test.sol";
 
 import { Auditor } from "../contracts/Auditor.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
-import { Market } from "../contracts/Market.sol";
+import { Market, Parameters } from "../contracts/Market.sol";
 import { Firewall } from "../contracts/verified/Firewall.sol";
 import { NotAllowed, RemainingDebt, VerifiedAuditor } from "../contracts/verified/VerifiedAuditor.sol";
 import { Locked, NotAuditor, Unlocked, VerifiedMarket } from "../contracts/verified/VerifiedMarket.sol";
@@ -52,29 +52,43 @@ contract VerifiedMarketTest is Test {
 
     marketWETH = VerifiedMarket(address(new ERC1967Proxy(address(new VerifiedMarket(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      3,
-      1e18,
-      InterestRateModel(address(new MockInterestRateModel(0.1e18))),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      Parameters({
+        assetSymbol: "WETH",
+        maxFuturePools: 3,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(new MockInterestRateModel(0.1e18))),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
     vm.label(address(marketWETH), "MarketWETH");
 
     marketUSDC = VerifiedMarket(address(new ERC1967Proxy(address(new VerifiedMarket(usdc, auditor)), "")));
     marketUSDC.initialize(
-      "USDC",
-      3,
-      1e18,
-      InterestRateModel(address(new MockInterestRateModel(0.1e18))),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      Parameters({
+        assetSymbol: "USDC",
+        maxFuturePools: 3,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(new MockInterestRateModel(0.1e18))),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
     vm.label(address(marketUSDC), "MarketUSDC");
 
