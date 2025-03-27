@@ -4,6 +4,7 @@ pragma solidity ^0.8.17; // solhint-disable-line one-contract-per-file
 import { Test } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { MockSequencerFeed } from "../contracts/mocks/MockSequencerFeed.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import {
   Market,
@@ -30,8 +31,8 @@ contract AuditorTest is Test {
   event MarketExited(Market indexed market, address indexed account);
 
   function setUp() external {
-    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
-    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18, 0)), "")));
+    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18), new MockSequencerFeed());
     vm.label(address(auditor), "Auditor");
     market = new MockMarket(auditor, 18);
     priceFeed = new MockPriceFeed(18, 1e18);

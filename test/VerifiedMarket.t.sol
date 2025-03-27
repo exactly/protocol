@@ -10,6 +10,7 @@ import { Auditor } from "../contracts/Auditor.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { Market, Parameters } from "../contracts/Market.sol";
 import { Firewall } from "../contracts/verified/Firewall.sol";
+import { MockSequencerFeed } from "../contracts/mocks/MockSequencerFeed.sol";
 import { NotAllowed, RemainingDebt, VerifiedAuditor } from "../contracts/verified/VerifiedAuditor.sol";
 import { Locked, NotAuditor, Unlocked, VerifiedMarket } from "../contracts/verified/VerifiedMarket.sol";
 
@@ -38,9 +39,10 @@ contract VerifiedMarketTest is MarketTest {
     firewall.allow(address(this), true);
     vm.label(address(firewall), "Firewall");
 
-    auditor = VerifiedAuditor(address(new ERC1967Proxy(address(new VerifiedAuditor(18)), "")));
+    auditor = VerifiedAuditor(address(new ERC1967Proxy(address(new VerifiedAuditor(18, 0)), "")));
     VerifiedAuditor(address(auditor)).initializeVerified(
       Auditor.LiquidationIncentive(uint128(liquidatorIncentive), uint128(lendersIncentive)),
+      new MockSequencerFeed(),
       firewall
     );
     vm.label(address(auditor), "Auditor");

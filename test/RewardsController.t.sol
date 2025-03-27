@@ -9,6 +9,7 @@ import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { Auditor, IPriceFeed } from "../contracts/Auditor.sol";
 import { Market, Parameters } from "../contracts/Market.sol";
+import { MockSequencerFeed } from "../contracts/mocks/MockSequencerFeed.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import {
   ERC20,
@@ -44,8 +45,8 @@ contract RewardsControllerTest is Test {
     opRewardAsset = new MockERC20("OP", "OP", 18);
     exaRewardAsset = new MockERC20("Exa Reward", "EXA", 18);
 
-    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
-    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18, 0)), "")));
+    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18), new MockSequencerFeed());
     vm.label(address(auditor), "Auditor");
     irm = new MockInterestRateModel(0.1e18);
 

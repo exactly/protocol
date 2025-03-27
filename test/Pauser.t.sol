@@ -8,6 +8,7 @@ import { Auditor } from "../contracts/Auditor.sol";
 import { Market, Parameters } from "../contracts/Market.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
+import { MockSequencerFeed } from "../contracts/mocks/MockSequencerFeed.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { Pauser, Ownable, IPausable } from "../contracts/periphery/Pauser.sol";
 
@@ -20,8 +21,8 @@ contract PauserTest is Test {
   address internal constant BOB = address(0xb0b);
 
   function setUp() external {
-    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
-    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18, 0)), "")));
+    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18), new MockSequencerFeed());
     vm.label(address(auditor), "Auditor");
 
     pauser = new Pauser(auditor, address(this));
