@@ -17,6 +17,7 @@ import {
   ZeroWithdraw
 } from "../contracts/Market.sol";
 import { InterestRateModel, UtilizationExceeded, Parameters } from "../contracts/InterestRateModel.sol";
+import { MockSequencerFeed } from "../contracts/mocks/MockSequencerFeed.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
 import {
@@ -55,8 +56,8 @@ contract ProtocolTest is Test {
   RewardsController internal rewardsController;
 
   function setUp() external {
-    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
-    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18, 0)), "")));
+    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18), new MockSequencerFeed());
     vm.label(address(auditor), "Auditor");
 
     accounts.push(BOB);

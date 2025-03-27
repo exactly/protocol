@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
+import { MockSequencerFeed } from "../contracts/mocks/MockSequencerFeed.sol";
 import { Firewall } from "../contracts/verified/Firewall.sol";
 import {
   Auditor,
@@ -23,8 +24,8 @@ contract VerifiedAuditorTest is Test {
     firewall = Firewall(address(new ERC1967Proxy(address(new Firewall()), "")));
     firewall.initialize();
     vm.label(address(firewall), "Firewall");
-    auditor = VerifiedAuditor(address(new ERC1967Proxy(address(new VerifiedAuditor(18)), "")));
-    auditor.initializeVerified(Auditor.LiquidationIncentive(0.09e18, 0.01e18), firewall);
+    auditor = VerifiedAuditor(address(new ERC1967Proxy(address(new VerifiedAuditor(18, 0)), "")));
+    auditor.initializeVerified(Auditor.LiquidationIncentive(0.09e18, 0.01e18), new MockSequencerFeed(), firewall);
     vm.label(address(auditor), "VerifiedAuditor");
 
     bob = makeAddr("bob");
