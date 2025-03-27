@@ -7,10 +7,17 @@ import { Test, stdError } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
 import { MockBorrowRate } from "../contracts/mocks/MockBorrowRate.sol";
-import { Auditor, IPriceFeed, InsufficientAccountLiquidity } from "../contracts/Auditor.sol";
+import {
+  Auditor,
+  IPriceFeed,
+  InsufficientAccountLiquidity,
+  SequencerDown,
+  GracePeriodNotOver
+} from "../contracts/Auditor.sol";
 import { InterestRateModel, Parameters } from "../contracts/InterestRateModel.sol";
 import { PriceFeedWrapper } from "../contracts/PriceFeedWrapper.sol";
 import { PriceFeedDouble } from "../contracts/PriceFeedDouble.sol";
+import { MockSequencerFeed } from "../contracts/mocks/MockSequencerFeed.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { MockStETH } from "../contracts/mocks/MockStETH.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
@@ -50,8 +57,8 @@ contract MarketTest is Test {
     MockERC20 asset = new MockERC20("DAI", "DAI", 18);
     weth = new MockERC20("WETH", "WETH", 18);
 
-    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
-    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18, 0)), "")));
+    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18), new MockSequencerFeed());
     vm.label(address(auditor), "Auditor");
 
     irm = new MockInterestRateModel(0.1e18);
@@ -3468,6 +3475,28 @@ contract MarketTest is Test {
     vm.expectEmit(true, true, true, true, address(market));
     emit Frozen(address(this), false);
     market.setFrozen(false);
+  }
+
+  function testAuditorSequencerDown() external {
+    MockSequencerFeed mockSequencerFeed = new MockSequencerFeed();
+    mockSequencerFeed.setAnswer(1);
+
+    auditor.setSequencerFeed(mockSequencerFeed);
+
+    market.deposit(1 ether, address(this));
+    vm.expectRevert(SequencerDown.selector);
+    market.borrow(0.1 ether, address(this), address(this));
+  }
+
+  function testAuditorSequencerGracePeriodNotOver() external {
+    MockSequencerFeed mockSequencerFeed = new MockSequencerFeed();
+    mockSequencerFeed.setStartedAt(1);
+
+    auditor.setSequencerFeed(mockSequencerFeed);
+
+    market.deposit(1 ether, address(this));
+    vm.expectRevert(GracePeriodNotOver.selector);
+    market.borrow(0.1 ether, address(this), address(this));
   }
 
   function testEmergencyAdminRole() external {
