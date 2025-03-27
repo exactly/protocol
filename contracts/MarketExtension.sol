@@ -37,7 +37,7 @@ contract MarketExtension is MarketBase {
     setBackupFeeRate(p.backupFeeRate);
     setReserveFactor(p.reserveFactor);
     setDampSpeed(p.floatingAssetsDampSpeedUp, p.floatingAssetsDampSpeedDown, p.uDampSpeedUp, p.uDampSpeedDown);
-    setFixedBorrowThreshold(p.fixedBorrowThreshold, p.curveFactor, p.minThresholdFactor);
+    setFixedBorrowFactors(p.fixedBorrowThreshold, p.curveFactor, p.minThresholdFactor);
   }
 
   function transfer(address to, uint256 shares) public virtual override whenNotPaused returns (bool) {
