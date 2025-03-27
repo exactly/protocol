@@ -17,37 +17,27 @@ contract MarketExtension is MarketBase {
     _disableInitializers();
   }
 
-  function initialize(
-    string calldata assetSymbol,
-    uint8 maxFuturePools_,
-    uint256 maxSupply_,
-    uint128 earningsAccumulatorSmoothFactor_,
-    InterestRateModel interestRateModel_,
-    uint256 penaltyRate_,
-    uint256 backupFeeRate_,
-    uint128 reserveFactor_,
-    uint256 floatingAssetsDampSpeedUp_,
-    uint256 floatingAssetsDampSpeedDown_
-  ) external initializer {
+  function initialize(Parameters memory p) external initializer {
     __AccessControl_init();
     __Pausable_init();
 
-    name = string.concat("exactly ", assetSymbol);
-    symbol = string.concat("exa", assetSymbol);
+    name = string.concat("exactly ", p.assetSymbol);
+    symbol = string.concat("exa", p.assetSymbol);
     lastAccumulatorAccrual = uint32(block.timestamp);
     lastFloatingDebtUpdate = uint32(block.timestamp);
     lastAverageUpdate = uint32(block.timestamp);
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-    setMaxFuturePools(maxFuturePools_);
-    setMaxSupply(maxSupply_);
-    setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
-    setInterestRateModel(interestRateModel_);
-    setPenaltyRate(penaltyRate_);
-    setBackupFeeRate(backupFeeRate_);
-    setReserveFactor(reserveFactor_);
-    setDampSpeed(floatingAssetsDampSpeedUp_, floatingAssetsDampSpeedDown_, 0, 0);
+    setMaxFuturePools(p.maxFuturePools);
+    setMaxSupply(p.maxSupply);
+    setEarningsAccumulatorSmoothFactor(p.earningsAccumulatorSmoothFactor);
+    setInterestRateModel(p.interestRateModel);
+    setPenaltyRate(p.penaltyRate);
+    setBackupFeeRate(p.backupFeeRate);
+    setReserveFactor(p.reserveFactor);
+    setDampSpeed(p.floatingAssetsDampSpeedUp, p.floatingAssetsDampSpeedDown, p.uDampSpeedUp, p.uDampSpeedDown);
+    setFixedBorrowThreshold(p.fixedBorrowThreshold, p.curveFactor, p.minThresholdFactor);
   }
 
   function transfer(address to, uint256 shares) public virtual override whenNotPaused returns (bool) {
@@ -63,4 +53,22 @@ contract MarketExtension is MarketBase {
     handleRewards(false, to);
     return super.transferFrom(from, to, shares);
   }
+}
+
+struct Parameters {
+  string assetSymbol;
+  uint8 maxFuturePools;
+  uint256 maxSupply;
+  uint128 earningsAccumulatorSmoothFactor;
+  InterestRateModel interestRateModel;
+  uint256 penaltyRate;
+  uint256 backupFeeRate;
+  uint128 reserveFactor;
+  uint256 floatingAssetsDampSpeedUp;
+  uint256 floatingAssetsDampSpeedDown;
+  uint256 uDampSpeedUp;
+  uint256 uDampSpeedDown;
+  int256 fixedBorrowThreshold;
+  int256 curveFactor;
+  int256 minThresholdFactor;
 }

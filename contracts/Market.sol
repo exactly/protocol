@@ -4,9 +4,8 @@ pragma solidity ^0.8.17;
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable-v4/utils/math/MathUpgradeable.sol";
 import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
-import { InterestRateModel } from "./InterestRateModel.sol";
 import { RewardsController } from "./RewardsController.sol";
-import { MarketExtension } from "./MarketExtension.sol";
+import { MarketExtension, Parameters } from "./MarketExtension.sol";
 import { MarketBase } from "./MarketBase.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Auditor } from "./Auditor.sol";
@@ -40,16 +39,7 @@ contract Market is MarketBase {
   /// @dev can only be called once.
   function initialize(
     // solhint-disable no-unused-vars
-    string calldata assetSymbol,
-    uint8 maxFuturePools_,
-    uint256 maxSupply_,
-    uint128 earningsAccumulatorSmoothFactor_,
-    InterestRateModel interestRateModel_,
-    uint256 penaltyRate_,
-    uint256 backupFeeRate_,
-    uint128 reserveFactor_,
-    uint256 floatingAssetsDampSpeedUp_,
-    uint256 floatingAssetsDampSpeedDown_
+    Parameters memory p
   ) external {
     // solhint-enable no-unused-vars
     delegateToExtension();

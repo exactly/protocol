@@ -1,37 +1,26 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import { Auditor, ERC20, InterestRateModel, Market } from "../Market.sol";
+import { Auditor, ERC20, Market, Parameters } from "../Market.sol";
 
 contract MarketHarness is Market {
   uint256 public returnValue;
 
-  constructor(
-    ERC20 asset_,
-    uint8 maxFuturePools_,
-    uint256 maxSupply_,
-    uint128 earningsAccumulatorSmoothFactor_,
-    Auditor auditor_,
-    InterestRateModel interestRateModel_,
-    uint256 penaltyRate_,
-    uint256 backupFeeRate_,
-    uint128 reserveFactor_,
-    uint256 dampSpeedUp_,
-    uint256 dampSpeedDown_
-  ) Market(asset_, auditor_) {
+  constructor(ERC20 asset_, Auditor auditor_, Parameters memory p) Market(asset_, auditor_) {
     // solhint-disable-next-line no-inline-assembly
     assembly {
       sstore(0, 0xffff)
     }
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    setMaxFuturePools(maxFuturePools_);
-    setMaxSupply(maxSupply_);
-    setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
-    setInterestRateModel(interestRateModel_);
-    setPenaltyRate(penaltyRate_);
-    setBackupFeeRate(backupFeeRate_);
-    setReserveFactor(reserveFactor_);
-    setDampSpeed(dampSpeedUp_, dampSpeedDown_, 0, 0);
+    setMaxFuturePools(p.maxFuturePools);
+    setMaxSupply(p.maxSupply);
+    setEarningsAccumulatorSmoothFactor(p.earningsAccumulatorSmoothFactor);
+    setInterestRateModel(p.interestRateModel);
+    setPenaltyRate(p.penaltyRate);
+    setBackupFeeRate(p.backupFeeRate);
+    setReserveFactor(p.reserveFactor);
+    setDampSpeed(p.floatingAssetsDampSpeedUp, p.floatingAssetsDampSpeedDown, p.uDampSpeedUp, p.uDampSpeedDown);
+    setFixedBorrowThreshold(p.fixedBorrowThreshold, p.curveFactor, p.minThresholdFactor);
   }
 
   function borrowMaturityWithReturnValue(

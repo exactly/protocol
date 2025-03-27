@@ -5,7 +5,8 @@ import { Test, stdError } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { Auditor } from "../contracts/Auditor.sol";
-import { Market, InterestRateModel } from "../contracts/Market.sol";
+import { Market, Parameters } from "../contracts/Market.sol";
+import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { Pauser, Ownable, IPausable } from "../contracts/periphery/Pauser.sol";
@@ -29,24 +30,24 @@ contract PauserTest is Test {
 
     marketA = Market(address(new ERC1967Proxy(address(new Market(new MockERC20("A", "A", 18), auditor)), "")));
     marketA.initialize(
-      "A",
-      3,
-      type(uint256).max,
-      1e18,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      Parameters({
+        assetSymbol: "A",
+        maxFuturePools: 3,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketA.setDampSpeed(
-      marketA.floatingAssetsDampSpeedUp(),
-      marketA.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketA.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     marketA.grantRole(keccak256("PAUSER_ROLE"), address(this));
     marketA.grantRole(keccak256("PAUSER_ROLE"), address(pauser));
     auditor.enableMarket(marketA, new MockPriceFeed(18, 1e18), 0.8e18);
@@ -54,24 +55,24 @@ contract PauserTest is Test {
 
     marketB = Market(address(new ERC1967Proxy(address(new Market(new MockERC20("B", "B", 18), auditor)), "")));
     marketB.initialize(
-      "B",
-      3,
-      type(uint256).max,
-      1e18,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      0.0046e18,
-      0.42e18
+      Parameters({
+        assetSymbol: "B",
+        maxFuturePools: 3,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketB.setDampSpeed(
-      marketB.floatingAssetsDampSpeedUp(),
-      marketB.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketB.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     marketB.grantRole(keccak256("PAUSER_ROLE"), address(this));
     marketB.grantRole(keccak256("PAUSER_ROLE"), address(pauser));
     auditor.enableMarket(marketB, new MockPriceFeed(18, 1e18), 0.8e18);

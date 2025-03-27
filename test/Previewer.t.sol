@@ -6,7 +6,7 @@ import { Math } from "@openzeppelin/contracts-v4/utils/math/Math.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { Market, InsufficientProtocolLiquidity } from "../contracts/Market.sol";
+import { Market, Parameters as MarketParams, InsufficientProtocolLiquidity } from "../contracts/Market.sol";
 import { InterestRateModel, AlreadyMatured, Parameters } from "../contracts/InterestRateModel.sol";
 import { Auditor, InsufficientAccountLiquidity, IPriceFeed } from "../contracts/Auditor.sol";
 import { RewardsController } from "../contracts/RewardsController.sol";
@@ -61,9 +61,25 @@ contract PreviewerTest is Test {
       }),
       market
     );
-    market.initialize("", 12, type(uint256).max, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
-    market.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
+    market.initialize(
+      MarketParams({
+        assetSymbol: "",
+        maxFuturePools: 12,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: InterestRateModel(address(irm)),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
+    );
     vm.label(address(market), "MarketDAI");
     auditor.enableMarket(market, daiPriceFeed, 0.8e18);
 
@@ -475,39 +491,39 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "",
-      12,
-      type(uint256).max,
-      1e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.1e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        marketWETH
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "",
+        maxFuturePools: 12,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 3.5e16,
+            naturalRate: 8e16,
+            maxUtilization: 1.1e18,
+            naturalUtilization: 0.75e18,
+            growthSpeed: 1.1e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.2e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.01e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 15_000e16
+          }),
+          marketWETH
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2800e18);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -597,39 +613,39 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      12,
-      type(uint256).max,
-      1e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.1e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        marketWETH
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "WETH",
+        maxFuturePools: 12,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 3.5e16,
+            naturalRate: 8e16,
+            maxUtilization: 1.1e18,
+            naturalUtilization: 0.75e18,
+            growthSpeed: 1.1e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.2e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.01e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 15_000e16
+          }),
+          marketWETH
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2800e18);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -756,39 +772,39 @@ contract PreviewerTest is Test {
     weth.mint(address(this), 1_000 ether);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      12,
-      type(uint256).max,
-      1e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.1e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        marketWETH
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "WETH",
+        maxFuturePools: 12,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 3.5e16,
+            naturalRate: 8e16,
+            maxUtilization: 1.1e18,
+            naturalUtilization: 0.75e18,
+            growthSpeed: 1.1e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.2e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.01e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 15_000e16
+          }),
+          marketWETH
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     weth.approve(address(marketWETH), type(uint256).max);
 
@@ -988,39 +1004,39 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      12,
-      type(uint256).max,
-      1e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.1e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        marketWETH
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "WETH",
+        maxFuturePools: 12,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 3.5e16,
+            naturalRate: 8e16,
+            maxUtilization: 1.1e18,
+            naturalUtilization: 0.75e18,
+            growthSpeed: 1.1e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.2e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.01e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 15_000e16
+          }),
+          marketWETH
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     ethPriceFeed = new MockPriceFeed(18, 1_000e18);
     auditor.enableMarket(marketWETH, ethPriceFeed, 0.7e18);
     weth.mint(address(this), 50_000 ether);
@@ -1331,39 +1347,39 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      12,
-      type(uint256).max,
-      1e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.1e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        marketWETH
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "WETH",
+        maxFuturePools: 12,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 3.5e16,
+            naturalRate: 8e16,
+            maxUtilization: 1.1e18,
+            naturalUtilization: 0.75e18,
+            growthSpeed: 1.1e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.2e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.01e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 15_000e16
+          }),
+          marketWETH
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -1420,39 +1436,39 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      12,
-      type(uint256).max,
-      1e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.1e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        marketWETH
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "WETH",
+        maxFuturePools: 12,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 3.5e16,
+            naturalRate: 8e16,
+            maxUtilization: 1.1e18,
+            naturalUtilization: 0.75e18,
+            growthSpeed: 1.1e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.2e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.01e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 15_000e16
+          }),
+          marketWETH
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -1481,39 +1497,39 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      12,
-      type(uint256).max,
-      1e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.1e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        marketWETH
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "WETH",
+        maxFuturePools: 12,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 3.5e16,
+            naturalRate: 8e16,
+            maxUtilization: 1.1e18,
+            naturalUtilization: 0.75e18,
+            growthSpeed: 1.1e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.2e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.01e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 15_000e16
+          }),
+          marketWETH
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -1554,39 +1570,39 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      12,
-      type(uint256).max,
-      1e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.1e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        marketWETH
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "WETH",
+        maxFuturePools: 12,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 3.5e16,
+            naturalRate: 8e16,
+            maxUtilization: 1.1e18,
+            naturalUtilization: 0.75e18,
+            growthSpeed: 1.1e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.2e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.01e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 15_000e16
+          }),
+          marketWETH
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -1682,39 +1698,39 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      12,
-      type(uint256).max,
-      1e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.1e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        marketWETH
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "WETH",
+        maxFuturePools: 12,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 3.5e16,
+            naturalRate: 8e16,
+            maxUtilization: 1.1e18,
+            naturalUtilization: 0.75e18,
+            growthSpeed: 1.1e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.2e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.01e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 15_000e16
+          }),
+          marketWETH
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(1_000e8);
     daiPriceFeed.setPrice(0.001e18);
@@ -1740,39 +1756,39 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      12,
-      type(uint256).max,
-      1e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.1e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        marketWETH
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "WETH",
+        maxFuturePools: 12,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 3.5e16,
+            naturalRate: 8e16,
+            maxUtilization: 1.1e18,
+            naturalUtilization: 0.75e18,
+            growthSpeed: 1.1e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.2e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.01e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 15_000e16
+          }),
+          marketWETH
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(1_000e8);
     daiPriceFeed.setPrice(0.001e18);
@@ -2095,39 +2111,39 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      12,
-      type(uint256).max,
-      1e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.1e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        marketWETH
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "WETH",
+        maxFuturePools: 12,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 3.5e16,
+            naturalRate: 8e16,
+            maxUtilization: 1.1e18,
+            naturalUtilization: 0.75e18,
+            growthSpeed: 1.1e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.2e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.01e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 15_000e16
+          }),
+          marketWETH
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_000e8);
     daiPriceFeed.setPrice(0.0005e18);
@@ -2142,39 +2158,39 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
-      "WETH",
-      12,
-      type(uint256).max,
-      1e18,
-      new InterestRateModel(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.1e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        marketWETH
-      ),
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      0.0046e18,
-      0.42e18
+      MarketParams({
+        assetSymbol: "WETH",
+        maxFuturePools: 12,
+        maxSupply: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 1e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 3.5e16,
+            naturalRate: 8e16,
+            maxUtilization: 1.1e18,
+            naturalUtilization: 0.75e18,
+            growthSpeed: 1.1e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.2e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.01e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 15_000e16
+          }),
+          marketWETH
+        ),
+        penaltyRate: 0.02e18 / uint256(1 days),
+        backupFeeRate: 1e17,
+        reserveFactor: 0,
+        floatingAssetsDampSpeedUp: 0.0046e18,
+        floatingAssetsDampSpeedDown: 0.42e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.000053e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
+      })
     );
-    marketWETH.setDampSpeed(
-      marketWETH.floatingAssetsDampSpeedUp(),
-      marketWETH.floatingAssetsDampSpeedDown(),
-      0.23e18,
-      0.000053e18
-    );
-    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_000e8);
     daiPriceFeed.setPrice(0.0005e18);
