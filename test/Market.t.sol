@@ -3227,14 +3227,14 @@ contract MarketTest is Test {
   }
 
   function testCanBorrowAtMaturity() external {
-    market.setFixedBorrowThreshold(0.4e18, 0.5e18, 0.25e18);
+    market.setFixedBorrowFactors(0.4e18, 0.5e18, 0.25e18);
     market.deposit(1_000 ether, address(this));
 
     vm.warp(1 days);
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL, 300 ether, type(uint256).max, address(this), address(this));
 
-    market.setFixedBorrowThreshold(0.8e18, 0.5e18, 0.25e18);
+    market.setFixedBorrowFactors(0.8e18, 0.5e18, 0.25e18);
     market.borrowAtMaturity(FixedLib.INTERVAL, 300 ether, type(uint256).max, address(this), address(this));
   }
 
@@ -3596,7 +3596,7 @@ contract MarketHarness is Market {
     setBackupFeeRate(p.backupFeeRate);
     setReserveFactor(p.reserveFactor);
     setDampSpeed(p.floatingAssetsDampSpeedUp, p.floatingAssetsDampSpeedDown, p.uDampSpeedUp, p.uDampSpeedDown);
-    setFixedBorrowThreshold(p.fixedBorrowThreshold, p.curveFactor, p.minThresholdFactor);
+    setFixedBorrowFactors(p.fixedBorrowThreshold, p.curveFactor, p.minThresholdFactor);
   }
 
   function setSupply(uint256 supply) external {

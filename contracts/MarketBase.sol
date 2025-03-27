@@ -291,11 +291,11 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
     emit DampSpeedSet(assetsUp, assetsDown, uUp, uDown);
   }
 
-  /// @notice Sets the fixed borrow threshold for the amount of assets that can be borrowed from the supply.
+  /// @notice Sets the fixed borrow factors to be used in the check when performing a fixed borrow.
   /// @param fixedBorrowThreshold_ percentage represented with 18 decimals.
   /// @param curveFactor_ percentage represented with 18 decimals.
   /// @param minThresholdFactor_ percentage represented with 18 decimals.
-  function setFixedBorrowThreshold(
+  function setFixedBorrowFactors(
     int256 fixedBorrowThreshold_,
     int256 curveFactor_,
     int256 minThresholdFactor_
@@ -303,7 +303,7 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
     fixedBorrowThreshold = fixedBorrowThreshold_;
     curveFactor = curveFactor_;
     minThresholdFactor = minThresholdFactor_.lnWad();
-    emit FixedBorrowThresholdSet(fixedBorrowThreshold_, curveFactor_, minThresholdFactor_);
+    emit FixedBorrowFactorsSet(fixedBorrowThreshold_, curveFactor_, minThresholdFactor_);
   }
 
   /// @notice Sets the factor used when smoothly accruing earnings to the floating pool.
@@ -372,11 +372,11 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
     uint256 uDampSpeedDown
   );
 
-  /// @notice Emitted when the fixedBorrowThreshold is changed by admin.
+  /// @notice Emitted when the fixed borrow factors are changed by admin.
   /// @param fixedBorrowThreshold_ percentage represented with 18 decimals.
   /// @param curveFactor_ percentage represented with 18 decimals.
   /// @param minThresholdFactor_ percentage represented with 18 decimals.
-  event FixedBorrowThresholdSet(int256 fixedBorrowThreshold_, int256 curveFactor_, int256 minThresholdFactor_);
+  event FixedBorrowFactorsSet(int256 fixedBorrowThreshold_, int256 curveFactor_, int256 minThresholdFactor_);
 
   /// @notice Emitted when the earningsAccumulatorSmoothFactor is changed by admin.
   /// @param earningsAccumulatorSmoothFactor factor represented with 18 decimals.
