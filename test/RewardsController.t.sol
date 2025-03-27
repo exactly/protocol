@@ -66,7 +66,7 @@ contract RewardsControllerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketUSDC.setFixedBorrowThreshold(1e18);
+    marketUSDC.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(marketUSDC), "MarketUSDC");
     auditor.enableMarket(marketUSDC, new MockPriceFeed(18, 1e18), 0.8e18);
 
@@ -87,7 +87,7 @@ contract RewardsControllerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWETH.setFixedBorrowThreshold(1e18);
+    marketWETH.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(marketWETH), "MarketWETH");
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18);
 
@@ -108,7 +108,7 @@ contract RewardsControllerTest is Test {
       0.23e18,
       0.000053e18
     );
-    marketWBTC.setFixedBorrowThreshold(1e18);
+    marketWBTC.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     vm.label(address(marketWBTC), "MarketWBTC");
     auditor.enableMarket(marketWBTC, new MockPriceFeed(18, 20_000e18), 0.9e18);
 
@@ -646,7 +646,7 @@ contract RewardsControllerTest is Test {
     vm.warp(10_000 seconds);
     for (uint256 i = 0; i < 12; ++i) {
       vm.warp(block.timestamp + 1 days);
-      marketUSDC.borrowAtMaturity(FixedLib.INTERVAL * (0 + 1), 1e6, 2e6, address(this), address(this));
+      marketUSDC.borrowAtMaturity(FixedLib.INTERVAL * (i + 1), 1e6, 2e6, address(this), address(this));
     }
     vm.warp(block.timestamp + 1 days);
     marketUSDC.borrowAtMaturity(FixedLib.INTERVAL, 1e6, 2e6, address(this), address(this));
@@ -1803,7 +1803,7 @@ contract RewardsControllerTest is Test {
     Market market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     market.initialize(3, 1e18, InterestRateModel(address(irm)), 0.02e18 / uint256(1 days), 1e17, 0, 0.0046e18, 0.42e18);
     market.setDampSpeed(market.floatingAssetsDampSpeedUp(), market.floatingAssetsDampSpeedDown(), 0.23e18, 0.000053e18);
-    market.setFixedBorrowThreshold(1e18);
+    market.setFixedBorrowThreshold(1e18, 0.1e18, 1e18);
     auditor.enableMarket(market, new MockPriceFeed(18, 1e18), 0.8e18);
 
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
