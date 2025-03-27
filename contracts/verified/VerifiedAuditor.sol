@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 
-import { Auditor, LiquidityVars, Market, MarketVars, RemainingDebt } from "../Auditor.sol";
+import { Auditor, ISequencerFeed, LiquidityVars, Market, MarketVars, RemainingDebt } from "../Auditor.sol";
 import { Firewall } from "./Firewall.sol";
 import { VerifiedMarket } from "./VerifiedMarket.sol";
 
@@ -13,14 +13,18 @@ contract VerifiedAuditor is Auditor {
 
   Firewall public firewall;
 
-  constructor(uint256 priceDecimals_) Auditor(priceDecimals_) {}
+  constructor(uint256 priceDecimals_, uint256 gracePeriod_) Auditor(priceDecimals_, gracePeriod_) {}
 
-  function initialize(LiquidationIncentive memory) public pure override {
+  function initialize(LiquidationIncentive memory, ISequencerFeed) public pure override {
     revert InvalidInitializer();
   }
 
-  function initializeVerified(LiquidationIncentive memory liquidationIncentive_, Firewall firewall_) external {
-    super.initialize(liquidationIncentive_);
+  function initializeVerified(
+    LiquidationIncentive memory liquidationIncentive_,
+    ISequencerFeed sequencerFeed_,
+    Firewall firewall_
+  ) external {
+    super.initialize(liquidationIncentive_, sequencerFeed_);
     _setFirewall(firewall_);
   }
 

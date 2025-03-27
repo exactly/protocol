@@ -9,6 +9,7 @@ import { WETH } from "solmate/src/tokens/WETH.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { Market, Parameters } from "../contracts/Market.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
+import { MockSequencerFeed } from "../contracts/mocks/MockSequencerFeed.sol";
 import {
   ERC20,
   Permit,
@@ -34,8 +35,8 @@ contract InstallmentsRouterTest is Test {
     usdc = new MockERC20("USD Coin", "USDC", 6);
     weth = new WETH();
 
-    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
-    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18, 0)), "")));
+    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18), new MockSequencerFeed());
     vm.label(address(auditor), "Auditor");
 
     market = Market(address(new ERC1967Proxy(address(new Market(usdc, auditor)), "")));

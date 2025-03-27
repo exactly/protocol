@@ -12,6 +12,7 @@ import { Auditor, InsufficientAccountLiquidity, IPriceFeed } from "../contracts/
 import { RewardsController } from "../contracts/RewardsController.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { Previewer, FixedPreviewer } from "../contracts/periphery/Previewer.sol";
+import { MockSequencerFeed } from "../contracts/mocks/MockSequencerFeed.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
 import { MockBorrowRate } from "../contracts/mocks/MockBorrowRate.sol";
 
@@ -40,8 +41,8 @@ contract PreviewerTest is Test {
     daiPriceFeed = new MockPriceFeed(18, 1e18);
     opPriceFeed = new MockPriceFeed(18, 2e18);
 
-    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
-    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18, 0)), "")));
+    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18), new MockSequencerFeed());
     vm.label(address(auditor), "Auditor");
 
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));

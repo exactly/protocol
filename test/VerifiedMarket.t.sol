@@ -6,6 +6,7 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { Test } from "forge-std/Test.sol";
 
+import { MockSequencerFeed } from "../contracts/mocks/MockSequencerFeed.sol";
 import { Auditor } from "../contracts/Auditor.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { Market, Parameters } from "../contracts/Market.sol";
@@ -43,9 +44,10 @@ contract VerifiedMarketTest is Test {
     firewall.allow(address(this), true);
     vm.label(address(firewall), "Firewall");
 
-    auditor = VerifiedAuditor(address(new ERC1967Proxy(address(new VerifiedAuditor(18)), "")));
+    auditor = VerifiedAuditor(address(new ERC1967Proxy(address(new VerifiedAuditor(18, 0)), "")));
     auditor.initializeVerified(
       Auditor.LiquidationIncentive(uint128(liquidatorIncentive), uint128(lendersIncentive)),
+      new MockSequencerFeed(),
       firewall
     );
     vm.label(address(auditor), "Auditor");
