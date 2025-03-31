@@ -69,8 +69,8 @@ contract Previewer {
     string assetSymbol;
     uint256 usdPrice;
     uint256 borrow;
-    uint256 floatingDeposit;
-    uint256[] maturities;
+    uint256 deposit;
+    uint256[] _gap;
   }
 
   struct ClaimableReward {
@@ -485,27 +485,13 @@ contract Previewer {
         r.config = r.controller.rewardConfig(market, rewards[r.i].asset);
         r.rewardPrice = auditor.assetPrice(r.config.priceFeed);
         (r.borrowIndex, r.depositIndex, ) = r.controller.rewardIndexes(market, rewards[r.i].asset);
-        (r.start, , ) = r.controller.distributionTime(market, rewards[r.i].asset);
         (r.projectedBorrowIndex, r.projectedDepositIndex, ) = r.controller.previewAllocation(
           market,
           rewards[r.i].asset,
           block.timestamp > r.config.start ? r.deltaTime : 0
         );
-        r.firstMaturity = r.start - (r.start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
-        r.maxMaturity =
-          block.timestamp -
-          (block.timestamp % FixedLib.INTERVAL) +
-          (FixedLib.INTERVAL * market.maxFuturePools());
-        r.maturities = new uint256[]((r.maxMaturity - r.firstMaturity) / FixedLib.INTERVAL + 1);
-        r.maturity = r.firstMaturity;
-        for (uint256 i = 0; r.maturity <= r.maxMaturity; ++i) {
-          (uint256 borrowed, ) = market.fixedPoolBalance(r.maturity);
-          r.fixedDebt += borrowed;
-          r.maturities[i] = r.maturity;
-          unchecked {
-            r.maturity += FixedLib.INTERVAL;
-          }
-        }
+        (r.fixedDeposit, r.fixedDebt) = market.fixedOps();
+
         rewards[r.i] = RewardRate({
           asset: rewards[r.i].asset,
           assetName: rewards[r.i].asset.name(),
@@ -521,17 +507,17 @@ contract Previewer {
               )
               .mulDivDown(365 days, r.deltaTime)
             : 0,
-          floatingDeposit: market.totalAssets() > 0
+          deposit: (market.totalAssets() + r.fixedDeposit) > 0
             ? (r.projectedDepositIndex - r.depositIndex)
-              .mulDivDown(market.totalSupply(), r.underlyingBaseUnit)
+              .mulDivDown(market.totalSupply() + market.previewWithdraw(r.fixedDeposit), r.underlyingBaseUnit)
               .mulWadDown(r.rewardPrice)
               .mulDivDown(
                 r.underlyingBaseUnit,
-                market.totalAssets().mulWadDown(auditor.assetPrice(r.underlyingPriceFeed))
+                (market.totalAssets() + r.fixedDeposit).mulWadDown(auditor.assetPrice(r.underlyingPriceFeed))
               )
               .mulDivDown(365 days, r.deltaTime)
             : 0,
-          maturities: r.maturities
+          _gap: new uint256[](0)
         });
       }
     }
@@ -658,7 +644,6 @@ contract Previewer {
     uint256 projectedDepositIndex;
     uint256 projectedBorrowIndex;
     uint256 underlyingBaseUnit;
-    uint256[] maturities;
     IPriceFeed underlyingPriceFeed;
     RewardsController.Config config;
     ERC20[] rewardList;
@@ -666,11 +651,9 @@ contract Previewer {
     uint256 deltaTime;
     uint256 i;
     uint256 start;
-    uint256 maturity;
     uint256 fixedDebt;
+    uint256 fixedDeposit;
     uint256 rewardPrice;
-    uint256 maxMaturity;
-    uint256 firstMaturity;
   }
 
   struct FixedPoolVars {

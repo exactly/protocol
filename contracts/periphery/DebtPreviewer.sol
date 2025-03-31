@@ -495,22 +495,7 @@ contract DebtPreviewer {
           rewards[r.i].asset,
           block.timestamp > r.config.start ? r.deltaTime : 0
         );
-        r.firstMaturity = r.start - (r.start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
-        r.maxMaturity =
-          block.timestamp -
-          (block.timestamp % FixedLib.INTERVAL) +
-          (FixedLib.INTERVAL * market.maxFuturePools());
-        r.maturities = new uint256[]((r.maxMaturity - r.firstMaturity) / FixedLib.INTERVAL + 1);
-        r.start = 0;
-        for (r.maturity = r.firstMaturity; r.maturity <= r.maxMaturity; ) {
-          (uint256 borrowed, ) = market.fixedPoolBalance(r.maturity);
-          r.fixedDebt += borrowed;
-          r.maturities[r.start] = r.maturity;
-          unchecked {
-            r.maturity += FixedLib.INTERVAL;
-            ++r.start;
-          }
-        }
+        (r.fixedDeposit, r.fixedDebt) = market.fixedOps();
         rewards[r.i] = RewardRate({
           asset: rewards[r.i].asset,
           assetName: rewards[r.i].asset.name(),
@@ -525,13 +510,13 @@ contract DebtPreviewer {
               )
               .mulDivDown(365 days, r.deltaTime)
             : 0,
-          deposit: market.totalAssets() > 0
+          deposit: (market.totalAssets() + r.fixedDeposit) > 0
             ? (r.projectedDepositIndex - r.depositIndex)
-              .mulDivDown(market.totalSupply(), r.underlyingBaseUnit)
+              .mulDivDown(market.totalSupply() + market.previewWithdraw(r.fixedDeposit), r.underlyingBaseUnit)
               .mulWadDown(auditor.assetPrice(r.config.priceFeed))
               .mulDivDown(
                 r.underlyingBaseUnit,
-                market.totalAssets().mulWadDown(auditor.assetPrice(r.underlyingPriceFeed))
+                (market.totalAssets() + r.fixedDeposit).mulWadDown(auditor.assetPrice(r.underlyingPriceFeed))
               )
               .mulDivDown(365 days, r.deltaTime)
             : 0

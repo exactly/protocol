@@ -677,7 +677,7 @@ contract PreviewerTest is Test {
       10 ** opPriceFeed.decimals()
     );
     uint256 annualRewardValue = newDepositRewardsValue.mulDivDown(365 days, deltaTime);
-    assertApproxEqAbs(data[0].rewardRates[0].floatingDeposit, annualRewardValue.mulDivDown(1e18, depositAmount), 1e4);
+    assertApproxEqAbs(data[0].rewardRates[0].deposit, annualRewardValue.mulDivDown(1e18, depositAmount), 1e4);
 
     uint256 newFloatingBorrowRewards = 238622379993700;
     uint256 newFloatingBorrowRewardsValue = newFloatingBorrowRewards.mulDivDown(
@@ -687,14 +687,7 @@ contract PreviewerTest is Test {
     annualRewardValue = newFloatingBorrowRewardsValue.mulDivDown(365 days, deltaTime);
     assertApproxEqAbs(data[0].rewardRates[0].borrow, annualRewardValue.mulDivDown(1e18, floatingBorrowAmount), 3e17);
 
-    assertEq(data[0].rewardRates[0].maturities[0], FixedLib.INTERVAL);
-    assertEq(data[0].rewardRates[0].maturities.length, 12);
-    market.setMaxFuturePools(3);
     data = previewer.exactly(address(this));
-    assertEq(data[0].rewardRates[0].maturities[0], FixedLib.INTERVAL);
-    assertEq(data[0].rewardRates[0].maturities[1], FixedLib.INTERVAL * 2);
-    assertEq(data[0].rewardRates[0].maturities[2], FixedLib.INTERVAL * 3);
-    assertEq(data[0].rewardRates[0].maturities.length, 3);
 
     // claimable rewards
     assertEq(data[0].claimableRewards.length, 1);
@@ -810,6 +803,47 @@ contract PreviewerTest is Test {
     assertEq(address(data[1].rewardRates[0].asset), address(exa));
   }
 
+  function testFixedDepositRewardRates() external {
+    RewardsController rewardsController = RewardsController(
+      address(new ERC1967Proxy(address(new RewardsController()), ""))
+    );
+    rewardsController.initialize();
+    rewardAsset.mint(address(rewardsController), 500_000 ether);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: market,
+      reward: rewardAsset,
+      priceFeed: opPriceFeed,
+      targetDebt: 2_000_000 ether,
+      totalDistribution: 50_000 ether,
+      start: uint32(block.timestamp),
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.00005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+    market.setRewardsController(rewardsController);
+
+    market.deposit(100 ether, address(this));
+    market.borrow(10 ether, address(this), address(this));
+
+    vm.warp(1 days);
+
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    uint256 depositRewards = data[0].rewardRates[0].deposit;
+
+    market.depositAtMaturity(FixedLib.INTERVAL, 50 ether, 50 ether, address(this));
+    data = previewer.exactly(address(this));
+
+    // after depositing fixed, rewards will be 30% lower than before
+    assertLt(data[0].rewardRates[0].deposit.mulWadDown(1.3e18), depositRewards);
+  }
+
   function testRewardRatesMaturities() external {
     vm.warp(55 * 365 days);
     RewardsController rewardsController = RewardsController(
@@ -856,8 +890,6 @@ contract PreviewerTest is Test {
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data.length, 1);
     assertEq(data[0].rewardRates.length, 2);
-    assertEq(data[0].rewardRates[0].maturities.length, 12);
-    assertEq(data[0].rewardRates[1].maturities.length, 12);
   }
 
   function testRewardsRateAfterDistributionEnd() external {
@@ -893,7 +925,7 @@ contract PreviewerTest is Test {
     market.borrow(10 ether, address(this), address(this));
 
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
-    assertGt(data[0].rewardRates[0].floatingDeposit, 0);
+    assertGt(data[0].rewardRates[0].deposit, 0);
     assertGt(data[0].rewardRates[0].borrow, 0);
   }
 
@@ -926,7 +958,7 @@ contract PreviewerTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL, 50 ether, 100 ether, address(this), address(this));
 
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
-    assertGt(data[0].rewardRates[0].floatingDeposit, 0);
+    assertGt(data[0].rewardRates[0].deposit, 0);
     assertGt(data[0].rewardRates[0].borrow, 0);
   }
 
@@ -1006,7 +1038,7 @@ contract PreviewerTest is Test {
     uint256 newDepositRewardsValue = newDepositRewards.mulWadDown(uint256(opPriceFeed.latestAnswer()));
     uint256 annualRewardValue = newDepositRewardsValue.mulDivDown(365 days, deltaTime);
     assertApproxEqAbs(
-      data[1].rewardRates[0].floatingDeposit,
+      data[1].rewardRates[0].deposit,
       annualRewardValue.mulDivDown(
         10 ** marketWETH.decimals(),
         depositAmount.mulWadDown(uint256(ethPriceFeed.latestAnswer()))
@@ -1026,14 +1058,7 @@ contract PreviewerTest is Test {
       4e16
     );
 
-    assertEq(data[1].rewardRates[0].maturities[0], FixedLib.INTERVAL);
-    assertEq(data[1].rewardRates[0].maturities.length, 12);
-    marketWETH.setMaxFuturePools(3);
     data = previewer.exactly(address(this));
-    assertEq(data[1].rewardRates[0].maturities[0], FixedLib.INTERVAL);
-    assertEq(data[1].rewardRates[0].maturities[1], FixedLib.INTERVAL * 2);
-    assertEq(data[1].rewardRates[0].maturities[2], FixedLib.INTERVAL * 3);
-    assertEq(data[1].rewardRates[0].maturities.length, 3);
 
     // claimable rewards
     assertEq(data[1].claimableRewards.length, 1);
@@ -1104,7 +1129,6 @@ contract PreviewerTest is Test {
     market.borrow(1, address(this), address(this));
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[0].rewardRates.length, 1);
-    assertEq(data[0].rewardRates[0].maturities.length, 12);
     assertGt(data[0].rewardRates[0].borrow, 0);
   }
 
@@ -1135,8 +1159,7 @@ contract PreviewerTest is Test {
     market.setRewardsController(rewardsController);
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[0].rewardRates.length, 1);
-    assertEq(data[0].rewardRates[0].maturities.length, 12);
-    assertEq(data[0].rewardRates[0].floatingDeposit, 0);
+    assertEq(data[0].rewardRates[0].deposit, 0);
     assertEq(data[0].rewardRates[0].borrow, 0);
     assertEq(data[0].rewardRates[0].usdPrice, 2e18);
 
@@ -1178,8 +1201,7 @@ contract PreviewerTest is Test {
     vm.warp(5 days);
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[0].rewardRates.length, 1);
-    assertEq(data[0].rewardRates[0].maturities.length, 11);
-    assertEq(data[0].rewardRates[0].floatingDeposit, 0);
+    assertEq(data[0].rewardRates[0].deposit, 0);
     assertEq(data[0].rewardRates[0].borrow, 0);
     assertEq(data[0].rewardRates[0].usdPrice, 2e18);
 
