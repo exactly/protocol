@@ -32,7 +32,6 @@ contract Previewer {
     address asset;
     string assetName;
     string assetSymbol;
-    bool isFrozen;
     InterestRateModel interestRateModel;
     uint256 usdPrice;
     uint256 penaltyRate;
@@ -140,7 +139,6 @@ contract Previewer {
         asset: address(market.asset()),
         assetName: market.asset().name(),
         assetSymbol: market.asset().symbol(),
-        isFrozen: market.isFrozen(),
         interestRateModel: InterestRateModel({ id: address(irm), parameters: irm.parameters() }),
         usdPrice: auditor.assetPrice(m.priceFeed).mulWadDown(basePrice),
         penaltyRate: market.penaltyRate(),
