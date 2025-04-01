@@ -206,6 +206,7 @@ const hardhatConfig: Config = {
       "USDC.e": {
         networks: ["optimism", "op-sepolia"],
         adjustFactor: 0.91,
+        frozen: true,
         interestRateModel: {
           minRate: 1.5e-1,
           naturalRate: 3e-1,
