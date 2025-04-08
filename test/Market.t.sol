@@ -3264,6 +3264,69 @@ contract MarketTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL * 2, 10 ether, type(uint256).max, address(this), address(this));
   }
 
+  function testFuzzCanBorrowAtMaturity(
+    int256 fixedBorrowThreshold,
+    int256 curveFactor,
+    int256 minThresholdFactor,
+    uint64[12] calldata amounts,
+    uint8[12] calldata pools,
+    uint24[12] calldata times
+  ) external {
+    uint8 maxFuturePools = 12;
+    fixedBorrowThreshold = _bound(fixedBorrowThreshold, 1, 1e18);
+    curveFactor = _bound(curveFactor, 1, 1e18);
+    minThresholdFactor = _bound(minThresholdFactor, 1, 1e18);
+    market.setFixedBorrowFactors(fixedBorrowThreshold, curveFactor, minThresholdFactor);
+    market.setMaxFuturePools(maxFuturePools);
+
+    market.deposit(1_000 ether, address(this));
+
+    uint256 maxTime = maxFuturePools * FixedLib.INTERVAL;
+    for (uint256 i = 0; i < maxFuturePools; i++) {
+      vm.warp(block.timestamp + times[i]);
+
+      uint256 maturity = _bound(pools[i], 1, maxFuturePools) * FixedLib.INTERVAL;
+      uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
+      if (block.timestamp >= maturity || memFloatingAssetsAverage == 0) continue;
+
+      uint256 totalBorrows = 0;
+      for (uint256 m = maturity; m <= maxTime; m += FixedLib.INTERVAL) {
+        (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(m);
+        if (m == maturity) borrowed += amounts[i];
+        totalBorrows += borrowed > supplied ? borrowed - supplied : 0;
+      }
+      bool canBorrow = memFloatingAssetsAverage > 0
+        ? totalBorrows.divWadDown(memFloatingAssetsAverage) <=
+          uint256(
+            (market.fixedBorrowThreshold() *
+              ((((market.curveFactor() *
+                int256(
+                  (maturity - block.timestamp - (FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)) + 1)
+                    .divWadDown(maxTime)
+                ).lnWad()) / 1e18).expWad() * market.minThresholdFactor()) / 1e18).expWad()) / 1e18
+          ) &&
+          market.floatingBackupBorrowed() + amounts[i] <=
+          memFloatingAssetsAverage.mulWadDown(uint256(market.fixedBorrowThreshold()))
+        : true;
+      if (amounts[i] == 0) {
+        vm.expectRevert(ZeroBorrow.selector);
+      } else if (!canBorrow) vm.expectRevert(InsufficientProtocolLiquidity.selector);
+      uint256 assetsOwed = market.borrowAtMaturity(
+        maturity,
+        amounts[i],
+        type(uint256).max,
+        address(this),
+        address(this)
+      );
+      if (assetsOwed > 0) {
+        assertLe(
+          market.floatingBackupBorrowed(),
+          memFloatingAssetsAverage.mulWadDown(uint256(market.fixedBorrowThreshold()))
+        );
+      }
+    }
+  }
+
   function testPausable() external {
     assertFalse(market.paused());
     market.grantRole(keccak256("PAUSER_ROLE"), address(this));
