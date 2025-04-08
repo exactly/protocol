@@ -300,9 +300,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     address borrower
   ) external whenNotPaused whenNotFrozen returns (uint256 assetsOwed) {
     if (assets == 0) revert ZeroBorrow();
-    if (!canBorrowAtMaturity(maturity, assets)) revert InsufficientProtocolLiquidity();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
+    if (!canBorrowAtMaturity(maturity, assets)) revert InsufficientProtocolLiquidity();
 
     FixedLib.Pool storage pool = fixedPools[maturity];
     depositToTreasury(updateFloatingDebt());
@@ -1081,22 +1081,28 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param assets amount of assets to borrow.
   /// @return true if the account can borrow at the given maturity, false otherwise.
   function canBorrowAtMaturity(uint256 maturity, uint256 assets) internal view returns (bool) {
-    uint256 maxTime = maxFuturePools * FixedLib.INTERVAL;
     uint256 totalBorrows;
-    for (uint256 i = maturity; i <= maxTime; i += FixedLib.INTERVAL) {
-      FixedLib.Pool memory pool = fixedPools[i];
-      if (i == maturity) pool.borrowed += assets;
-      totalBorrows += pool.borrowed > pool.supplied ? pool.borrowed - pool.supplied : 0;
+    {
+      uint256 maxTime = maxFuturePools * FixedLib.INTERVAL;
+      for (uint256 i = maturity; i <= maxTime; i += FixedLib.INTERVAL) {
+        FixedLib.Pool memory pool = fixedPools[i];
+        if (i == maturity) pool.borrowed += assets;
+        totalBorrows += pool.borrowed > pool.supplied ? pool.borrowed - pool.supplied : 0;
+      }
     }
     uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
     return
-      memFloatingAssetsAverage > 0
+      memFloatingAssetsAverage != 0
         ? totalBorrows.divWadDown(memFloatingAssetsAverage) <=
           uint256(
             (fixedBorrowThreshold *
-              ((((curveFactor * int256((maturity - block.timestamp).divWadDown(maxTime)).lnWad()) / 1e18).expWad() *
-                minThresholdFactor) / 1e18).expWad()) / 1e18
-          )
+              ((((curveFactor *
+                int256(
+                  (maturity - block.timestamp - (FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)) + 1)
+                    .divWadDown(maxFuturePools * FixedLib.INTERVAL)
+                ).lnWad()) / 1e18).expWad() * minThresholdFactor) / 1e18).expWad()) / 1e18
+          ) &&
+          floatingBackupBorrowed + assets <= memFloatingAssetsAverage.mulWadDown(uint256(fixedBorrowThreshold))
         : true;
   }
 

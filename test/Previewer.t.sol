@@ -572,37 +572,36 @@ contract PreviewerTest is Test {
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL * 7, 100 ether + 1, 2_500 ether, address(this), address(this));
 
-    // finally borrow 200 ether from second maturity and it doesn't fail
-    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 2_500 ether, address(this), address(this));
-
     // repay back the 10 borrowed from the first maturity
     uint256 totalBorrowed = data[0].fixedBorrowPositions[0].position.principal +
       data[0].fixedBorrowPositions[0].position.fee;
     market.repayAtMaturity(FixedLib.INTERVAL, totalBorrowed, totalBorrowed, address(this));
     data = previewer.exactly(address(this));
     for (uint256 i = 0; i < maxFuturePools; i++) {
-      if (i == 0) assertEq(data[0].fixedPools[i].available, 50 ether);
-      else assertEq(data[0].fixedPools[i].available, 0 ether);
+      if (i == 0) assertEq(data[0].fixedPools[i].available, 150 ether);
+      else if (i == 1) assertEq(data[0].fixedPools[i].available, 200 ether);
+      else assertEq(data[0].fixedPools[i].available, 100 ether);
     }
 
     // supply 100 more to the smart pool
     market.deposit(100 ether, address(this));
-    uint256 distributedEarnings = 6415907858003678;
     // set the smart pool reserve in 10%
     // since smart pool supply is 200 then 10% is 20
     market.setReserveFactor(0.1e18);
     data = previewer.exactly(address(this));
     for (uint256 i = 0; i < maxFuturePools; i++) {
-      if (i == 0) assertEq(data[0].fixedPools[i].available, 80 ether + 50 ether + distributedEarnings);
-      else assertEq(data[0].fixedPools[i].available, 80 ether + distributedEarnings);
+      if (i == 0) assertEq(data[0].fixedPools[i].available, 150 ether);
+      else if (i == 1) assertEq(data[0].fixedPools[i].available, 200 ether);
+      else assertEq(data[0].fixedPools[i].available, 100 ether);
     }
 
     // borrow 20 from the flexible borrow pool
     market.borrow(20 ether, address(this), address(this));
     data = previewer.exactly(address(this));
     for (uint256 i = 0; i < maxFuturePools; i++) {
-      if (i == 0) assertEq(data[0].fixedPools[i].available, 130 ether + distributedEarnings - 20 ether);
-      else assertEq(data[0].fixedPools[i].available, 80 ether + distributedEarnings - 20 ether);
+      if (i == 0) assertEq(data[0].fixedPools[i].available, 150 ether);
+      else if (i == 1) assertEq(data[0].fixedPools[i].available, 200 ether);
+      else assertEq(data[0].fixedPools[i].available, 100 ether);
     }
   }
 
