@@ -38,6 +38,7 @@ import {
 } from "../contracts/Market.sol";
 
 contract MarketTest is Test {
+  using FixedPointMathLib for int256;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
 
@@ -3246,11 +3247,29 @@ contract MarketTest is Test {
     market.deposit(1_000 ether, address(this));
 
     vm.warp(1 days);
+    uint256 maxAmount = uint256(
+      (market.fixedBorrowThreshold() *
+        ((((market.curveFactor() *
+          int256(
+            (FixedLib.INTERVAL - block.timestamp - (FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)) + 1)
+              .divWadDown(market.maxFuturePools() * FixedLib.INTERVAL)
+          ).lnWad()) / 1e18).expWad() * market.minThresholdFactor()) / 1e18).expWad()) / 1e18
+    ).mulWadDown(market.previewFloatingAssetsAverage());
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 300 ether, type(uint256).max, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, maxAmount + 1_000, type(uint256).max, address(this), address(this));
 
-    market.setFixedBorrowFactors(0.8e18, 0.5e18, 0.25e18);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 300 ether, type(uint256).max, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, maxAmount, type(uint256).max, address(this), address(this));
+  }
+
+  function testCanBorrowAtMaturityWithMaxFixedBorrowThreshold() external {
+    market.setFixedBorrowFactors(0.4e18, 0.5e18, 0.25e18);
+    market.deposit(1_000 ether, address(this));
+
+    vm.warp(1 days);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 399 ether, type(uint256).max, address(this), address(this));
+
+    vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 10 ether, type(uint256).max, address(this), address(this));
   }
 
   function testPausable() external {
