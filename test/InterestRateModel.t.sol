@@ -261,13 +261,32 @@ contract InterestRateModelTest is Test {
     v.backupBorrowed = 0;
     for (uint256 i = 0; i < fixedBorrows.length; i++) {
       if (fixedBorrows[i] != 0) {
-        market.borrowAtMaturity(
-          (i + 1) * FixedLib.INTERVAL,
-          fixedBorrows[i],
-          type(uint256).max,
-          address(this),
-          address(this)
-        );
+        uint256 totalBorrows;
+        uint256 pool = (i + 1) * FixedLib.INTERVAL;
+        {
+          uint256 maxTime = market.maxFuturePools() * FixedLib.INTERVAL;
+          for (uint256 j = pool; j <= maxTime; j += FixedLib.INTERVAL) {
+            (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(j);
+            if (j == pool) borrowed += fixedBorrows[i];
+            totalBorrows += borrowed > supplied ? borrowed - supplied : 0;
+          }
+        }
+        if (
+          totalBorrows.divWadDown(market.previewFloatingAssetsAverage()) <
+          uint256(
+            (market.fixedBorrowThreshold() *
+              ((((market.curveFactor() *
+                int256(
+                  (pool - block.timestamp - (FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)) + 1).divWadDown(
+                    market.maxFuturePools() * FixedLib.INTERVAL
+                  )
+                ).lnWad()) / 1e18).expWad() * market.minThresholdFactor()) / 1e18).expWad()) / 1e18
+          ) &&
+          market.floatingBackupBorrowed() + fixedBorrows[i] <
+          market.previewFloatingAssetsAverage().mulWadDown(uint256(market.fixedBorrowThreshold()))
+        ) {
+          market.borrowAtMaturity(pool, fixedBorrows[i], type(uint256).max, address(this), address(this));
+        } else fixedBorrows[i] = 0;
       }
       if (fixedDeposits[i] != 0) {
         market.depositAtMaturity((i + 1) * FixedLib.INTERVAL, fixedDeposits[i], 0, address(this));

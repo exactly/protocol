@@ -1093,7 +1093,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
     return
       memFloatingAssetsAverage != 0
-        ? totalBorrows.divWadDown(memFloatingAssetsAverage) <=
+        ? totalBorrows.divWadDown(memFloatingAssetsAverage) <
           uint256(
             (fixedBorrowThreshold *
               ((((curveFactor *
@@ -1102,7 +1102,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
                     .divWadDown(maxFuturePools * FixedLib.INTERVAL)
                 ).lnWad()) / 1e18).expWad() * minThresholdFactor) / 1e18).expWad()) / 1e18
           ) &&
-          floatingBackupBorrowed + assets <= memFloatingAssetsAverage.mulWadDown(uint256(fixedBorrowThreshold))
+          floatingBackupBorrowed + assets < memFloatingAssetsAverage.mulWadDown(uint256(fixedBorrowThreshold))
         : true;
   }
 

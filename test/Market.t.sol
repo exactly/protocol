@@ -2912,7 +2912,7 @@ contract MarketTest is Test {
     vm.warp(66_666);
     market.borrowAtMaturity(FixedLib.INTERVAL, 100, type(uint256).max, address(this), address(this));
     vm.prank(BOB);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1_000_000 ether - 100, type(uint256).max, BOB, BOB);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1_000_000 ether - 1_000, type(uint256).max, BOB, BOB);
 
     // contract can cover all debt by repaying less than initial amount borrowed (93 < 100)
     (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
@@ -3256,9 +3256,9 @@ contract MarketTest is Test {
           ).lnWad()) / 1e18).expWad() * market.minThresholdFactor()) / 1e18).expWad()) / 1e18
     ).mulWadDown(market.previewFloatingAssetsAverage());
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
-    market.borrowAtMaturity(FixedLib.INTERVAL, maxAmount + 1_000, type(uint256).max, address(this), address(this));
-
     market.borrowAtMaturity(FixedLib.INTERVAL, maxAmount, type(uint256).max, address(this), address(this));
+
+    market.borrowAtMaturity(FixedLib.INTERVAL, maxAmount - 1, type(uint256).max, address(this), address(this));
   }
 
   function testCanBorrowAtMaturityWithMaxFixedBorrowThreshold() external {
@@ -3304,7 +3304,7 @@ contract MarketTest is Test {
         totalBorrows += borrowed > supplied ? borrowed - supplied : 0;
       }
       bool canBorrow = memFloatingAssetsAverage > 0
-        ? totalBorrows.divWadDown(memFloatingAssetsAverage) <=
+        ? totalBorrows.divWadDown(memFloatingAssetsAverage) <
           uint256(
             (market.fixedBorrowThreshold() *
               ((((market.curveFactor() *
@@ -3313,7 +3313,7 @@ contract MarketTest is Test {
                     .divWadDown(maxTime)
                 ).lnWad()) / 1e18).expWad() * market.minThresholdFactor()) / 1e18).expWad()) / 1e18
           ) &&
-          market.floatingBackupBorrowed() + amounts[i] <=
+          market.floatingBackupBorrowed() + amounts[i] <
           memFloatingAssetsAverage.mulWadDown(uint256(market.fixedBorrowThreshold()))
         : true;
       if (amounts[i] == 0) {
@@ -3327,7 +3327,7 @@ contract MarketTest is Test {
         address(this)
       );
       if (assetsOwed > 0) {
-        assertLe(
+        assertLt(
           market.floatingBackupBorrowed(),
           memFloatingAssetsAverage.mulWadDown(uint256(market.fixedBorrowThreshold()))
         );
