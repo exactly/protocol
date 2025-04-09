@@ -1624,7 +1624,7 @@ contract PreviewerTest is Test {
     floatingAssetsAverage = previewFloatingAssetsAverage(FixedLib.INTERVAL);
 
     // borrowing exactly floatingAssetsAverage doesn't revert
-    market.borrowAtMaturity(FixedLib.INTERVAL, floatingAssetsAverage, 50 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, floatingAssetsAverage - 1, 50 ether, address(this), address(this));
 
     // after 200 seconds pass there's more available liquidity
     vm.warp(200 seconds);
