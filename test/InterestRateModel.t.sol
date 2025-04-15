@@ -13,7 +13,7 @@ import {
   InterestRateModel,
   UtilizationExceeded
 } from "../contracts/InterestRateModel.sol";
-import { Market, Parameters as MarketParams } from "../contracts/Market.sol";
+import { Market, FixedMarket, Parameters as MarketParams } from "../contracts/Market.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
 import { Auditor } from "../contracts/Auditor.sol";
 
@@ -234,6 +234,7 @@ contract InterestRateModelTest is Test {
     );
     market.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(market),
         maxFuturePools: 2,
         earningsAccumulatorSmoothFactor: 2e18,
         interestRateModel: irm,
@@ -272,7 +273,7 @@ contract InterestRateModelTest is Test {
           }
         }
         if (
-          totalBorrows.divWadDown(market.previewFloatingAssetsAverage()) <
+          totalBorrows.divWadDown(market.fixedMarket().previewFloatingAssetsAverage()) <
           uint256(
             (market.fixedBorrowThreshold() *
               ((((market.curveFactor() *
@@ -283,7 +284,7 @@ contract InterestRateModelTest is Test {
                 ).lnWad()) / 1e18).expWad() * market.minThresholdFactor()) / 1e18).expWad()) / 1e18
           ) &&
           market.floatingBackupBorrowed() + fixedBorrows[i] <
-          market.previewFloatingAssetsAverage().mulWadDown(uint256(market.fixedBorrowThreshold()))
+          market.fixedMarket().previewFloatingAssetsAverage().mulWadDown(uint256(market.fixedBorrowThreshold()))
         ) {
           market.borrowAtMaturity(pool, fixedBorrows[i], type(uint256).max, address(this), address(this));
         } else fixedBorrows[i] = 0;

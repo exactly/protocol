@@ -9,6 +9,7 @@ import { Math } from "@openzeppelin/contracts-v4/utils/math/Math.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import {
   Market,
+  FixedMarket,
   Parameters as MarketParams,
   InsufficientProtocolLiquidity,
   ZeroBorrow,
@@ -84,6 +85,7 @@ contract ProtocolTest is Test {
       );
       market.initialize(
         MarketParams({
+          fixedMarket: new FixedMarket(market),
           maxFuturePools: MAX_FUTURE_POOLS,
           earningsAccumulatorSmoothFactor: 2e18,
           interestRateModel: irm,
@@ -594,7 +596,7 @@ contract ProtocolTest is Test {
       vm.expectRevert(ZeroRepay.selector);
     } else if ((auditor.accountMarkets(BOB) & (1 << index)) == 0) {
       vm.expectRevert(bytes(""));
-    } else if (market.previewDebt(BOB) == 0) {
+    } else if (market.fixedMarket().previewDebt(BOB) == 0) {
       vm.expectRevert(ZeroWithdraw.selector);
     } else {
       uint256 seizeAssets = previewSeizeAssets(market, collateralMarket, BOB);
@@ -654,7 +656,7 @@ contract ProtocolTest is Test {
       address account = accounts[i];
       if (auditor.accountMarkets(account) == 0) {
         for (uint256 j = 0; j < MARKET_COUNT; ++j) {
-          assertEq(markets[j].previewDebt(account), 0, "should contain no debt");
+          assertEq(markets[j].fixedMarket().previewDebt(account), 0, "should contain no debt");
         }
       }
       for (uint256 j = 0; j < MARKET_COUNT; ++j) {

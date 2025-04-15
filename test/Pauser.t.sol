@@ -5,7 +5,7 @@ import { Test, stdError } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { Auditor } from "../contracts/Auditor.sol";
-import { Market, InterestRateModel, Parameters } from "../contracts/Market.sol";
+import { Market, FixedMarket, InterestRateModel, Parameters } from "../contracts/Market.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
 import { MockSequencerFeed } from "../contracts/mocks/MockSequencerFeed.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
@@ -31,6 +31,7 @@ contract PauserTest is Test {
     marketA = Market(address(new ERC1967Proxy(address(new Market(new MockERC20("A", "A", 18), auditor)), "")));
     marketA.initialize(
       Parameters({
+        fixedMarket: new FixedMarket(marketA),
         maxFuturePools: 3,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: InterestRateModel(address(irm)),
@@ -54,6 +55,7 @@ contract PauserTest is Test {
     marketB = Market(address(new ERC1967Proxy(address(new Market(new MockERC20("B", "B", 18), auditor)), "")));
     marketB.initialize(
       Parameters({
+        fixedMarket: new FixedMarket(marketB),
         maxFuturePools: 3,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: InterestRateModel(address(irm)),

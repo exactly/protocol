@@ -10,6 +10,7 @@ import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol"
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { RewardsController } from "./RewardsController.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
+import { FixedMarket } from "./FixedMarket.sol";
 import { Auditor } from "./Auditor.sol";
 
 contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable, ERC4626 {
@@ -112,6 +113,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   int256 public curveFactor;
   /// @notice Minimum fraction of borrows that can be made at a fixed rate.
   int256 public minThresholdFactor;
+  FixedMarket public fixedMarket;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
@@ -132,6 +134,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
+    setFixedMarket(p.fixedMarket);
     setMaxFuturePools(p.maxFuturePools);
     setEarningsAccumulatorSmoothFactor(p.earningsAccumulatorSmoothFactor);
     setInterestRateModel(p.interestRateModel);
@@ -270,7 +273,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     // if account doesn't have a current position, add it to the list
     if (position.principal == 0) {
       Account storage account = accounts[receiver];
-      account.fixedDeposits = account.fixedDeposits.setMaturity(maturity);
+      account.fixedDeposits = fixedMarket.setMaturity(account.fixedDeposits, maturity);
     }
 
     fixedConsolidated[receiver].deposits += assets;
@@ -302,7 +305,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     if (assets == 0) revert ZeroBorrow();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
-    if (!canBorrowAtMaturity(maturity, assets)) revert InsufficientProtocolLiquidity();
+    if (!fixedMarket.canBorrowAtMaturity(maturity, assets)) revert InsufficientProtocolLiquidity();
 
     FixedLib.Pool storage pool = fixedPools[maturity];
     depositToTreasury(updateFloatingDebt());
@@ -320,20 +323,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         floatingBackupBorrowed = newFloatingBackupBorrowed;
       }
     }
-    uint256 fee;
-    {
-      uint256 memFloatingAssets = floatingAssets;
-      uint256 memFloatingDebt = floatingDebt;
-      uint256 fixedRate = interestRateModel.fixedRate(
-        maturity,
-        maxFuturePools,
-        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssets),
-        floatingUtilization(memFloatingAssets, memFloatingDebt),
-        globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed),
-        previewGlobalUtilizationAverage()
-      );
-      fee = assets.mulWadUp(fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
-    }
+    uint256 fee = assets.mulWadUp(fixedMarket.fixedRate(maturity).mulDivDown(maturity - block.timestamp, 365 days));
     assetsOwed = assets + fee;
 
     // validate that the account is not taking arbitrary fees
@@ -346,7 +336,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
       if (position.principal == 0) {
         Account storage account = accounts[borrower];
-        account.fixedBorrows = account.fixedBorrows.setMaturity(maturity);
+        account.fixedBorrows = fixedMarket.setMaturity(account.fixedBorrows, maturity);
       }
 
       // calculate what portion of the fees are to be accrued and what portion goes to earnings accumulator
@@ -410,18 +400,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     // verify if there are any penalties/fee for the account because of early withdrawal, if so discount
     if (block.timestamp < maturity) {
-      uint256 memFloatingAssets = floatingAssets;
-      uint256 memFloatingDebt = floatingDebt;
-
-      uint256 fixedRate = interestRateModel.fixedRate(
-        maturity,
-        maxFuturePools,
-        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssets),
-        floatingUtilization(memFloatingAssets, memFloatingDebt),
-        globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed),
-        previewGlobalUtilizationAverage()
+      assetsDiscounted = positionAssets.divWadDown(
+        1e18 + fixedMarket.fixedRate(maturity).mulDivDown(maturity - block.timestamp, 365 days)
       );
-      assetsDiscounted = positionAssets.divWadDown(1e18 + fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     } else {
       assetsDiscounted = positionAssets;
     }
@@ -819,36 +800,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param account account to return status snapshot in the specified maturity date.
   /// @return the amount deposited to the floating pool and the amount owed to floating and fixed pools.
   function accountSnapshot(address account) external view returns (uint256, uint256) {
-    return (convertToAssets(balanceOf[account]), previewDebt(account));
-  }
-
-  /// @notice Gets all borrows and penalties for an account.
-  /// @param borrower account to return status snapshot for fixed and floating borrows.
-  /// @return debt the total debt, denominated in number of assets.
-  function previewDebt(address borrower) public view returns (uint256 debt) {
-    Account storage account = accounts[borrower];
-    uint256 memPenaltyRate = penaltyRate;
-    uint256 packedMaturities = account.fixedBorrows;
-    uint256 maturity = packedMaturities & ((1 << 32) - 1);
-    packedMaturities = packedMaturities >> 32;
-    // calculate all maturities using the base maturity and the following bits representing the following intervals
-    while (packedMaturities != 0) {
-      if (packedMaturities & 1 != 0) {
-        FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
-        uint256 positionAssets = position.principal + position.fee;
-
-        debt += positionAssets;
-
-        if (block.timestamp > maturity) {
-          debt += positionAssets.mulWadDown((block.timestamp - maturity) * memPenaltyRate);
-        }
-      }
-      packedMaturities >>= 1;
-      maturity += FixedLib.INTERVAL;
-    }
-    // calculate floating borrowed debt
-    uint256 shares = account.floatingBorrowShares;
-    if (shares != 0) debt += previewRefund(shares);
+    return (convertToAssets(balanceOf[account]), fixedMarket.previewDebt(account));
   }
 
   /// @notice Charges treasury fee to certain amount of earnings.
@@ -884,13 +836,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Calculates the earnings to be distributed from the accumulator given the current timestamp.
   /// @return earnings to be distributed from the accumulator.
   function accumulatedEarnings() internal view returns (uint256 earnings) {
-    uint256 elapsed = block.timestamp - lastAccumulatorAccrual;
-    if (elapsed == 0) return 0;
-    return
-      earningsAccumulator.mulDivDown(
-        elapsed,
-        elapsed + earningsAccumulatorSmoothFactor.mulWadDown(maxFuturePools * FixedLib.INTERVAL)
-      );
+    return fixedMarket.accumulatedEarnings();
   }
 
   /// @notice Accrues the earnings to be distributed from the accumulator given the current timestamp.
@@ -905,30 +851,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Updates the `globalUtilizationAverage` and `floatingAssetsAverage`.
   function updateAverages() internal {
-    globalUtilizationAverage = previewGlobalUtilizationAverage();
-    floatingAssetsAverage = previewFloatingAssetsAverage();
+    globalUtilizationAverage = fixedMarket.previewGlobalUtilizationAverage();
+    floatingAssetsAverage = fixedMarket.previewFloatingAssetsAverage();
     lastAverageUpdate = uint32(block.timestamp);
-  }
-
-  /// @notice Returns the current `floatingAssetsAverage` without updating the storage variable.
-  /// @return projected `floatingAssetsAverage`.
-  function previewFloatingAssetsAverage() public view returns (uint256) {
-    uint256 memFloatingAssets = floatingAssets;
-    uint256 memFloatingAssetsAverage = floatingAssetsAverage;
-    uint256 dampSpeedFactor = memFloatingAssets < memFloatingAssetsAverage
-      ? floatingAssetsDampSpeedDown
-      : floatingAssetsDampSpeedUp;
-    uint256 averageFactor = uint256(1e18 - (-int256(dampSpeedFactor * (block.timestamp - lastAverageUpdate))).expWad());
-    return memFloatingAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(memFloatingAssets);
-  }
-
-  function previewGlobalUtilizationAverage() public view returns (uint256) {
-    uint256 memGlobalUtilization = globalUtilization(floatingAssets, floatingDebt, floatingBackupBorrowed);
-    uint256 memGlobalUtilizationAverage = globalUtilizationAverage;
-    uint256 dampSpeedFactor = memGlobalUtilization < memGlobalUtilizationAverage ? uDampSpeedDown : uDampSpeedUp;
-    uint256 averageFactor = uint256(1e18 - (-int256(dampSpeedFactor * (block.timestamp - lastAverageUpdate))).expWad());
-    return
-      memGlobalUtilizationAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(memGlobalUtilization);
   }
 
   /// @notice Updates the floating pool borrows' variables.
@@ -954,17 +879,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Calculates the total floating debt, considering elapsed time since last update and current interest rate.
   /// @return actual floating debt plus projected interest.
   function totalFloatingBorrowAssets() public view returns (uint256) {
-    uint256 memFloatingDebt = floatingDebt;
-    uint256 memFloatingAssets = floatingAssets;
-    uint256 newDebt = memFloatingDebt.mulWadDown(
-      interestRateModel
-        .floatingRate(
-          floatingUtilization(memFloatingAssets, memFloatingDebt),
-          globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed)
-        )
-        .mulDivDown(block.timestamp - lastFloatingDebtUpdate, 365 days)
-    );
-    return memFloatingDebt + newDebt;
+    return fixedMarket.totalFloatingBorrowAssets();
   }
 
   /// @notice Calculates the floating pool balance plus earnings to be accrued at current timestamp
@@ -1034,24 +949,11 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     }
   }
 
-  /// @notice Retrieves a fixed pool's borrowed amount.
-  /// @param maturity maturity date of the fixed pool.
-  /// @return borrowed amount of the fixed pool.
-  function fixedPoolBorrowed(uint256 maturity) external view returns (uint256) {
-    return fixedPools[maturity].borrowed;
-  }
-
   /// @notice Retrieves a fixed pool's borrowed and supplied amount.
   /// @param maturity maturity date of the fixed pool.
   /// @return borrowed and supplied amount of the fixed pool.
   function fixedPoolBalance(uint256 maturity) external view returns (uint256, uint256) {
     return (fixedPools[maturity].borrowed, fixedPools[maturity].supplied);
-  }
-
-  /// @notice Retrieves fixed utilization of the floating pool.
-  /// @dev Internal function to avoid code duplication.
-  function fixedUtilization(uint256 supplied, uint256 borrowed, uint256 assets) internal pure returns (uint256) {
-    return assets != 0 && borrowed > supplied ? (borrowed - supplied).divWadUp(assets) : 0;
   }
 
   /// @notice Retrieves global utilization of the floating pool.
@@ -1074,36 +976,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       if (isBorrow) memRewardsController.handleBorrow(account);
       else memRewardsController.handleDeposit(account);
     }
-  }
-
-  /// @notice Checks if the account can borrow at a certain fixed pool.
-  /// @param maturity maturity date of the fixed pool.
-  /// @param assets amount of assets to borrow.
-  /// @return true if the account can borrow at the given maturity, false otherwise.
-  function canBorrowAtMaturity(uint256 maturity, uint256 assets) internal view returns (bool) {
-    uint256 totalBorrows;
-    {
-      uint256 maxTime = maxFuturePools * FixedLib.INTERVAL;
-      for (uint256 i = maturity; i <= maxTime; i += FixedLib.INTERVAL) {
-        FixedLib.Pool memory pool = fixedPools[i];
-        if (i == maturity) pool.borrowed += assets;
-        totalBorrows += pool.borrowed > pool.supplied ? pool.borrowed - pool.supplied : 0;
-      }
-    }
-    uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
-    return
-      memFloatingAssetsAverage != 0
-        ? totalBorrows.divWadDown(memFloatingAssetsAverage) <
-          uint256(
-            (fixedBorrowThreshold *
-              ((((curveFactor *
-                int256(
-                  (maturity - block.timestamp - (FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)) + 1)
-                    .divWadDown(maxFuturePools * FixedLib.INTERVAL)
-                ).lnWad()) / 1e18).expWad() * minThresholdFactor) / 1e18).expWad()) / 1e18
-          ) &&
-          floatingBackupBorrowed + assets < memFloatingAssetsAverage.mulWadDown(uint256(fixedBorrowThreshold))
-        : true;
   }
 
   /// @notice Emits MarketUpdate event.
@@ -1188,6 +1060,12 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emit InterestRateModelSet(interestRateModel_);
   }
 
+  /// @notice Sets the fixed market to be used to calculate rates.
+  /// @param fixedMarket_ new fixed market.
+  function setFixedMarket(FixedMarket fixedMarket_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    fixedMarket = fixedMarket_;
+  }
+
   /// @notice Sets the rewards controller to update account rewards when operating with the Market.
   /// @param rewardsController_ new rewards controller.
   function setRewardsController(RewardsController rewardsController_) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -1225,53 +1103,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     treasury = treasury_;
     treasuryFeeRate = treasuryFeeRate_;
     emit TreasurySet(treasury_, treasuryFeeRate_);
-  }
-
-  /// @notice Initializes fixed consolidated variables for the given `account`.
-  /// @param account address to initialize the fixed consolidated variables.
-  function initConsolidated(address account) external {
-    if (isInitialized[account]) return;
-    isInitialized[account] = true;
-
-    Account storage a = accounts[account];
-
-    uint256 borrows = fixedPrincipals(account, a.fixedBorrows, true);
-    if (borrows != 0) {
-      fixedOps.borrows += borrows - fixedConsolidated[account].borrows;
-      fixedConsolidated[account].borrows = borrows;
-    }
-
-    uint256 deposits = fixedPrincipals(account, a.fixedDeposits, false);
-    if (deposits != 0) {
-      handleRewards(false, account);
-      fixedOps.deposits += deposits - fixedConsolidated[account].deposits;
-      fixedConsolidated[account].deposits = deposits;
-    }
-  }
-
-  /// @notice Retrieves all principals for an `account` across all `account` maturities.
-  /// @param account address to retrieve the fixed principals.
-  /// @param packedMaturities maturities to retrieve the fixed principals.
-  /// @param isBorrow boolean to determine if the principals are borrows or deposits.
-  /// @return principals amount of fixed principals.
-  function fixedPrincipals(
-    address account,
-    uint256 packedMaturities,
-    bool isBorrow
-  ) internal view returns (uint256 principals) {
-    uint256 maturity = packedMaturities & ((1 << 32) - 1);
-    packedMaturities = packedMaturities >> 32;
-    mapping(uint256 => mapping(address => FixedLib.Position)) storage fixedPositions = isBorrow
-      ? fixedBorrowPositions
-      : fixedDepositPositions;
-    while (packedMaturities != 0) {
-      if (packedMaturities & 1 != 0) {
-        FixedLib.Position memory position = fixedPositions[maturity][account];
-        principals += position.principal;
-      }
-      packedMaturities >>= 1;
-      maturity += FixedLib.INTERVAL;
-    }
   }
 
   /// @notice Sets the pause state to true in case of emergency, triggered by an authorized account.
@@ -1540,6 +1371,7 @@ error ZeroRepay();
 error ZeroWithdraw();
 
 struct Parameters {
+  FixedMarket fixedMarket;
   uint8 maxFuturePools;
   uint128 earningsAccumulatorSmoothFactor;
   InterestRateModel interestRateModel;

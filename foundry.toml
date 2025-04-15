@@ -14,7 +14,7 @@ script = "scripts"
 cache_path = "cache/foundry"
 fs_permissions = [{ access = "read", path = "./deployments" }]
 verbosity = 3
-gas_limit = 2_700_000_000
+gas_limit = 5_000_000_000
 
 [invariant]
 fail_on_revert = true

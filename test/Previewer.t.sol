@@ -6,7 +6,12 @@ import { Math } from "@openzeppelin/contracts-v4/utils/math/Math.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { Market, Parameters as MarketParams, InsufficientProtocolLiquidity } from "../contracts/Market.sol";
+import {
+  Market,
+  FixedMarket,
+  Parameters as MarketParams,
+  InsufficientProtocolLiquidity
+} from "../contracts/Market.sol";
 import { InterestRateModel, AlreadyMatured, Parameters } from "../contracts/InterestRateModel.sol";
 import { Auditor, InsufficientAccountLiquidity, IPriceFeed } from "../contracts/Auditor.sol";
 import { RewardsController } from "../contracts/RewardsController.sol";
@@ -64,6 +69,7 @@ contract PreviewerTest is Test {
     );
     market.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(market),
         maxFuturePools: 12,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: InterestRateModel(address(irm)),
@@ -491,6 +497,7 @@ contract PreviewerTest is Test {
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(marketWETH),
         maxFuturePools: 12,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: new InterestRateModel(
@@ -610,6 +617,7 @@ contract PreviewerTest is Test {
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(marketWETH),
         maxFuturePools: 12,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: new InterestRateModel(
@@ -767,6 +775,7 @@ contract PreviewerTest is Test {
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(marketWETH),
         maxFuturePools: 12,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: new InterestRateModel(
@@ -997,6 +1006,7 @@ contract PreviewerTest is Test {
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(marketWETH),
         maxFuturePools: 12,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: new InterestRateModel(
@@ -1338,6 +1348,7 @@ contract PreviewerTest is Test {
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(marketWETH),
         maxFuturePools: 12,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: new InterestRateModel(
@@ -1425,6 +1436,7 @@ contract PreviewerTest is Test {
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(marketWETH),
         maxFuturePools: 12,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: new InterestRateModel(
@@ -1484,6 +1496,7 @@ contract PreviewerTest is Test {
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(marketWETH),
         maxFuturePools: 12,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: new InterestRateModel(
@@ -1555,6 +1568,7 @@ contract PreviewerTest is Test {
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(marketWETH),
         maxFuturePools: 12,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: new InterestRateModel(
@@ -1681,6 +1695,7 @@ contract PreviewerTest is Test {
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(marketWETH),
         maxFuturePools: 12,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: new InterestRateModel(
@@ -1737,6 +1752,7 @@ contract PreviewerTest is Test {
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(marketWETH),
         maxFuturePools: 12,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: new InterestRateModel(
@@ -1836,7 +1852,7 @@ contract PreviewerTest is Test {
     vm.warp(365 days);
     data = previewer.exactly(address(this));
     assertGt(data[0].floatingBorrowAssets, 10.2 ether);
-    assertEq(data[0].floatingBorrowAssets, market.previewDebt(address(this)));
+    assertEq(data[0].floatingBorrowAssets, market.fixedMarket().previewDebt(address(this)));
     assertEq(data[0].floatingBorrowShares, 10 ether);
 
     vm.warp(365 days + 80 days);
@@ -1847,13 +1863,13 @@ contract PreviewerTest is Test {
 
     vm.warp(365 days + 120 days);
     data = previewer.exactly(address(this));
-    assertEq(data[0].floatingBorrowAssets, market.previewDebt(address(this)));
+    assertEq(data[0].floatingBorrowAssets, market.fixedMarket().previewDebt(address(this)));
     assertEq(data[0].floatingBorrowShares, 10 ether);
 
     vm.warp(365 days + 123 days + 7 seconds);
     data = previewer.exactly(BOB);
     (, , uint256 floatingBorrowShares) = market.accounts(BOB);
-    assertEq(data[0].floatingBorrowAssets, market.previewDebt(BOB));
+    assertEq(data[0].floatingBorrowAssets, market.fixedMarket().previewDebt(BOB));
     assertEq(data[0].floatingBorrowShares, floatingBorrowShares);
   }
 
@@ -2090,6 +2106,7 @@ contract PreviewerTest is Test {
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(marketWETH),
         maxFuturePools: 12,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: new InterestRateModel(
@@ -2135,6 +2152,7 @@ contract PreviewerTest is Test {
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       MarketParams({
+        fixedMarket: new FixedMarket(marketWETH),
         maxFuturePools: 12,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: new InterestRateModel(
@@ -2416,7 +2434,7 @@ contract PreviewerTest is Test {
       address(this)
     );
 
-    uint256 debt = market.previewDebt(address(this));
+    uint256 debt = market.fixedMarket().previewDebt(address(this));
     assertEq(preview.assets, debt);
   }
 

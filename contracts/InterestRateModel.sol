@@ -214,14 +214,14 @@ contract InterestRateModel {
         fixedUtilization(supplied, newBorrowed, floatingAssets),
         floatingAssets != 0 ? floatingDebt.divWadUp(floatingAssets) : 0,
         globalUtilization(floatingAssets, floatingDebt, market.floatingBackupBorrowed() + backupDebtAddition),
-        market.previewGlobalUtilizationAverage()
+        market.fixedMarket().previewGlobalUtilizationAverage()
       ).mulDivDown(maturity - block.timestamp, 365 days);
   }
 
   /// @dev deprecated in favor of `fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal)`
   function minFixedRate(uint256, uint256, uint256) external view returns (uint256 rate, uint256 utilization) {
     uint256 floatingAssets = market.floatingAssetsAverage();
-    utilization = market.previewGlobalUtilizationAverage();
+    utilization = market.fixedMarket().previewGlobalUtilizationAverage();
     uint256 uFloating = floatingAssets != 0 ? market.floatingDebt().divWadUp(floatingAssets) : 0;
     if (uFloating > utilization) revert UtilizationExceeded();
     rate = baseRate(uFloating, utilization);
@@ -235,7 +235,8 @@ contract InterestRateModel {
     uint256 uFloating,
     uint256 uGlobal
   ) external view returns (uint256) {
-    return fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal, market.previewGlobalUtilizationAverage());
+    return
+      fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal, market.fixedMarket().previewGlobalUtilizationAverage());
   }
 
   function globalUtilization(

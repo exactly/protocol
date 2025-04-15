@@ -7,7 +7,7 @@ import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { WETH } from "solmate/src/tokens/WETH.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
-import { Market, Parameters } from "../contracts/Market.sol";
+import { Market, FixedMarket, Parameters } from "../contracts/Market.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
 import { MockSequencerFeed } from "../contracts/mocks/MockSequencerFeed.sol";
 import {
@@ -42,6 +42,7 @@ contract InstallmentsRouterTest is Test {
     market = Market(address(new ERC1967Proxy(address(new Market(usdc, auditor)), "")));
     market.initialize(
       Parameters({
+        fixedMarket: new FixedMarket(market),
         maxFuturePools: 3,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: InterestRateModel(address(new MockInterestRateModel(0.1e18))),
@@ -62,6 +63,7 @@ contract InstallmentsRouterTest is Test {
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       Parameters({
+        fixedMarket: new FixedMarket(marketWETH),
         maxFuturePools: 3,
         earningsAccumulatorSmoothFactor: 1e18,
         interestRateModel: InterestRateModel(address(new MockInterestRateModel(0.1e18))),

@@ -148,29 +148,6 @@ library FixedLib {
     unassignedEarnings = earnings - backupEarnings;
   }
 
-  /// @notice Adds a maturity date to the borrow or supply positions of the account.
-  /// @param encoded encoded maturity dates where the account borrowed or supplied to.
-  /// @param maturity the new maturity where the account will borrow or supply to.
-  /// @return updated encoded maturity dates.
-  function setMaturity(uint256 encoded, uint256 maturity) internal pure returns (uint256) {
-    // initialize the maturity with also the 1st bit on the 33th position set
-    if (encoded == 0) return maturity | (1 << 32);
-
-    uint256 baseMaturity = encoded & ((1 << 32) - 1);
-    if (maturity < baseMaturity) {
-      // if the new maturity is lower than the base, set it as the new base
-      // wipe clean the last 32 bits, shift the amount of `INTERVAL` and set the new value with the 33rd bit set
-      uint256 range = (baseMaturity - maturity) / INTERVAL;
-      if (encoded >> (256 - range) != 0) revert MaturityOverflow();
-      encoded = ((encoded >> 32) << (32 + range));
-      return maturity | encoded | (1 << 32);
-    } else {
-      uint256 range = (maturity - baseMaturity) / INTERVAL;
-      if (range > 223) revert MaturityOverflow();
-      return encoded | (1 << (32 + range));
-    }
-  }
-
   /// @notice Remove maturity from account's borrow or supplied positions.
   /// @param encoded encoded maturity dates where the account borrowed or supplied to.
   /// @param maturity maturity date to be removed.
@@ -252,6 +229,5 @@ library FixedLib {
   }
 }
 
-error MaturityOverflow();
 error UnmatchedPoolState(uint8 state, uint8 requiredState);
 error UnmatchedPoolStates(uint8 state, uint8 requiredState, uint8 alternativeState);

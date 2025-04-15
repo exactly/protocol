@@ -240,7 +240,7 @@ contract Previewer {
           f.fixedUtilization,
           f.floatingUtilization,
           f.globalUtilization,
-          market.previewGlobalUtilizationAverage()
+          market.fixedMarket().previewGlobalUtilizationAverage()
         )
       });
       unchecked {
