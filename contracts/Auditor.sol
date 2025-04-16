@@ -39,6 +39,9 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @notice Liquidation incentive factors for the liquidator and the lenders of the market where the debt is repaid.
   LiquidationIncentive public liquidationIncentive;
 
+  /// @notice temporal mapping for frozen accounts // FIXME
+  mapping(address account => bool frozen) public isFrozen;
+
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(uint256 priceDecimals_) {
     priceDecimals = priceDecimals_;
@@ -232,6 +235,14 @@ contract Auditor is Initializable, AccessControlUpgradeable {
       }
     }
 
+    if (isFrozen[borrower]) {
+      return
+        Math.min(
+          Math.min(base.totalDebt, base.seizeAvailable).mulDivUp(repay.baseUnit, repay.price),
+          maxLiquidatorAssets
+        );
+    }
+
     if (base.adjustedCollateral >= base.adjustedDebt) revert InsufficientShortfall();
 
     LiquidationIncentive memory memIncentive = liquidationIncentive;
@@ -276,13 +287,23 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     address borrower,
     uint256 actualRepayAssets
   ) external view returns (uint256 lendersAssets, uint256 seizeAssets) {
-    LiquidationIncentive memory memIncentive = liquidationIncentive;
-    lendersAssets = actualRepayAssets.mulWadDown(memIncentive.lenders);
-
     // read prices for borrowed and collateral markets
     uint256 priceBorrowed = assetPrice(markets[repayMarket].priceFeed);
     uint256 priceCollateral = assetPrice(markets[seizeMarket].priceFeed);
     uint256 baseAmount = actualRepayAssets.mulDivUp(priceBorrowed, 10 ** markets[repayMarket].decimals);
+
+    if (isFrozen[borrower]) {
+      return (
+        0,
+        Math.min(
+          baseAmount.mulDivUp(10 ** markets[seizeMarket].decimals, priceCollateral),
+          seizeMarket.maxWithdraw(borrower)
+        )
+      );
+    }
+
+    LiquidationIncentive memory memIncentive = liquidationIncentive;
+    lendersAssets = actualRepayAssets.mulWadDown(memIncentive.lenders);
 
     seizeAssets = Math.min(
       baseAmount.mulDivUp(10 ** markets[seizeMarket].decimals, priceCollateral).mulWadUp(
@@ -392,6 +413,10 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   ) public onlyRole(DEFAULT_ADMIN_ROLE) {
     liquidationIncentive = liquidationIncentive_;
     emit LiquidationIncentiveSet(liquidationIncentive_);
+  }
+
+  function setIsFrozen(address account, bool isFrozen_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    isFrozen[account] = isFrozen_;
   }
 
   /// @notice Emitted when a new market is listed for borrow/lending.
