@@ -100,6 +100,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Flag to initialize consolidated variables per account only once.
   mapping(address account => bool initialized) public isInitialized;
 
+  mapping(address account => uint256 assets) public frozenAssets;
+
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
     auditor = auditor_;
@@ -706,6 +708,20 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param assets amount to be removed from borrower's possession.
   function seize(address liquidator, address borrower, uint256 assets) external whenNotPaused {
     internalSeize(Market(msg.sender), liquidator, borrower, assets);
+  }
+
+  function freeze(address account) external {
+    if (msg.sender != address(auditor)) revert NotAuditor();
+
+    handleRewards(false, account);
+    uint256 shares = balanceOf[account];
+    uint256 assets = convertToAssets(shares);
+    beforeWithdraw(assets, shares);
+    _burn(account, shares);
+    frozenAssets[account] += assets;
+
+    emit Seize(msg.sender, account, assets);
+    emitMarketUpdate();
   }
 
   /// @notice Internal function to seize a certain amount of assets.

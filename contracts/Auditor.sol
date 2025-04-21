@@ -415,6 +415,28 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     emit LiquidationIncentiveSet(liquidationIncentive_);
   }
 
+  function freeze(address account) external {
+    if (!isFrozen[account]) revert Unauthorized();
+
+    // should make sure that liquidate was called for all markets
+    uint256 marketMap = accountMarkets[account];
+    for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
+      if (marketMap & 1 != 0) {
+        Market market = marketList[i];
+        (, uint256 debt) = market.accountSnapshot(account);
+        if (debt != 0) revert RemainingDebt();
+      }
+      unchecked {
+        ++i;
+      }
+    }
+
+    for (uint256 i = 0; i < marketList.length; i++) {
+      Market market = marketList[i];
+      market.freeze(account);
+    }
+  }
+
   function setIsFrozen(address account, bool isFrozen_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     isFrozen[account] = isFrozen_;
   }
@@ -491,6 +513,7 @@ error MarketAlreadyListed();
 error MarketNotListed();
 error NotMarket();
 error RemainingDebt();
+error Unauthorized();
 
 struct MarketVars {
   uint256 price;

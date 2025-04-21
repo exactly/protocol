@@ -28,6 +28,7 @@ import {
   NotPausingRole,
   InsufficientProtocolLiquidity
 } from "../contracts/Market.sol";
+import { RemainingDebt } from "../contracts/Auditor.sol";
 
 contract MarketTest is Test {
   using FixedPointMathLib for uint256;
@@ -3302,6 +3303,43 @@ contract MarketTest is Test {
 
     assertEq(weth.balanceOf(address(this)) - prevBalance, collateral, "collateral obtained != full collateral");
     assertEq(repaidAssets, debt / 2, "repaidAssets != full debt");
+  }
+
+  function testFreezeAssetsWhenFreezingAccount() external {
+    market.deposit(100 ether, address(this));
+    uint256 totalAssetsWithoutBOB = marketWETH.totalAssets();
+
+    marketWETH.deposit(100 ether, BOB);
+
+    vm.startPrank(BOB);
+    auditor.enterMarket(marketWETH);
+    market.borrow(10 ether, BOB, BOB);
+    vm.stopPrank();
+
+    auditor.setIsFrozen(BOB, true);
+
+    market.liquidate(BOB, type(uint256).max, marketWETH);
+
+    auditor.freeze(BOB);
+
+    assertEq(marketWETH.frozenAssets(BOB), 90 ether, "frozen assets != collateral - debt");
+    assertEq(marketWETH.balanceOf(BOB), 0, "borrower's collateral != 0");
+    assertEq(marketWETH.totalAssets(), totalAssetsWithoutBOB, "total assets != before BOB");
+  }
+
+  function testFreezeAssetsRevertsWhenNotLiquidated() external {
+    market.deposit(100 ether, address(this));
+    marketWETH.deposit(100 ether, BOB);
+
+    vm.startPrank(BOB);
+    auditor.enterMarket(marketWETH);
+    market.borrow(10 ether, BOB, BOB);
+    vm.stopPrank();
+
+    auditor.setIsFrozen(BOB, true);
+
+    vm.expectRevert(RemainingDebt.selector);
+    auditor.freeze(BOB);
   }
 
   event MarketUpdate(
