@@ -11,6 +11,7 @@ import { InterestRateModel } from "./InterestRateModel.sol";
 import { RewardsController } from "./RewardsController.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Auditor } from "./Auditor.sol";
+import "forge-std/console.sol";
 
 contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable, ERC4626 {
   using FixedPointMathLib for int256;
@@ -1093,17 +1094,22 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
     return
       memFloatingAssetsAverage != 0
-        ? totalBorrows.divWadDown(memFloatingAssetsAverage) <
-          uint256(
-            (fixedBorrowThreshold *
-              ((((curveFactor *
-                int256(
-                  (maturity - block.timestamp - (FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)) + 1)
-                    .divWadDown(maxFuturePools * FixedLib.INTERVAL)
-                ).lnWad()) / 1e18).expWad() * minThresholdFactor) / 1e18).expWad()) / 1e18
-          ) &&
+        ? totalBorrows.divWadDown(memFloatingAssetsAverage) < maturityAllocation(maturity - block.timestamp) &&
           floatingBackupBorrowed + assets < memFloatingAssetsAverage.mulWadDown(uint256(fixedBorrowThreshold))
         : true;
+  }
+
+  function maturityAllocation(uint256 deltaTime) public view returns (uint256) {
+    return
+      uint256(
+        (fixedBorrowThreshold *
+          ((((curveFactor *
+            int256(
+              (deltaTime - (FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)) + 1).divWadDown(
+                maxFuturePools * FixedLib.INTERVAL
+              )
+            ).lnWad()) / 1e18).expWad() * minThresholdFactor) / 1e18).expWad()) / 1e18
+      );
   }
 
   /// @notice Emits MarketUpdate event.

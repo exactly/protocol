@@ -36,6 +36,7 @@ import {
   Parameters as MarketParams,
   InsufficientProtocolLiquidity
 } from "../contracts/Market.sol";
+import "forge-std/console.sol";
 
 contract MarketTest is Test {
   using FixedPointMathLib for int256;
@@ -2903,6 +2904,7 @@ contract MarketTest is Test {
       )
     );
 
+    console.log("minThresholdFactor", market.minThresholdFactor());
     market.deposit(1_000_000 ether, address(this));
     marketWETH.deposit(100_000 ether, BOB);
     daiPriceFeed.setPrice(0.0002e18);
