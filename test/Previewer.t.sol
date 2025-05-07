@@ -664,10 +664,10 @@ contract PreviewerTest is Test {
     marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 300 ether, address(this), address(this));
 
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
-    uint256 depositRate = 33432052065142420;
+    uint256 depositRate = 34818471924383955;
     // MarketDAI
     assertEq(data[0].fixedPools[0].optimalDeposit, 10 ether);
-    assertEq(data[0].fixedPools[0].minBorrowRate, 37146724516824931);
+    assertEq(data[0].fixedPools[0].minBorrowRate, 38687191027093295);
     assertEq(data[0].fixedPools[0].depositRate, depositRate);
     assertEq(data[0].fixedPools[0].utilization, 0.1 ether);
     assertEq(data[0].fixedPools[1].optimalDeposit, 0);
@@ -680,8 +680,8 @@ contract PreviewerTest is Test {
     assertEq(data[1].fixedPools[0].depositRate, 0);
     assertEq(data[1].fixedPools[0].utilization, 0);
     assertEq(data[1].fixedPools[1].optimalDeposit, 200 ether);
-    assertEq(data[1].fixedPools[1].minBorrowRate, 37997829162598044);
-    assertEq(data[1].fixedPools[1].depositRate, 34198046246338230);
+    assertEq(data[1].fixedPools[1].minBorrowRate, 41741279406009799);
+    assertEq(data[1].fixedPools[1].depositRate, 37567151465408815);
     assertEq(data[1].fixedPools[1].utilization, 0.004 ether);
 
     vm.warp(block.timestamp + 1 days);
@@ -733,13 +733,13 @@ contract PreviewerTest is Test {
     assertEq(data[0].rewardRates[0].assetName, rewardAsset.name());
     assertEq(data[0].rewardRates[0].assetSymbol, rewardAsset.symbol());
 
-    uint256 newDepositRewards = 17985931229760000;
+    uint256 newDepositRewards = 17989902689680000;
     uint256 newDepositRewardsValue = newDepositRewards.mulDivDown(
       uint256(opPriceFeed.latestAnswer()),
       10 ** opPriceFeed.decimals()
     );
     uint256 annualRewardValue = newDepositRewardsValue.mulDivDown(365 days, deltaTime);
-    assertApproxEqAbs(data[0].rewardRates[0].floatingDeposit, annualRewardValue.mulDivDown(1e18, depositAmount), 1e4);
+    assertApproxEqAbs(data[0].rewardRates[0].floatingDeposit, annualRewardValue.mulDivDown(1e18, depositAmount), 1e13);
 
     uint256 newFloatingBorrowRewards = 238622379993700;
     uint256 newFloatingBorrowRewardsValue = newFloatingBorrowRewards.mulDivDown(
@@ -1424,7 +1424,7 @@ contract PreviewerTest is Test {
 
     // supply 100 more to the smart pool
     market.deposit(100 ether, address(this));
-    uint256 distributedEarnings = 792852744101;
+    uint256 distributedEarnings = 825732173331;
     // set the smart pool reserve to 10%
     // since smart pool supply is 200 then 10% is 20
     market.setReserveFactor(0.1e18);

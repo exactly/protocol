@@ -302,7 +302,7 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   ) public onlyRole(DEFAULT_ADMIN_ROLE) {
     fixedBorrowThreshold = fixedBorrowThreshold_;
     curveFactor = curveFactor_;
-    minThresholdFactor = minThresholdFactor_.lnWad();
+    minThresholdFactor = minThresholdFactor_;
     emit FixedBorrowFactorsSet(fixedBorrowThreshold_, curveFactor_, minThresholdFactor_);
   }
 

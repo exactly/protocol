@@ -235,10 +235,7 @@ contract ProtocolTest is Test {
       vm.expectRevert(ZeroWithdraw.selector);
     } else if (block.timestamp < maturity && supplied + backupAssets == 0) {
       vm.expectRevert(bytes(""));
-    } else if (
-      (block.timestamp < maturity && positionAssets > backupAssets + supplied) ||
-      (borrowed + positionAssets).divWadUp(backupAssets + supplied) > 1e18
-    ) {
+    } else if (previewFloatingUtilization(market) > previewGlobalUtilization(market, 0)) {
       vm.expectRevert(UtilizationExceeded.selector);
     } else if (
       block.timestamp < maturity &&
@@ -304,7 +301,7 @@ contract ProtocolTest is Test {
     address account = accounts[i % accounts.length];
     uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(maturity);
-    uint256 backupAssets = previewFloatingAssetsAverage(market, maturity);
+    // uint256 backupAssets = previewFloatingAssetsAverage(market, maturity);
     uint256 backupDebtAddition;
     {
       uint256 newBorrowed = borrowed + assets;
@@ -313,9 +310,9 @@ contract ProtocolTest is Test {
 
     if (assets == 0) {
       vm.expectRevert(ZeroBorrow.selector);
-    } else if (supplied + backupAssets == 0) {
-      vm.expectRevert(bytes(""));
-    } else if (assets > backupAssets + supplied || (borrowed + assets).divWadUp(backupAssets + supplied) > 1e18) {
+    } else if (!previewCanBorrowAtMaturity(market, maturity, assets)) {
+      vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    } else if (previewFloatingUtilization(market) > previewGlobalUtilization(market, backupDebtAddition)) {
       vm.expectRevert(UtilizationExceeded.selector);
     } else if (
       backupDebtAddition > 0 &&
@@ -323,9 +320,18 @@ contract ProtocolTest is Test {
       (market.floatingAssets() + previewNewFloatingDebt(market)).mulWadDown(1e18 - RESERVE_FACTOR)
     ) {
       vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    } else if (
+      previewFixedUtilization(market, borrowed + assets, supplied) >
+      previewGlobalUtilization(market, backupDebtAddition) ||
+      previewFloatingUtilization(market) > previewGlobalUtilization(market, backupDebtAddition)
+    ) {
+      vm.expectRevert(UtilizationExceeded.selector);
     } else {
-      uint256 fees = assets.mulWadDown(
-        market.interestRateModel().fixedBorrowRate(maturity, assets, borrowed, supplied, backupAssets)
+      uint256 fees = assets.mulWadUp(
+        previewFixedRate(market, maturity, borrowed + assets, supplied, backupDebtAddition).mulDivDown(
+          maturity - block.timestamp,
+          365 days
+        )
       );
       (uint256 collateral, uint256 debt) = accountLiquidity(account, market, assets + fees, 0);
       if (collateral < debt) {
@@ -1051,6 +1057,74 @@ contract ProtocolTest is Test {
     );
 
     return floatingAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(floatingDepositAssets);
+  }
+
+  function previewGlobalUtilization(Market market, uint256 backupDebtAddition) internal view returns (uint256) {
+    uint256 assets = market.floatingAssets();
+    uint256 memFloatingDebt = previewNewFloatingDebt(market);
+    assets += memFloatingDebt;
+    uint256 floatingBackupBorrowed = market.floatingBackupBorrowed() + backupDebtAddition;
+    return assets != 0 ? (market.floatingDebt() + memFloatingDebt + floatingBackupBorrowed).divWadUp(assets) : 0;
+  }
+
+  function previewFixedUtilization(Market market, uint256 borrowed, uint256 supplied) internal view returns (uint256) {
+    uint256 assets = market.floatingAssets() + previewNewFloatingDebt(market);
+    return assets != 0 && borrowed > supplied ? (borrowed - supplied).divWadUp(assets) : 0;
+  }
+
+  function previewFloatingUtilization(Market market) internal view returns (uint256) {
+    uint256 assets = market.floatingAssets() + previewNewFloatingDebt(market);
+    return assets != 0 ? (market.floatingDebt() + previewNewFloatingDebt(market)).divWadUp(assets) : 0;
+  }
+
+  function previewGlobalUtilizationAverage(Market market, uint256 backupDebtAddition) internal view returns (uint256) {
+    uint256 memGlobalUtilization = previewGlobalUtilization(market, backupDebtAddition);
+    uint256 memGlobalUtilizationAverage = market.globalUtilizationAverage();
+    uint256 dampSpeedFactor = memGlobalUtilization < memGlobalUtilizationAverage
+      ? market.uDampSpeedDown()
+      : market.uDampSpeedUp();
+    uint256 averageFactor = uint256(
+      1e18 - (-int256(dampSpeedFactor * (block.timestamp - market.lastAverageUpdate()))).expWad()
+    );
+    return
+      memGlobalUtilizationAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(memGlobalUtilization);
+  }
+
+  function previewCanBorrowAtMaturity(Market market, uint256 maturity, uint256 assets) internal view returns (bool) {
+    uint256 totalBorrows;
+    {
+      uint256 maxTime = market.maxFuturePools() * FixedLib.INTERVAL;
+      for (uint256 i = maturity; i <= maxTime; i += FixedLib.INTERVAL) {
+        (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(i);
+        if (i == maturity) borrowed += assets;
+        totalBorrows += borrowed > supplied ? borrowed - supplied : 0;
+      }
+    }
+    uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
+    return
+      memFloatingAssetsAverage != 0
+        ? totalBorrows.divWadDown(memFloatingAssetsAverage) < market.maturityAllocation(maturity - block.timestamp) &&
+          market.floatingBackupBorrowed() + assets <
+          memFloatingAssetsAverage.mulWadDown(uint256(market.fixedBorrowThreshold()))
+        : true;
+  }
+
+  function previewFixedRate(
+    Market market,
+    uint256 maturity,
+    uint256 borrowed,
+    uint256 supplied,
+    uint256 backupDebtAddition
+  ) internal view returns (uint256) {
+    return
+      market.interestRateModel().fixedRate(
+        maturity,
+        market.maxFuturePools(),
+        previewFixedUtilization(market, borrowed, supplied),
+        previewFloatingUtilization(market),
+        previewGlobalUtilization(market, backupDebtAddition),
+        previewGlobalUtilizationAverage(market, backupDebtAddition)
+      );
   }
 
   struct BadDebtVars {
