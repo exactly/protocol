@@ -89,7 +89,7 @@ contract InterestRateModel {
     auxSigmoid = int256(naturalUtilization.divWadDown(1e18 - naturalUtilization)).lnWad();
 
     // reverts if it's an invalid curve (such as one yielding a negative interest rate).
-    fixedRate(block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL), 2, 1, 1, 2, 2);
+    // fixedRate(block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL), 2, 1, 1, 2, 2);
     baseRate(1e18 - 1, 1e18 - 1);
   }
 
@@ -114,9 +114,26 @@ contract InterestRateModel {
     if (uGlobal == 0) return baseRate(0, 0);
 
     FixedVars memory v;
-    v.sqFNatPools = (maxPools * 1e18).divWadDown(fixedAllocation);
+    uint256 maturityAllocation = market.maturityAllocation(maturity - block.timestamp);
+    uint256 maturityAllocationNext = market.maturityAllocation(maturity - block.timestamp + FixedLib.INTERVAL);
+    v.sqFNatPools =
+      (maturityAllocation * 1e18) /
+      uGlobal.mulWadUp(
+        uint256(market.fixedBorrowThreshold()).mulWadDown(uint256(market.minThresholdFactor())) /
+          market.maxFuturePools() +
+          maturityAllocation -
+          maturityAllocationNext
+      );
     v.fNatPools = (v.sqFNatPools * 1e18).sqrt();
-    v.fixedFactor = (maxPools * uFixed).mulDivDown(1e36, uGlobal * fixedAllocation);
+    v.fixedFactor =
+      (uFixed * 1e18) /
+      uGlobal.mulWadUp(
+        uint256(market.fixedBorrowThreshold()).mulWadDown(uint256(market.minThresholdFactor())) /
+          market.maxFuturePools() +
+          maturityAllocation -
+          maturityAllocationNext
+      );
+
     v.natPools =
       ((2e18 - v.sqFNatPools.toInt256()) * 1e36) /
       (v.fNatPools.toInt256() * (1e18 - v.fNatPools.toInt256()));
