@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17; // solhint-disable-line one-contract-per-file
 
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
 import { Test, stdError } from "forge-std/Test.sol";
@@ -3239,14 +3240,9 @@ contract MarketTest is Test {
     market.deposit(1_000 ether, address(this));
 
     vm.warp(1 days);
-    uint256 maxAmount = uint256(
-      (market.fixedBorrowThreshold() *
-        ((((market.curveFactor() *
-          int256(
-            (FixedLib.INTERVAL - block.timestamp - (FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)) + 1)
-              .divWadDown(market.maxFuturePools() * FixedLib.INTERVAL)
-          ).lnWad()) / 1e18).expWad() * market.minThresholdFactor()) / 1e18).expWad()) / 1e18
-    ).mulWadDown(market.previewFloatingAssetsAverage());
+    uint256 maxAmount = market.maturityAllocation(FixedLib.INTERVAL - block.timestamp).mulWadDown(
+      market.previewFloatingAssetsAverage()
+    );
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL, maxAmount, type(uint256).max, address(this), address(this));
 
@@ -3258,10 +3254,213 @@ contract MarketTest is Test {
     market.deposit(1_000 ether, address(this));
 
     vm.warp(1 days);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 399 ether, type(uint256).max, address(this), address(this));
+    uint256 floatingAssetsAverage = market.previewFloatingAssetsAverage();
+    uint256 maxMaturity1 = market.maturityAllocation(FixedLib.INTERVAL - block.timestamp).mulWadDown(
+      floatingAssetsAverage
+    );
+    uint256 maxMaturity2 = market.maturityAllocation(FixedLib.INTERVAL * 2 - block.timestamp).mulWadDown(
+      floatingAssetsAverage
+    );
+    uint256 maxMaturity3 = market.maturityAllocation(FixedLib.INTERVAL * 3 - block.timestamp).mulWadDown(
+      floatingAssetsAverage
+    );
+    market.borrowAtMaturity(FixedLib.INTERVAL, maxMaturity1 - 1, type(uint256).max, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, maxMaturity2 - 1, type(uint256).max, address(this), address(this));
+    assertGt(
+      maxMaturity1 + maxMaturity2 + maxMaturity3,
+      floatingAssetsAverage.mulWadDown(uint256(market.fixedBorrowThreshold()))
+    );
 
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
-    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 10 ether, type(uint256).max, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 3, maxMaturity3 - 1, type(uint256).max, address(this), address(this));
+  }
+
+  function testFixedBorrowThresholdZeroValue() external {
+    market.setFixedBorrowFactors(0, 0.5e18, 0.25e18);
+    market.deposit(1_000 ether, address(this));
+
+    vm.warp(1 days);
+    vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, type(uint256).max, address(this), address(this));
+  }
+
+  function testMaturityAllocationDeposit() external {
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+
+    Market newMarket = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    newMarket.initialize(
+      MarketParams({
+        maxFuturePools: 7,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 50000000000000000,
+            naturalRate: 110000000000000000,
+            maxUtilization: 1300000000000000000,
+            naturalUtilization: 880000000000000000,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18
+          }),
+          newMarket
+        ),
+        penaltyRate: 0.0045e18 / uint256(1 days),
+        backupFeeRate: 0.1e18,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.00000555e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.00000555e18,
+        fixedBorrowThreshold: 0.6e18,
+        curveFactor: 0.5e18,
+        minThresholdFactor: 0.25e18
+      })
+    );
+
+    auditor.enableMarket(newMarket, daiPriceFeed, 1e18);
+
+    asset.mint(address(this), 10_000_000 ether);
+    asset.approve(address(newMarket), type(uint256).max);
+
+    newMarket.deposit(3_850_000 ether, address(this));
+    newMarket.borrow(3_000_000 ether, address(this), address(this));
+
+    vm.warp(block.timestamp + 14 days + 6 hours);
+    newMarket.deposit(1_000_000 ether, address(this));
+
+    for (uint256 i = 0; i < 4; i++) {
+      assertApproxEqRel(
+        newMarket.maturityAllocation(FixedLib.INTERVAL - block.timestamp),
+        0.415611057246590445 ether + 0.001396 ether * i,
+        2e14
+      );
+      vm.warp(block.timestamp + 6 hours);
+    }
+  }
+
+  function testMaturityAllocationBorrow() external {
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+
+    Market newMarket = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    newMarket.initialize(
+      MarketParams({
+        maxFuturePools: 7,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 50000000000000000,
+            naturalRate: 110000000000000000,
+            maxUtilization: 1300000000000000000,
+            naturalUtilization: 880000000000000000,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18
+          }),
+          newMarket
+        ),
+        penaltyRate: 0.0045e18 / uint256(1 days),
+        backupFeeRate: 0.1e18,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.00000555e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.00000555e18,
+        fixedBorrowThreshold: 0.6e18,
+        curveFactor: 0.5e18,
+        minThresholdFactor: 0.25e18
+      })
+    );
+
+    auditor.enableMarket(newMarket, daiPriceFeed, 1e18);
+
+    asset.mint(address(this), 10_000_000 ether);
+    asset.approve(address(newMarket), type(uint256).max);
+
+    newMarket.deposit(3_850_000 ether, address(this));
+    newMarket.borrow(3_000_000 ether, address(this), address(this));
+
+    vm.warp(block.timestamp + 14 days + 1 seconds);
+    newMarket.withdraw(500_000 ether, address(this), address(this));
+
+    for (uint256 i = 0; i < 4; i++) {
+      assertApproxEqRel(
+        newMarket.maturityAllocation(FixedLib.INTERVAL * 2 - block.timestamp),
+        0.315828754884289982 ether + 0.00000003 ether * i,
+        2e10
+      );
+
+      vm.warp(block.timestamp + 1 seconds);
+    }
+  }
+
+  function testMaturityAllocationMultipleOperations() external {
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+
+    Market newMarket = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    newMarket.initialize(
+      MarketParams({
+        maxFuturePools: 7,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 50000000000000000,
+            naturalRate: 110000000000000000,
+            maxUtilization: 1300000000000000000,
+            naturalUtilization: 880000000000000000,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18
+          }),
+          newMarket
+        ),
+        penaltyRate: 0.0045e18 / uint256(1 days),
+        backupFeeRate: 0.1e18,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.00000555e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.00000555e18,
+        fixedBorrowThreshold: 0.6e18,
+        curveFactor: 0.5e18,
+        minThresholdFactor: 0.25e18
+      })
+    );
+
+    auditor.enableMarket(newMarket, daiPriceFeed, 1e18);
+
+    asset.mint(address(this), 10_000_000 ether);
+    asset.approve(address(newMarket), type(uint256).max);
+
+    newMarket.deposit(3_850_000 ether, address(this));
+    newMarket.borrow(3_000_000 ether, address(this), address(this));
+
+    vm.warp(block.timestamp + 14 days + 10 seconds);
+    newMarket.deposit(1_000_000 ether, address(this));
+
+    vm.warp(block.timestamp + 90 seconds);
+    newMarket.withdraw(1_000_000 ether, address(this), address(this));
+
+    for (uint256 i = 0; i < 4; i++) {
+      assertApproxEqRel(
+        newMarket.maturityAllocation(FixedLib.INTERVAL * 3 - block.timestamp),
+        0.262032138869254774 ether + 0.00000018 ether * i,
+        1e10
+      );
+
+      vm.warp(block.timestamp + 10 seconds);
+    }
   }
 
   function testFuzzCanBorrowAtMaturity(
@@ -3301,9 +3500,8 @@ contract MarketTest is Test {
             (market.fixedBorrowThreshold() *
               ((((market.curveFactor() *
                 int256(
-                  (maturity - block.timestamp - (FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)) + 1)
-                    .divWadDown(maxTime)
-                ).lnWad()) / 1e18).expWad() * market.minThresholdFactor()) / 1e18).expWad()) / 1e18
+                  Math.min(1e18, (maturity - block.timestamp).divWadDown(market.maxFuturePools() * FixedLib.INTERVAL))
+                ).lnWad()) / 1e18).expWad() * market.minThresholdFactor().lnWad()) / 1e18).expWad()) / 1e18
           ) &&
           market.floatingBackupBorrowed() + amounts[i] <
           memFloatingAssetsAverage.mulWadDown(uint256(market.fixedBorrowThreshold()))

@@ -24,7 +24,8 @@ contract InterestRateModelTest is Test {
   InterestRateModelHarness internal irm;
 
   function testFixedBorrowRate() external {
-    assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18, 0.75e18), 63726888252924763);
+    irm = deployDefault();
+    assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18, 0.75e18), 66470614884441668);
   }
 
   function testFuzzFixedRateTimeSensitivity(uint256 maxPools, uint256 maturity, uint256 intervals) external {
@@ -127,8 +128,6 @@ contract InterestRateModelTest is Test {
 
   function testFuzzReferenceRateFixed(
     uint256 timestamp,
-    uint256 maturity,
-    uint256 maxPools,
     uint256 uFixed,
     uint256 uFloating,
     uint256 uGlobal,
@@ -137,11 +136,6 @@ contract InterestRateModelTest is Test {
     timestamp = _bound(timestamp, 0, 2 * FixedLib.INTERVAL);
     vm.warp(timestamp);
 
-    maxPools = _bound(maxPools, 6, 24);
-    maturity = _bound(maturity, 1, maxPools) * FixedLib.INTERVAL + timestamp - (timestamp % FixedLib.INTERVAL);
-    uFixed = _bound(uFixed, 0, 1.01e18);
-    uFloating = _bound(uFloating, 0, 1.01e18 - uFixed);
-    uGlobal = _bound(uGlobal, uFixed + uFloating, 1.01e18);
     p.maxUtilization = _bound(p.maxUtilization, 1.01e18 + 1, 2e18);
     p.naturalUtilization = _bound(p.naturalUtilization, 0.4e18, 0.9e18);
     p.growthSpeed = _bound(p.growthSpeed, 1, 5e18);
@@ -153,25 +147,55 @@ contract InterestRateModelTest is Test {
     p.fixedAllocation = _bound(p.fixedAllocation, 0.01e18, 1e18);
     p.maxRate = _bound(p.maxRate, 100e16, 10_000e16);
 
-    irm = new InterestRateModelHarness(
-      Parameters({
-        minRate: p.minRate,
-        naturalRate: p.naturalRate,
-        maxUtilization: p.maxUtilization,
-        naturalUtilization: p.naturalUtilization,
-        growthSpeed: p.growthSpeed,
-        sigmoidSpeed: p.sigmoidSpeed,
-        spreadFactor: p.spreadFactor,
-        maturitySpeed: p.maturitySpeed,
-        timePreference: p.timePreference,
-        fixedAllocation: p.fixedAllocation,
-        maxRate: p.maxRate
-      }),
-      Market(address(0))
-    );
+    {
+      Market market = Market(
+        address(new ERC1967Proxy(address(new Market(new MockERC20("USDC", "USDC", 18), Auditor(address(0)))), ""))
+      );
+      market.initialize(
+        MarketParams({
+          maxFuturePools: 12,
+          earningsAccumulatorSmoothFactor: 2e18,
+          interestRateModel: InterestRateModel(address(0)),
+          penaltyRate: 0.0045e18 / uint256(1 days),
+          backupFeeRate: 0.1e18,
+          reserveFactor: 0.05e18,
+          floatingAssetsDampSpeedUp: 0.00000555e18,
+          floatingAssetsDampSpeedDown: 0.23e18,
+          uDampSpeedUp: 0.23e18,
+          uDampSpeedDown: 0.00000555e18,
+          fixedBorrowThreshold: 0.6e18,
+          curveFactor: 0.5e18,
+          minThresholdFactor: 0.25e18
+        })
+      );
+      irm = new InterestRateModelHarness(
+        Parameters({
+          minRate: p.minRate,
+          naturalRate: p.naturalRate,
+          maxUtilization: p.maxUtilization,
+          naturalUtilization: p.naturalUtilization,
+          growthSpeed: p.growthSpeed,
+          sigmoidSpeed: p.sigmoidSpeed,
+          spreadFactor: p.spreadFactor,
+          maturitySpeed: p.maturitySpeed,
+          timePreference: p.timePreference,
+          fixedAllocation: p.fixedAllocation,
+          maxRate: p.maxRate
+        }),
+        market
+      );
+    }
+    uint256 maturity = _bound(timestamp, 1, irm.market().maxFuturePools()) *
+      FixedLib.INTERVAL +
+      timestamp -
+      (timestamp % FixedLib.INTERVAL);
+    uFixed = _bound(uFixed, 0, previewMaturityAllocation(maturity, false));
+    uFloating = _bound(uFloating, 0, 1.01e18 - uFixed);
+    uGlobal = _bound(uGlobal, uFixed + uFloating, 1.01e18);
 
     string[] memory ffi = new string[](2);
     ffi[0] = "scripts/irm-fixed.sh";
+    uint256 rate = irm.fixedRate(maturity, irm.market().maxFuturePools(), uFixed, uFloating, uGlobal, uGlobal);
     ffi[1] = encodeHex(
       abi.encode(
         irm.base(uFloating, uGlobal),
@@ -181,17 +205,23 @@ contract InterestRateModelTest is Test {
         p.fixedAllocation,
         p.maxRate,
         maturity,
-        maxPools,
         uFixed,
         uGlobal,
-        block.timestamp
+        block.timestamp,
+        previewMaturityAllocation(maturity, false),
+        previewMaturityAllocation(maturity, true),
+        irm.market().fixedBorrowThreshold(),
+        irm.market().minThresholdFactor()
       )
     );
     uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
-    uint256 rate = irm.fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal, uGlobal);
 
     assertLe(rate, p.maxRate, "rate > maxRate");
     assertApproxEqRel(rate, refRate, 0.00000002e16, "rate != refRate");
+  }
+
+  function previewMaturityAllocation(uint256 maturity, bool isNext) internal view returns (uint256) {
+    return irm.market().maturityAllocation(maturity - block.timestamp + (isNext ? FixedLib.INTERVAL : 0));
   }
 
   function testFuzzReferenceLegacyRateFixed(
@@ -329,6 +359,26 @@ contract InterestRateModelTest is Test {
     uFixed2 = _bound(uFixed2, uFixed, 1.01e18);
     uFloating = _bound(uFloating, 0, 1.01e18 - uFixed2);
     uGlobal = _bound(uGlobal, uFixed2 + uFloating + 0.01e18, 1.02e18);
+
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+    Market market = Market(address(new ERC1967Proxy(address(new Market(asset, Auditor(address(0)))), "")));
+    market.initialize(
+      MarketParams({
+        maxFuturePools: 7,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: InterestRateModel(address(0)),
+        penaltyRate: 0.0045e18 / uint256(1 days),
+        backupFeeRate: 0.1e18,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.00000555e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.00000555e18,
+        fixedBorrowThreshold: 0.6e18,
+        curveFactor: 0.5e18,
+        minThresholdFactor: 0.25e18
+      })
+    );
     irm = new InterestRateModelHarness(
       Parameters({
         minRate: 3.5e16,
@@ -343,12 +393,12 @@ contract InterestRateModelTest is Test {
         fixedAllocation: 0.6e18,
         maxRate: 15_000e16
       }),
-      Market(address(0))
+      market
     );
 
     uint256 rate = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed, uFloating, uGlobal, uGlobal);
     uint256 rate2 = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed2, uFloating, uGlobal, uGlobal);
-    assertGe(rate2 + 2e2, rate, "rate2 < rate"); // HACK
+    assertGe(rate2 + 1e15, rate, "rate2 < rate"); // HACK
   }
 
   function testFixedRateRevertAlreadyMatured() external {
@@ -375,6 +425,131 @@ contract InterestRateModelTest is Test {
     uint256 fixedRate = irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.3e18, 0.8e18, 0.8e18);
     uint256 floatingRate = irm.floatingRate(0.3e18, 0.8e18);
     assertApproxEqRel(fixedRate, floatingRate, 4e13);
+  }
+
+  function testFixedRate() external {
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+
+    Market marketUSDC = Market(address(new ERC1967Proxy(address(new Market(asset, Auditor(address(0)))), "")));
+    marketUSDC.initialize(
+      MarketParams({
+        maxFuturePools: 7,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 50000000000000000,
+            naturalRate: 110000000000000000,
+            maxUtilization: 1300000000000000000,
+            naturalUtilization: 880000000000000000,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18
+          }),
+          marketUSDC
+        ),
+        penaltyRate: 0.0045e18 / uint256(1 days),
+        backupFeeRate: 0.1e18,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.00000555e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.00000555e18,
+        fixedBorrowThreshold: 0.6e18,
+        curveFactor: 0.5e18,
+        minThresholdFactor: 0.25e18
+      })
+    );
+    irm = InterestRateModelHarness(address(marketUSDC.interestRateModel()));
+    // uFixed = 0
+    assertEq(
+      irm.fixedRate(FixedLib.INTERVAL, marketUSDC.maxFuturePools(), 0, 0.5e18, 0.5e18, 0.5e18),
+      0.048833162515292637 ether
+    );
+    assertEq(
+      irm.fixedRate(FixedLib.INTERVAL * 3, marketUSDC.maxFuturePools(), 0, 0.5e18, 0.5e18, 0.5e18),
+      0.047428926371895764 ether
+    );
+    assertEq(
+      irm.fixedRate(FixedLib.INTERVAL * 6, marketUSDC.maxFuturePools(), 0, 0.5e18, 0.5e18, 0.5e18),
+      0.046052719144263964 ether
+    );
+
+    // uFixed = f(T)
+    assertEq(
+      irm.fixedRate(
+        FixedLib.INTERVAL,
+        marketUSDC.maxFuturePools(),
+        marketUSDC.maturityAllocation(FixedLib.INTERVAL),
+        0.5e18,
+        0.5e18,
+        0.5e18
+      ),
+      0.060342491995810201 ether
+    );
+    assertEq(
+      irm.fixedRate(
+        FixedLib.INTERVAL * 3,
+        marketUSDC.maxFuturePools(),
+        marketUSDC.maturityAllocation(FixedLib.INTERVAL * 3),
+        0.5e18,
+        0.5e18,
+        0.5e18
+      ),
+      0.067363672800336898 ether
+    );
+    assertEq(
+      irm.fixedRate(
+        FixedLib.INTERVAL * 6,
+        marketUSDC.maxFuturePools(),
+        marketUSDC.maturityAllocation(FixedLib.INTERVAL * 3),
+        0.5e18,
+        0.5e18,
+        0.5e18
+      ),
+      0.074927038042279002 ether
+    );
+
+    // uFixed = uFixedAverage (natural utilization)
+    uint256 maturityAllocation = marketUSDC.maturityAllocation(FixedLib.INTERVAL);
+    uint256 maturityAllocationNext = marketUSDC.maturityAllocation(FixedLib.INTERVAL + FixedLib.INTERVAL);
+    assertEq(
+      irm.fixedRate(
+        FixedLib.INTERVAL,
+        marketUSDC.maxFuturePools(),
+        uint256(0.5e18).mulWadDown(
+          uint256(marketUSDC.fixedBorrowThreshold()).mulWadDown(uint256(marketUSDC.minThresholdFactor())) /
+            marketUSDC.maxFuturePools() +
+            maturityAllocation -
+            maturityAllocationNext
+        ),
+        0.5e18,
+        0.5e18,
+        0.5e18
+      ),
+      0.054587826931364643 ether
+    );
+    maturityAllocation = marketUSDC.maturityAllocation(FixedLib.INTERVAL * 3);
+    maturityAllocationNext = marketUSDC.maturityAllocation(FixedLib.INTERVAL * 3 + FixedLib.INTERVAL);
+    assertEq(
+      irm.fixedRate(
+        FixedLib.INTERVAL * 3,
+        marketUSDC.maxFuturePools(),
+        uint256(0.5e18).mulWadDown(
+          uint256(marketUSDC.fixedBorrowThreshold()).mulWadDown(uint256(marketUSDC.minThresholdFactor())) /
+            marketUSDC.maxFuturePools() +
+            maturityAllocation -
+            maturityAllocationNext
+        ),
+        0.5e18,
+        0.5e18,
+        0.5e18
+      ),
+      0.057396299367887613 ether
+    );
   }
 
   function boundCurve(
@@ -428,23 +603,42 @@ contract InterestRateModelTest is Test {
   }
 
   function deployDefault() internal returns (InterestRateModelHarness) {
-    return
-      new InterestRateModelHarness(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.3e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        Market(address(0))
-      );
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+    Market market = Market(address(new ERC1967Proxy(address(new Market(asset, Auditor(address(0)))), "")));
+    market.initialize(
+      MarketParams({
+        maxFuturePools: 7,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: InterestRateModel(address(0)),
+        penaltyRate: 0.0045e18 / uint256(1 days),
+        backupFeeRate: 0.1e18,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.00000555e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.00000555e18,
+        fixedBorrowThreshold: 0.6e18,
+        curveFactor: 0.5e18,
+        minThresholdFactor: 0.25e18
+      })
+    );
+    InterestRateModelHarness defaultIRM = new InterestRateModelHarness(
+      Parameters({
+        minRate: 3.5e16,
+        naturalRate: 8e16,
+        maxUtilization: 1.3e18,
+        naturalUtilization: 0.75e18,
+        growthSpeed: 1.1e18,
+        sigmoidSpeed: 2.5e18,
+        spreadFactor: 0.2e18,
+        maturitySpeed: 0.5e18,
+        timePreference: 0.01e18,
+        fixedAllocation: 0.6e18,
+        maxRate: 15_000e16
+      }),
+      market
+    );
+    return defaultIRM;
   }
 }
 

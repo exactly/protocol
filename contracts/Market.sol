@@ -884,17 +884,25 @@ contract Market is MarketBase {
     uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
     return
       memFloatingAssetsAverage != 0
-        ? totalBorrows.divWadDown(memFloatingAssetsAverage) <
-          uint256(
-            (fixedBorrowThreshold *
-              ((((curveFactor *
-                int256(
-                  (maturity - block.timestamp - (FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)) + 1)
-                    .divWadDown(maxFuturePools * FixedLib.INTERVAL)
-                ).lnWad()) / 1e18).expWad() * minThresholdFactor) / 1e18).expWad()) / 1e18
-          ) &&
+        ? totalBorrows.divWadDown(memFloatingAssetsAverage) < maturityAllocation(maturity - block.timestamp) &&
           floatingBackupBorrowed + assets < memFloatingAssetsAverage.mulWadDown(uint256(fixedBorrowThreshold))
         : true;
+  }
+
+  /// @notice Calculates the maturity allocation for a given time to maturity.
+  /// @param deltaTime time to maturity.
+  /// @return maturity allocation.
+  function maturityAllocation(uint256 deltaTime) public view returns (uint256) {
+    return
+      Math.min(
+        1e18,
+        uint256(
+          (fixedBorrowThreshold *
+            ((((curveFactor *
+              int256(Math.min(1e18, deltaTime.divWadDown(maxFuturePools * FixedLib.INTERVAL))).lnWad()) / 1e18)
+              .expWad() * minThresholdFactor.lnWad()) / 1e18).expWad()) / 1e18
+        )
+      );
   }
 
   /// @notice Emits FixedEarningsUpdate event.
