@@ -36,6 +36,7 @@ import {
   Parameters as MarketParams,
   InsufficientProtocolLiquidity
 } from "../contracts/Market.sol";
+import "forge-std/console.sol";
 
 contract MarketTest is Test {
   using FixedPointMathLib for int256;
@@ -2903,6 +2904,7 @@ contract MarketTest is Test {
       )
     );
 
+    console.log("minThresholdFactor", market.minThresholdFactor());
     market.deposit(1_000_000 ether, address(this));
     marketWETH.deposit(100_000 ether, BOB);
     daiPriceFeed.setPrice(0.0002e18);
@@ -3270,6 +3272,473 @@ contract MarketTest is Test {
 
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL * 2, 10 ether, type(uint256).max, address(this), address(this));
+  }
+
+  function testCanBorrowFranIRMA() external {
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+
+    Market marketFran = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    marketFran.initialize(
+      MarketParams({
+        maxFuturePools: 7,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 50000000000000000,
+            naturalRate: 110000000000000000,
+            maxUtilization: 1300000000000000000,
+            naturalUtilization: 880000000000000000,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18
+          }),
+          marketFran
+        ),
+        penaltyRate: 0.0045e18 / uint256(1 days),
+        backupFeeRate: 0.1e18,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.00000555e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.00000555e18,
+        fixedBorrowThreshold: 0.6e18,
+        curveFactor: 0.5e18,
+        minThresholdFactor: 0.25e18
+      })
+    );
+
+    auditor.enableMarket(marketFran, daiPriceFeed, 1e18);
+
+    asset.mint(address(this), 10_000_000 ether);
+    asset.approve(address(marketFran), type(uint256).max);
+
+    InterestRateModel irmFran = marketFran.interestRateModel();
+
+    for (uint256 i = 1; i < 8; i++) {
+      console.log("maturity number ", i);
+      console.log("time to maturity in sec ", FixedLib.INTERVAL * i - block.timestamp);
+      console.log("time to maturity in days", (FixedLib.INTERVAL * i - block.timestamp) / 1 days);
+      console.log(
+        "time to maturity / t max %18e",
+        uint256(FixedLib.INTERVAL * i - block.timestamp).divWadDown(FixedLib.INTERVAL * 7)
+      );
+      console.log(
+        "fixedRate %16e",
+        irmFran.fixedRate(FixedLib.INTERVAL * i, marketFran.maxFuturePools(), 0, 0.5e18, 0.5e18, 0.5e18)
+      );
+      console.log("-----");
+    }
+  }
+
+  function testCanBorrowFranIRMB() external {
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+
+    Market marketFran = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    marketFran.initialize(
+      MarketParams({
+        maxFuturePools: 7,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 50000000000000000,
+            naturalRate: 110000000000000000,
+            maxUtilization: 1300000000000000000,
+            naturalUtilization: 880000000000000000,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18
+          }),
+          marketFran
+        ),
+        penaltyRate: 0.0045e18 / uint256(1 days),
+        backupFeeRate: 0.1e18,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.00000555e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.00000555e18,
+        fixedBorrowThreshold: 0.6e18,
+        curveFactor: 0.5e18,
+        minThresholdFactor: 0.25e18
+      })
+    );
+
+    auditor.enableMarket(marketFran, daiPriceFeed, 1e18);
+
+    asset.mint(address(this), 10_000_000 ether);
+    asset.approve(address(marketFran), type(uint256).max);
+
+    InterestRateModel irmFran = marketFran.interestRateModel();
+
+    for (uint256 i = 1; i < 8; i++) {
+      console.log("maturity number ", i);
+      console.log("maturityAllocation %18e", marketFran.maturityAllocation(FixedLib.INTERVAL * i - block.timestamp));
+      console.log("time to maturity in sec ", FixedLib.INTERVAL * i - block.timestamp);
+      console.log("time to maturity in days", (FixedLib.INTERVAL * i - block.timestamp) / 1 days);
+      console.log(
+        "time to maturity / t max %18e",
+        uint256(FixedLib.INTERVAL * i - block.timestamp).divWadDown(FixedLib.INTERVAL * 7)
+      );
+      console.log(
+        "fixedRate %16e",
+        irmFran.fixedRate(
+          FixedLib.INTERVAL * i,
+          marketFran.maxFuturePools(),
+          marketFran.maturityAllocation(FixedLib.INTERVAL * i - block.timestamp),
+          0.5e18,
+          0.5e18,
+          0.5e18
+        )
+      );
+      console.log("-----");
+    }
+  }
+
+  function testCanBorrowFranIRMC() external {
+    Market marketFran = Market(
+      address(new ERC1967Proxy(address(new Market(new MockERC20("USDC", "USDC", 18), auditor)), ""))
+    );
+    marketFran.initialize(
+      MarketParams({
+        maxFuturePools: 7,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 50000000000000000,
+            naturalRate: 110000000000000000,
+            maxUtilization: 1300000000000000000,
+            naturalUtilization: 880000000000000000,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18
+          }),
+          marketFran
+        ),
+        penaltyRate: 0.0045e18 / uint256(1 days),
+        backupFeeRate: 0.1e18,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.00000555e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.00000555e18,
+        fixedBorrowThreshold: 0.6e18,
+        curveFactor: 0.5e18,
+        minThresholdFactor: 0.25e18
+      })
+    );
+
+    auditor.enableMarket(marketFran, daiPriceFeed, 1e18);
+
+    for (uint256 i = 1; i < 8; i++) {
+      uint256 maturityAllocation = marketFran.maturityAllocation(FixedLib.INTERVAL * i - block.timestamp);
+      uint256 maturityAllocationNext = marketFran.maturityAllocation(
+        FixedLib.INTERVAL * i - block.timestamp + FixedLib.INTERVAL
+      );
+
+      console.log("maturity number ", i);
+      console.log(
+        "fixed natural utilization %18e",
+        uint256(0.5e18).mulWadDown(
+          uint256(marketFran.fixedBorrowThreshold()).mulWadDown(uint256(marketFran.minThresholdFactor())) /
+            marketFran.maxFuturePools() +
+            maturityAllocation -
+            maturityAllocationNext
+        )
+      );
+      console.log(
+        "fixedRate %16e",
+        marketFran.interestRateModel().fixedRate(
+          FixedLib.INTERVAL * i,
+          marketFran.maxFuturePools(),
+          uint256(0.5e18).mulWadDown(
+            uint256(marketFran.fixedBorrowThreshold()).mulWadDown(uint256(marketFran.minThresholdFactor())) /
+              marketFran.maxFuturePools() +
+              maturityAllocation -
+              maturityAllocationNext
+          ),
+          0.5e18,
+          0.5e18,
+          0.5e18
+        )
+      );
+      console.log("-----");
+    }
+  }
+
+  function testCanBorrowFranA() external {
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+
+    Market marketFran = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    marketFran.initialize(
+      MarketParams({
+        maxFuturePools: 7,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 50000000000000000,
+            naturalRate: 110000000000000000,
+            maxUtilization: 1300000000000000000,
+            naturalUtilization: 880000000000000000,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18
+          }),
+          marketFran
+        ),
+        penaltyRate: 0.0045e18 / uint256(1 days),
+        backupFeeRate: 0.1e18,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.00000555e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.00000555e18,
+        fixedBorrowThreshold: 0.6e18,
+        curveFactor: 0.5e18,
+        minThresholdFactor: 0.25e18
+      })
+    );
+
+    auditor.enableMarket(marketFran, daiPriceFeed, 1e18);
+
+    asset.mint(address(this), 10_000_000 ether);
+    asset.approve(address(marketFran), type(uint256).max);
+
+    marketFran.deposit(3_850_000 ether, address(this));
+    marketFran.borrow(3_000_000 ether, address(this), address(this));
+    console.log("time", block.timestamp);
+    console.log("floating assets        ", marketFran.floatingAssets());
+    console.log("floating assets average", marketFran.previewFloatingAssetsAverage());
+
+    vm.warp(block.timestamp + 14 days);
+    console.log("time", block.timestamp / 1 days);
+    console.log("floating assets        ", marketFran.floatingAssets());
+    console.log("floating assets average", marketFran.previewFloatingAssetsAverage());
+
+    vm.warp(block.timestamp + 6 hours);
+    console.log("time + 6 hours");
+    marketFran.deposit(1_000_000 ether, address(this));
+
+    for (uint256 i = 0; i < 20; i++) {
+      console.log("floating assets         %18e", marketFran.floatingAssets());
+      console.log("floating assets average %18e", marketFran.previewFloatingAssetsAverage());
+      console.log(
+        "max_tot_loan_allowed    %18e",
+        marketFran.previewFloatingAssetsAverage().mulWadDown(uint256(marketFran.fixedBorrowThreshold()))
+      );
+      console.log("percentage    %16e", marketFran.fixedBorrowThreshold());
+      for (uint256 intervalNumber = 1; intervalNumber < 8; intervalNumber++) {
+        uint256 maturity = FixedLib.INTERVAL * intervalNumber;
+
+        console.log("maturity", maturity / 1 days);
+        console.log("percentage %16e", marketFran.maturityAllocation(maturity - block.timestamp));
+        console.log(
+          "amount %18e",
+          marketFran.previewFloatingAssetsAverage().mulWadDown(
+            marketFran.maturityAllocation(maturity - block.timestamp)
+          )
+        );
+        console.log("---");
+      }
+      console.log("------");
+      vm.warp(block.timestamp + 6 hours);
+    }
+  }
+
+  function testCanBorrowFranB() external {
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+
+    Market marketFran = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    marketFran.initialize(
+      MarketParams({
+        maxFuturePools: 7,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 50000000000000000,
+            naturalRate: 110000000000000000,
+            maxUtilization: 1300000000000000000,
+            naturalUtilization: 880000000000000000,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18
+          }),
+          marketFran
+        ),
+        penaltyRate: 0.0045e18 / uint256(1 days),
+        backupFeeRate: 0.1e18,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.00000555e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.00000555e18,
+        fixedBorrowThreshold: 0.6e18,
+        curveFactor: 0.5e18,
+        minThresholdFactor: 0.25e18
+      })
+    );
+
+    auditor.enableMarket(marketFran, daiPriceFeed, 1e18);
+
+    asset.mint(address(this), 10_000_000 ether);
+    asset.approve(address(marketFran), type(uint256).max);
+
+    marketFran.deposit(3_850_000 ether, address(this));
+    marketFran.borrow(3_000_000 ether, address(this), address(this));
+    console.log("time", block.timestamp);
+    console.log("floating assets        ", marketFran.floatingAssets());
+    console.log("floating assets average", marketFran.previewFloatingAssetsAverage());
+
+    vm.warp(block.timestamp + 14 days);
+    console.log("time", block.timestamp / 1 days);
+    console.log("floating assets        ", marketFran.floatingAssets());
+    console.log("floating assets average", marketFran.previewFloatingAssetsAverage());
+
+    vm.warp(block.timestamp + 1 seconds);
+    console.log("time + 1 seg");
+    marketFran.withdraw(500_000 ether, address(this), address(this));
+
+    for (uint256 i = 0; i < 20; i++) {
+      console.log("floating assets         %18e", marketFran.floatingAssets());
+      console.log("floating assets average %18e", marketFran.previewFloatingAssetsAverage());
+      console.log(
+        "max_tot_loan_allowed    %18e",
+        marketFran.previewFloatingAssetsAverage().mulWadDown(uint256(marketFran.fixedBorrowThreshold()))
+      );
+      console.log("percentage    %16e", marketFran.fixedBorrowThreshold());
+      for (uint256 intervalNumber = 1; intervalNumber < 8; intervalNumber++) {
+        uint256 maturity = FixedLib.INTERVAL * intervalNumber;
+
+        console.log("maturity", maturity / 1 days);
+        console.log("percentage %16e", marketFran.maturityAllocation(maturity - block.timestamp));
+        console.log(
+          "amount %18e",
+          marketFran.previewFloatingAssetsAverage().mulWadDown(
+            marketFran.maturityAllocation(maturity - block.timestamp)
+          )
+        );
+        console.log("---");
+      }
+
+      console.log("------");
+      vm.warp(block.timestamp + 1 seconds);
+    }
+  }
+
+  function testCanBorrowFranC() external {
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+
+    Market marketFran = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    marketFran.initialize(
+      MarketParams({
+        maxFuturePools: 7,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 50000000000000000,
+            naturalRate: 110000000000000000,
+            maxUtilization: 1300000000000000000,
+            naturalUtilization: 880000000000000000,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18
+          }),
+          marketFran
+        ),
+        penaltyRate: 0.0045e18 / uint256(1 days),
+        backupFeeRate: 0.1e18,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.00000555e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.00000555e18,
+        fixedBorrowThreshold: 0.6e18,
+        curveFactor: 0.5e18,
+        minThresholdFactor: 0.25e18
+      })
+    );
+
+    auditor.enableMarket(marketFran, daiPriceFeed, 1e18);
+
+    asset.mint(address(this), 10_000_000 ether);
+    asset.approve(address(marketFran), type(uint256).max);
+
+    marketFran.deposit(3_850_000 ether, address(this));
+    marketFran.borrow(3_000_000 ether, address(this), address(this));
+    console.log("time", block.timestamp);
+    console.log("floating assets        ", marketFran.floatingAssets());
+    console.log("floating assets average", marketFran.previewFloatingAssetsAverage());
+
+    vm.warp(block.timestamp + 14 days);
+    console.log("time", block.timestamp / 1 days);
+    console.log("floating assets        ", marketFran.floatingAssets());
+    console.log("floating assets average", marketFran.previewFloatingAssetsAverage());
+
+    vm.warp(block.timestamp + 10 seconds);
+    console.log("time + 10 seg");
+    marketFran.deposit(1_000_000 ether, address(this));
+    vm.warp(block.timestamp + 90 seconds);
+    console.log("time + 90 seg");
+    marketFran.withdraw(1_000_000 ether, address(this), address(this));
+
+    for (uint256 i = 0; i < 20; i++) {
+      console.log("floating assets         %18e", marketFran.floatingAssets());
+      console.log("floating assets average %18e", marketFran.previewFloatingAssetsAverage());
+      console.log(
+        "max_tot_loan_allowed    %18e",
+        marketFran.previewFloatingAssetsAverage().mulWadDown(uint256(marketFran.fixedBorrowThreshold()))
+      );
+      console.log("percentage    %16e", marketFran.fixedBorrowThreshold());
+      for (uint256 intervalNumber = 1; intervalNumber < 8; intervalNumber++) {
+        uint256 maturity = FixedLib.INTERVAL * intervalNumber;
+
+        console.log("maturity", maturity / 1 days);
+        console.log("percentage %16e", marketFran.maturityAllocation(maturity - block.timestamp));
+        console.log(
+          "amount %18e",
+          marketFran.previewFloatingAssetsAverage().mulWadDown(
+            marketFran.maturityAllocation(maturity - block.timestamp)
+          )
+        );
+        console.log("---");
+      }
+
+      console.log("------");
+      vm.warp(block.timestamp + 10 seconds);
+    }
+  }
+
+  function totalBorrowsMaturities(Market marketFran, uint256 maturity) internal view returns (uint256 borrows) {
+    {
+      uint256 maxTime = marketFran.maxFuturePools() * FixedLib.INTERVAL;
+      for (uint256 i = maturity; i <= maxTime; i += FixedLib.INTERVAL) {
+        (uint256 borrowed, uint256 supplied, , ) = marketFran.fixedPools(i);
+        borrows += borrowed > supplied ? borrowed - supplied : 0;
+      }
+    }
   }
 
   function testFuzzCanBorrowAtMaturity(

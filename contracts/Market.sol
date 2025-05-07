@@ -11,6 +11,7 @@ import { InterestRateModel } from "./InterestRateModel.sol";
 import { RewardsController } from "./RewardsController.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Auditor } from "./Auditor.sol";
+import "forge-std/console.sol";
 
 contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable, ERC4626 {
   using FixedPointMathLib for int256;
@@ -302,7 +303,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     if (assets == 0) revert ZeroBorrow();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
-    if (!canBorrowAtMaturity(maturity, assets)) revert InsufficientProtocolLiquidity();
+    if (!canBorrowAtMaturity(maturity, assets)) {
+      console.log("failed correctly");
+      revert InsufficientProtocolLiquidity();
+    }
 
     FixedLib.Pool storage pool = fixedPools[maturity];
     depositToTreasury(updateFloatingDebt());
@@ -1093,17 +1097,25 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
     return
       memFloatingAssetsAverage != 0
-        ? totalBorrows.divWadDown(memFloatingAssetsAverage) <
-          uint256(
-            (fixedBorrowThreshold *
-              ((((curveFactor *
-                int256(
-                  (maturity - block.timestamp - (FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL)) + 1)
-                    .divWadDown(maxFuturePools * FixedLib.INTERVAL)
-                ).lnWad()) / 1e18).expWad() * minThresholdFactor) / 1e18).expWad()) / 1e18
-          ) &&
+        ? totalBorrows.divWadDown(memFloatingAssetsAverage) < maturityAllocation(maturity - block.timestamp) &&
           floatingBackupBorrowed + assets < memFloatingAssetsAverage.mulWadDown(uint256(fixedBorrowThreshold))
         : true;
+  }
+
+  // test where minThresholdFactor=0 and T=0 or T=1 (min possible value)
+  // console.log("time %18e", deltaTime.divWadDown(maxFuturePools * FixedLib.INTERVAL));
+  // deltaTime.divWadDown(maxFuturePools * FixedLib.INTERVAL)
+  function maturityAllocation(uint256 deltaTime) public view returns (uint256) {
+    return
+      Math.min(
+        1e18,
+        uint256(
+          (fixedBorrowThreshold *
+            ((((curveFactor *
+              int256(Math.min(1e18, deltaTime.divWadDown(maxFuturePools * FixedLib.INTERVAL))).lnWad()) / 1e18)
+              .expWad() * minThresholdFactor.lnWad()) / 1e18).expWad()) / 1e18
+        )
+      );
   }
 
   /// @notice Emits MarketUpdate event.
@@ -1163,7 +1175,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   ) public onlyRole(DEFAULT_ADMIN_ROLE) {
     fixedBorrowThreshold = fixedBorrowThreshold_;
     curveFactor = curveFactor_;
-    minThresholdFactor = minThresholdFactor_.lnWad();
+    minThresholdFactor = minThresholdFactor_;
     emit FixedBorrowFactorsSet(fixedBorrowThreshold_, curveFactor_, minThresholdFactor_);
   }
 

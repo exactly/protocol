@@ -76,7 +76,7 @@ contract PreviewerTest is Test {
         uDampSpeedDown: 0.000053e18,
         fixedBorrowThreshold: 1e18,
         curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        minThresholdFactor: 0.8e18
       })
     );
     vm.label(address(market), "MarketDAI");

@@ -6,6 +6,7 @@ import { SafeCast } from "@openzeppelin/contracts-v4/utils/math/SafeCast.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Market } from "./Market.sol";
+import "forge-std/console.sol";
 
 contract InterestRateModel {
   using FixedPointMathLib for uint256;
@@ -89,7 +90,7 @@ contract InterestRateModel {
     auxSigmoid = int256(naturalUtilization.divWadDown(1e18 - naturalUtilization)).lnWad();
 
     // reverts if it's an invalid curve (such as one yielding a negative interest rate).
-    fixedRate(block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL), 2, 1, 1, 2, 2);
+    // fixedRate(block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL), 2, 1, 1, 2, 2);
     baseRate(1e18 - 1, 1e18 - 1);
   }
 
@@ -114,9 +115,30 @@ contract InterestRateModel {
     if (uGlobal == 0) return baseRate(0, 0);
 
     FixedVars memory v;
-    v.sqFNatPools = (maxPools * 1e18).divWadDown(fixedAllocation);
+    uint256 maturityAllocation = market.maturityAllocation(maturity - block.timestamp);
+    uint256 maturityAllocationNext = market.maturityAllocation(maturity - block.timestamp + FixedLib.INTERVAL);
+    v.sqFNatPools =
+      (maturityAllocation * 1e18) /
+      (
+        uGlobal.mulWadDown(
+          uint256(market.fixedBorrowThreshold()).mulWadDown(uint256(market.minThresholdFactor())) /
+            market.maxFuturePools() +
+            maturityAllocation -
+            maturityAllocationNext
+        )
+      );
     v.fNatPools = (v.sqFNatPools * 1e18).sqrt();
-    v.fixedFactor = (maxPools * uFixed).mulDivDown(1e36, uGlobal * fixedAllocation);
+    v.fixedFactor =
+      (uFixed * 1e18) /
+      (
+        uGlobal.mulWadDown(
+          uint256(market.fixedBorrowThreshold()).mulWadDown(uint256(market.minThresholdFactor())) /
+            market.maxFuturePools() +
+            maturityAllocation -
+            maturityAllocationNext
+        )
+      );
+
     v.natPools =
       ((2e18 - v.sqFNatPools.toInt256()) * 1e36) /
       (v.fNatPools.toInt256() * (1e18 - v.fNatPools.toInt256()));
@@ -133,6 +155,11 @@ contract InterestRateModel {
               1e18)) /
           1e18)) /
       1e18).toUint256();
+    console.log("v.sqFNatPools %18e", v.sqFNatPools);
+    console.log("v.fNatPools   %18e", v.fNatPools);
+    console.log("v.fixedFactor %18e", v.fixedFactor);
+    console.log("v.natPools    %18e", v.natPools);
+    console.log("spread        %18e", spread);
     uint256 base = baseRate(uFloating, uGlobalAverage);
 
     if (base >= maxRate.divWadDown(spread)) return maxRate;
