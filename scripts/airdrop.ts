@@ -3,6 +3,7 @@ import { writeFile } from "fs/promises";
 import type { RewardsController } from "../types";
 import { address as op } from "../deployments/optimism/OP.json";
 import { address as multicallAddress, abi as multicallABI } from "../deployments/optimism/Multicall3.json";
+import allAccounts from "./utils/allAccounts";
 
 const block = 107_054_000;
 const distribution = 100_000n * 10n ** 18n;
@@ -11,7 +12,7 @@ const subgraph = "https://api.thegraph.com/subgraphs/name/exactly/optimism";
 void (async () => {
   const [{ target, interface: intr }, accounts, claimed] = await Promise.all([
     ethers.getContract<RewardsController>("RewardsController"),
-    allAccounts(),
+    allAccounts(subgraph, block),
     opClaimed(),
   ]);
 
@@ -42,35 +43,6 @@ void (async () => {
   );
   await writeFile("scripts/airdrop.json", JSON.stringify(airdrop, null, 2));
 })();
-
-async function allAccounts() {
-  let last: string | undefined = "";
-  const set = new Set<string>();
-  do {
-    const { accounts } = (
-      await (
-        await fetch(subgraph, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: `{
-              accounts(
-                first: 1000
-                block: { number: ${block} }
-                where: { address_gt: "${last}" }
-                orderBy: address
-                orderDirection: asc
-              ) { address }
-            }`,
-          }),
-        })
-      ).json()
-    ).data as { accounts: { address: string }[] };
-    accounts.forEach(({ address }: { address: string }) => set.add(address));
-    last = accounts.length ? [...set][set.size - 1] : undefined;
-  } while (last);
-  return [...set];
-}
 
 async function opClaimed() {
   let last: string | undefined = "";
