@@ -18,6 +18,7 @@ gas_limit = 2_500_000_000
 
 [invariant]
 fail_on_revert = true
+show_solidity = true
 
 [fmt]
 tab_width = 2
