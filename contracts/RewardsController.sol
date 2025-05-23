@@ -52,7 +52,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   function handleDeposit(address account) external {
     Market market = Market(msg.sender);
     AccountOperation[] memory ops = new AccountOperation[](1);
-    market.initConsolidated(account);
     (uint256 fixedDeposits, ) = market.fixedConsolidated(account);
     ops[0] = AccountOperation({
       operation: false,
@@ -75,7 +74,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   function handleBorrow(address account) external {
     Market market = Market(msg.sender);
     AccountOperation[] memory ops = new AccountOperation[](1);
-    market.initConsolidated(account);
     (, , uint256 accountFloatingBorrowShares) = market.accounts(account);
     (, uint256 fixedBorrows) = market.fixedConsolidated(account);
     ops[0] = AccountOperation({
@@ -140,7 +138,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     for (uint256 i = 0; i < marketOps.length; ) {
       MarketOperation memory marketOperation = marketOps[i];
       Distribution storage dist = distribution[marketOperation.market];
-      marketOperation.market.initConsolidated(account);
       AccountOperation[] memory accountBalanceOps = accountBalanceOperations(
         marketOperation.market,
         marketOperation.operations,

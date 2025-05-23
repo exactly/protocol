@@ -97,8 +97,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   mapping(address account => FixedOps consolidated) public fixedConsolidated;
   /// @notice Tracks the total amount of fixed deposits and borrows.
   FixedOps public fixedOps;
-  /// @notice Flag to initialize consolidated variables per account only once.
-  mapping(address account => bool initialized) public isInitialized;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
@@ -1165,28 +1163,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     treasury = treasury_;
     treasuryFeeRate = treasuryFeeRate_;
     emit TreasurySet(treasury_, treasuryFeeRate_);
-  }
-
-  /// @notice Initializes fixed consolidated variables for the given `account`.
-  /// @param account address to initialize the fixed consolidated variables.
-  function initConsolidated(address account) external {
-    if (isInitialized[account]) return;
-    isInitialized[account] = true;
-
-    Account storage a = accounts[account];
-
-    uint256 borrows = fixedPrincipals(account, a.fixedBorrows, true);
-    if (borrows != 0) {
-      fixedOps.borrows += borrows - fixedConsolidated[account].borrows;
-      fixedConsolidated[account].borrows = borrows;
-    }
-
-    uint256 deposits = fixedPrincipals(account, a.fixedDeposits, false);
-    if (deposits != 0) {
-      handleRewards(false, account);
-      fixedOps.deposits += deposits - fixedConsolidated[account].deposits;
-      fixedConsolidated[account].deposits = deposits;
-    }
   }
 
   /// @notice Retrieves all principals for an `account` across all `account` maturities.
