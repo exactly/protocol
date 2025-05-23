@@ -88,7 +88,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   uint256 public treasuryFeeRate;
 
   /// @notice Address of the rewards controller that will accrue rewards for accounts operating with the Market.
-  RewardsController public rewardsController;
+  RewardsController internal _rewardsController;
 
   /// @notice Flag to prevent new borrows and deposits.
   bool public isFrozen;
@@ -1051,12 +1051,16 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Triggers rewards' updates in rewards controller.
   /// @dev Internal function to avoid code duplication.
-  function handleRewards(bool isBorrow, address account) internal {
-    RewardsController memRewardsController = rewardsController;
+  function handleRewards(bool isBorrow, address account) internal virtual {
+    RewardsController memRewardsController = _rewardsController;
     if (address(memRewardsController) != address(0)) {
       if (isBorrow) memRewardsController.handleBorrow(account);
       else memRewardsController.handleDeposit(account);
     }
+  }
+
+  function rewardsController() external view virtual returns (RewardsController) {
+    return _rewardsController;
   }
 
   /// @notice Emits MarketUpdate event.
@@ -1126,8 +1130,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Sets the rewards controller to update account rewards when operating with the Market.
   /// @param rewardsController_ new rewards controller.
-  function setRewardsController(RewardsController rewardsController_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    rewardsController = rewardsController_;
+  function setRewardsController(RewardsController rewardsController_) public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+    _rewardsController = rewardsController_;
     emit RewardsControllerSet(rewardsController_);
   }
 
