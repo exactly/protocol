@@ -153,7 +153,7 @@ const hardhatConfig: Config = {
               esEXA: {
                 total: 10_000,
                 debt: 20,
-                start: "2025-04-30T00:03Z",
+                start: "2025-05-28T00:04Z",
                 period: 4 * 7 * 86_400,
                 undistributedFactor: 1,
                 compensationFactor: 0,
@@ -190,7 +190,7 @@ const hardhatConfig: Config = {
               esEXA: {
                 total: 20_000,
                 debt: 1_000_000,
-                start: "2025-04-30T00:03Z",
+                start: "2025-05-28T00:04Z",
                 period: 4 * 7 * 86_400,
                 undistributedFactor: 1,
                 transitionFactor: 0.83,
@@ -262,7 +262,7 @@ const hardhatConfig: Config = {
               esEXA: {
                 total: 1_500,
                 debt: 0.004,
-                start: "2025-04-30T00:03Z",
+                start: "2025-05-28T00:04Z",
                 period: 4 * 7 * 86_400,
                 undistributedFactor: 1,
                 transitionFactor: 0.6,
@@ -304,7 +304,7 @@ const hardhatConfig: Config = {
               esEXA: {
                 total: 2_000,
                 debt: 0.01,
-                start: "2025-04-30T00:03Z",
+                start: "2025-05-28T00:04Z",
                 period: 4 * 7 * 86_400,
                 undistributedFactor: 0.8,
                 compensationFactor: 0,
@@ -343,7 +343,7 @@ const hardhatConfig: Config = {
               esEXA: {
                 total: 0,
                 debt: 400,
-                start: "2025-04-30T00:03Z",
+                start: "2025-05-28T00:04Z",
                 period: 4 * 7 * 86_400,
                 undistributedFactor: 0.2,
                 compensationFactor: 0,
