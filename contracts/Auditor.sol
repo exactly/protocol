@@ -197,7 +197,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     Market seizeMarket,
     address borrower,
     uint256 maxLiquidatorAssets
-  ) external view returns (uint256 maxRepayAssets) {
+  ) external view virtual returns (uint256 maxRepayAssets) {
     // if markets are listed, they have the same auditor
     if (!markets[repayMarket].isListed || !markets[seizeMarket].isListed) revert MarketNotListed();
 
@@ -232,6 +232,15 @@ contract Auditor is Initializable, AccessControlUpgradeable {
       }
     }
 
+    return maxRepayAmount(base, repay, maxLiquidatorAssets, borrower);
+  }
+
+  function maxRepayAmount(
+    LiquidityVars memory base,
+    MarketVars memory repay,
+    uint256 maxLiquidatorAssets,
+    address
+  ) internal view virtual returns (uint256 maxRepayAssets) {
     if (base.adjustedCollateral >= base.adjustedDebt) revert InsufficientShortfall();
 
     LiquidationIncentive memory memIncentive = liquidationIncentive;
@@ -276,13 +285,23 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     address borrower,
     uint256 actualRepayAssets
   ) external view returns (uint256 lendersAssets, uint256 seizeAssets) {
-    LiquidationIncentive memory memIncentive = liquidationIncentive;
-    lendersAssets = actualRepayAssets.mulWadDown(memIncentive.lenders);
-
     // read prices for borrowed and collateral markets
     uint256 priceBorrowed = assetPrice(markets[repayMarket].priceFeed);
     uint256 priceCollateral = assetPrice(markets[seizeMarket].priceFeed);
     uint256 baseAmount = actualRepayAssets.mulDivUp(priceBorrowed, 10 ** markets[repayMarket].decimals);
+
+    return computeSeize(seizeMarket, baseAmount, priceCollateral, borrower, actualRepayAssets);
+  }
+
+  function computeSeize(
+    Market seizeMarket,
+    uint256 baseAmount,
+    uint256 priceCollateral,
+    address borrower,
+    uint256 actualRepayAssets
+  ) internal view virtual returns (uint256 lendersAssets, uint256 seizeAssets) {
+    LiquidationIncentive memory memIncentive = liquidationIncentive;
+    lendersAssets = actualRepayAssets.mulWadDown(memIncentive.lenders);
 
     seizeAssets = Math.min(
       baseAmount.mulDivUp(10 ** markets[seizeMarket].decimals, priceCollateral).mulWadUp(
