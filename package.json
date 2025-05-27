@@ -5,7 +5,7 @@
   "homepage": "https://exact.ly",
   "repository": "github:exactly/protocol",
   "scripts": {
-    "lint": "pnpm run --aggregate-output --no-bail /lint:/",
+    "lint": "pnpm run --aggregate-output /lint:/",
     "lint:sol": "solhint '{contracts,scripts,test}/**/*.sol'",
     "lint:ts": "tsc",
     "lint:es": "eslint --ext .ts,.js,.cjs,.mjs .",
