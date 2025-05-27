@@ -12,7 +12,7 @@ src = "test"
 out = "artifacts/foundry"
 script = "scripts"
 cache_path = "cache/foundry"
-fs_permissions = [{ access = "read", path = "./deployments" }]
+fs_permissions = [{ access = "read", path = "./deployments" }, { access = "read", path = "./scripts/accounts.json" }]
 verbosity = 3
 gas_limit = 2_500_000_000
 
