@@ -22,11 +22,14 @@ void (async () => {
   for (let i = 0; i < accounts.length; i += batchSize) {
     const batch = accounts.slice(i, i + batchSize);
     const [, data] = await multicall.aggregate.staticCall(
-      batch.map((account) => ({ target, callData: intr.encodeFunctionData("allClaimable", [account, op]) })),
+      batch.map((account) => ({
+        target,
+        callData: intr.encodeFunctionData("allClaimable(address,address)", [account, op]),
+      })),
       { blockTag: block },
     );
     batch.forEach((account, j) => {
-      const [claimable] = intr.decodeFunctionResult("allClaimable", data[j]) as unknown as [bigint];
+      const [claimable] = intr.decodeFunctionResult("allClaimable(address,address)", data[j]) as unknown as [bigint];
       rewards[account] = claimable + (claimed[account] ?? 0n);
       totalRewards += rewards[account];
     });
