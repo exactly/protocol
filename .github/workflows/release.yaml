@@ -15,6 +15,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: latest
+          run_install: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -24,7 +25,7 @@ jobs:
       - uses: changesets/action@v1
         with:
           title: 🔖 new release
-          publish: bunx changeset publish
+          publish: pnpm changeset publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
