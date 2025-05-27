@@ -1,5 +1,75 @@
 # @exactly/protocol
 
+## 0.2.20
+
+### Patch Changes
+
+- [`b7d43f0`](https://github.com/exactly/protocol/commit/b7d43f01768bd4bbe50ed0f541a33e0f429ebbdc) Thanks [@itofarina](https://github.com/itofarina)! - 📌 solidity: relax version and set compiler to `0.8.23`
+
+- [`f6d048f`](https://github.com/exactly/protocol/commit/f6d048f26af95a44d460bd88653a88b72435d806) Thanks [@santichez](https://github.com/santichez)! - 🐛 previewer: fix reward rates maturities
+
+- [`1fc5b8f`](https://github.com/exactly/protocol/commit/1fc5b8fce1ae017f036dc5abacb14dabdd9b727b) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - 🚀 optimism: upgrade markets, rewards controller, and previewer
+
+- [#745](https://github.com/exactly/protocol/pull/745) [`0602224`](https://github.com/exactly/protocol/commit/0602224422104549fd287f60030011b199e8b744) Thanks [@santichez](https://github.com/santichez)! - 🐛 market: redirect earnings to accumulator in clear bad debt
+
+- [`2732d80`](https://github.com/exactly/protocol/commit/2732d80c2799ecd5476424f5fbea8c1c4ed14e98) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - ✨ pauser: implement multi-pauser
+
+- [`f2073c0`](https://github.com/exactly/protocol/commit/f2073c0022a3ecb88b8b16acc10e1e797972898c) Thanks [@santichez](https://github.com/santichez)! - 👔 market: increase accumulator local var
+
+- [`a5f5a5e`](https://github.com/exactly/protocol/commit/a5f5a5e74af14551ddd5aab184a21778d6fdcc2c) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - 🚀 optimism: deploy staking, upgrade markets and rewards controller
+
+- [`0b0f1b9`](https://github.com/exactly/protocol/commit/0b0f1b927b50f358a0ca978db353d7c71b8c4ff5) Thanks [@itofarina](https://github.com/itofarina)! - ♻️ market: use new irm interface
+
+- [`9cad450`](https://github.com/exactly/protocol/commit/9cad450f2c8c4a42d19bed2b454c21262060cde6) Thanks [@itofarina](https://github.com/itofarina)! - 🦺 irm: limit parameters range
+
+- [`34f9095`](https://github.com/exactly/protocol/commit/34f9095316657a957215f72e14275f62133af388) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - 🚀 optimism: deploy new interest rate models
+
+- [`9482ec2`](https://github.com/exactly/protocol/commit/9482ec28ec9c3b99e2deb004f104424ab07ce30e) Thanks [@itofarina](https://github.com/itofarina)! - 👔 irm: new fixed rate model
+
+- [#721](https://github.com/exactly/protocol/pull/721) [`79dfa13`](https://github.com/exactly/protocol/commit/79dfa139ad1f3195b9171405d97f4c358ae0c94d) Thanks [@santichez](https://github.com/santichez)! - 👔 market: add early repay liquidation discount to accumulator
+
+- [#732](https://github.com/exactly/protocol/pull/732) [`215ccf6`](https://github.com/exactly/protocol/commit/215ccf6af702698822fc90c5d4371181aa97a533) Thanks [@santichez](https://github.com/santichez)! - ⚡️ rewards: avoid update after period ends
+
+- [`c39b05a`](https://github.com/exactly/protocol/commit/c39b05a691edf285dadbebba8a6ddaa5db253faa) Thanks [@itofarina](https://github.com/itofarina)! - ✨ market: extend pausable to public entry points
+
+- [`eb0a9f7`](https://github.com/exactly/protocol/commit/eb0a9f70fa9e4cdb99847ce5f0587611e8f4c077) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - 🚀 optimism: deploy installments router, native USDC, and upgrade markets
+
+- [`d41002c`](https://github.com/exactly/protocol/commit/d41002ca4331b5edb789bb060fe1dc67b763616f) Thanks [@itofarina](https://github.com/itofarina)! - 🚚 optimism: rename bridged USDC to USDC.e
+
+- [#725](https://github.com/exactly/protocol/pull/725) [`1bdac4a`](https://github.com/exactly/protocol/commit/1bdac4a2f992c42586458ff395f6cb4f57c2b109) Thanks [@santichez](https://github.com/santichez)! - 🐛 rewards: fix released calculation
+
+- [`e9c3a21`](https://github.com/exactly/protocol/commit/e9c3a21b8d69255ee78ccb03f77c8c50b14f6f5c) Thanks [@santichez](https://github.com/santichez)! - ✨ rewards: add distribution to fixed deposits
+
+- [`f97a577`](https://github.com/exactly/protocol/commit/f97a5770ea8a99f99471a7a89bcbb89d2edad59d) Thanks [@itofarina](https://github.com/itofarina)! - ✨ market: add frozen state
+
+- [`0c0d983`](https://github.com/exactly/protocol/commit/0c0d9838b28d473e5d5a706c938e291f13364864) Thanks [@itofarina](https://github.com/itofarina)! - 👔 irm: new floating rate model
+
+- [#722](https://github.com/exactly/protocol/pull/722) [`07a20df`](https://github.com/exactly/protocol/commit/07a20dfc4457744734d258e6a51e7521a7143a39) Thanks [@santichez](https://github.com/santichez)! - 👔 market: ensure floating debt updates
+
+- [`9bd8d2e`](https://github.com/exactly/protocol/commit/9bd8d2e29f5d9893d88e3a972e210b6ed06827bc) Thanks [@itofarina](https://github.com/itofarina)! - ✨ market: set custom name and symbol
+
+- [#733](https://github.com/exactly/protocol/pull/733) [`209564e`](https://github.com/exactly/protocol/commit/209564e742b4133f9a7ad5dd4858dd75c025d72b) Thanks [@santichez](https://github.com/santichez)! - ✨ rewards: support claim on behalf of account
+
+- [#723](https://github.com/exactly/protocol/pull/723) [`cdb0afe`](https://github.com/exactly/protocol/commit/cdb0afe7351164b004c62091ce0d8671769b8762) Thanks [@santichez](https://github.com/santichez)! - ⚡️ market: transfer liquidator repayment first
+
+- [#726](https://github.com/exactly/protocol/pull/726) [`ea11f28`](https://github.com/exactly/protocol/commit/ea11f28ea93ae3cc0abb294c141532b76c552cea) Thanks [@santichez](https://github.com/santichez)! - 🩹 market: round up fixed borrow fee
+
+- [#720](https://github.com/exactly/protocol/pull/720) [`1ce7886`](https://github.com/exactly/protocol/commit/1ce788638599191b33f32c022b4db955fd2560fb) Thanks [@santichez](https://github.com/santichez)! - 🦺 market: prevent zero floating borrows
+
+- [`59acfb9`](https://github.com/exactly/protocol/commit/59acfb9398f5025ebbb89885c10fa9bfa3c1c4fa) Thanks [@itofarina](https://github.com/itofarina)! - 👔 rewards: use new utilization definition
+
+- [`48e8ca0`](https://github.com/exactly/protocol/commit/48e8ca02e16556d30a8bc36288fea54013f138c2) Thanks [@santichez](https://github.com/santichez)! - ✨ rewards: add `withdrawUndistributed` admin function
+
+- [`ba6c0e5`](https://github.com/exactly/protocol/commit/ba6c0e53862d13f2cdebb65c921b8d7ca4eb3b1b) Thanks [@itofarina](https://github.com/itofarina)! - ✨ installments: add permit flow
+
+- [`a3ceabe`](https://github.com/exactly/protocol/commit/a3ceabed6c378c9d5451d24cff3cc82971fd0b51) Thanks [@itofarina](https://github.com/itofarina)! - ✨ installments: add router contract
+
+- [`a91c85a`](https://github.com/exactly/protocol/commit/a91c85ab09c0c42b28332fd6dd33d4373163b40f) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - ⚡️ market: avoid unnecessary cache on `totalAssets`
+
+- [#724](https://github.com/exactly/protocol/pull/724) [`bb38a54`](https://github.com/exactly/protocol/commit/bb38a54388bc8065c8f3c9fade9b3174896461e7) Thanks [@santichez](https://github.com/santichez)! - 🐛 market: track earnings in bad debt clearing
+
+- [#727](https://github.com/exactly/protocol/pull/727) [`22596c7`](https://github.com/exactly/protocol/commit/22596c7ffe9c5e2cd78686e6e8b69319e988c903) Thanks [@santichez](https://github.com/santichez)! - 🐛 market: accrue earnings before liquidation
+
 ## 0.2.19
 
 ### Patch Changes
