@@ -113,27 +113,18 @@ contract InterestRateModel {
     if (uFixed > uGlobal || uFloating > uGlobal) revert UtilizationExceeded();
     if (uGlobal == 0) return baseRate(0, 0);
 
-    FixedVars memory v;
     uint256 maturityAllocation = market.maturityAllocation(maturity - block.timestamp);
     uint256 maturityAllocationNext = market.maturityAllocation(maturity - block.timestamp + FixedLib.INTERVAL);
-    v.sqFNatPools =
-      (maturityAllocation * 1e18) /
-      uGlobal.mulWadUp(
-        uint256(market.fixedBorrowThreshold()).mulWadDown(uint256(market.minThresholdFactor())) /
-          market.maxFuturePools() +
-          maturityAllocation -
-          maturityAllocationNext
-      );
+    uint256 maturityNaturalUtilization = uGlobal.mulWadUp(
+      uint256(market.fixedBorrowThreshold()).mulWadDown(uint256(market.minThresholdFactor())) /
+        market.maxFuturePools() +
+        maturityAllocation -
+        maturityAllocationNext
+    );
+    FixedVars memory v;
+    v.sqFNatPools = (maturityAllocation * 1e18) / maturityNaturalUtilization;
     v.fNatPools = (v.sqFNatPools * 1e18).sqrt();
-    v.fixedFactor =
-      (uFixed * 1e18) /
-      uGlobal.mulWadUp(
-        uint256(market.fixedBorrowThreshold()).mulWadDown(uint256(market.minThresholdFactor())) /
-          market.maxFuturePools() +
-          maturityAllocation -
-          maturityAllocationNext
-      );
-
+    v.fixedFactor = (uFixed * 1e18) / maturityNaturalUtilization;
     v.natPools =
       ((2e18 - v.sqFNatPools.toInt256()) * 1e36) /
       (v.fNatPools.toInt256() * (1e18 - v.fNatPools.toInt256()));
