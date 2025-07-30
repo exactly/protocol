@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import { ERC20, Market } from "../Market.sol";
-import { VerifiedAuditor } from "./VerifiedAuditor.sol";
+import { NotAllowed, VerifiedAuditor } from "./VerifiedAuditor.sol";
 
 contract VerifiedMarket is Market {
   constructor(ERC20 asset_, VerifiedAuditor auditor_) Market(asset_, auditor_) {}
@@ -33,6 +33,5 @@ contract VerifiedMarket is Market {
   function isAllowed(address account) internal view returns (bool) {
     return VerifiedAuditor(address(auditor)).firewall().isAllowed(account);
   }
-}
 
-error NotAllowed(address account);
+}
