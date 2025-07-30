@@ -19,6 +19,17 @@ contract VerifiedMarket is Market {
     return super.depositAtMaturity(maturity, assets, minAssetsRequired, receiver);
   }
 
+  function withdrawAtMaturity(
+    uint256 maturity,
+    uint256 positionAssets,
+    uint256 minAssetsRequired,
+    address receiver,
+    address owner
+  ) public override returns (uint256 assetsDiscounted) {
+    if (!isAllowed(owner)) revert NotAllowed(owner);
+    return super.withdrawAtMaturity(maturity, positionAssets, minAssetsRequired, receiver, owner);
+  }
+
   function isAllowed(address account) internal view returns (bool) {
     return VerifiedAuditor(address(auditor)).firewall().isAllowed(account);
   }
