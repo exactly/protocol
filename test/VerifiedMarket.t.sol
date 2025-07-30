@@ -82,5 +82,33 @@ contract VerifiedMarketTest is Test {
     market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
   }
 
+  function test_withdrawAtMaturity_withdraws_whenOwnerIsAllowed() external {
+    firewall.allow(bob, true);
+    market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
+
+    skip(FixedLib.INTERVAL);
+    vm.startPrank(bob);
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob, bob);
+
+    (uint256 principal, ) = market.fixedDepositPositions(FixedLib.INTERVAL, bob);
+    assertEq(principal, 0);
+    assertEq(asset.balanceOf(bob), 10 ether);
+  }
+
+  function test_withdrawAtMaturity_reverts_withNotAllowed_whenOwnerIsNotAllowed() external {
+    firewall.allow(bob, true);
+    market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
+
+    skip(FixedLib.INTERVAL);
+    firewall.allow(bob, false);
+    vm.startPrank(bob);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob, bob);
+
+    (uint256 principal, ) = market.fixedDepositPositions(FixedLib.INTERVAL, bob);
+    assertEq(principal, 10 ether);
+    assertEq(asset.balanceOf(bob), 0);
+  }
+
   // solhint-enable func-name-mixedcase
 }

@@ -374,7 +374,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 minAssetsRequired,
     address receiver,
     address owner
-  ) external whenNotPaused returns (uint256 assetsDiscounted) {
+  ) public virtual whenNotPaused returns (uint256 assetsDiscounted) {
     if (positionAssets == 0) revert ZeroWithdraw();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
