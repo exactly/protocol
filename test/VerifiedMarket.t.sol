@@ -8,8 +8,8 @@ import { Test } from "forge-std/Test.sol";
 import { Auditor } from "../contracts/Auditor.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { Firewall } from "../contracts/verified/Firewall.sol";
-import { VerifiedAuditor } from "../contracts/verified/VerifiedAuditor.sol";
-import { NotAllowed, VerifiedMarket } from "../contracts/verified/VerifiedMarket.sol";
+import { NotAllowed, VerifiedAuditor } from "../contracts/verified/VerifiedAuditor.sol";
+import { VerifiedMarket } from "../contracts/verified/VerifiedMarket.sol";
 
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
@@ -59,6 +59,40 @@ contract VerifiedMarketTest is Test {
   }
 
   // solhint-disable func-name-mixedcase
+
+  function test_borrow_borrows_whenBorrowerIsAllowed() external {
+    market.deposit(100 ether, address(this));
+
+    market.borrow(10 ether, bob, address(this));
+
+    assertEq(asset.balanceOf(bob), 10 ether);
+  }
+
+  function test_borrow_reverts_withNotAllowed_whenBorrowerIsNotAllowed() external {
+    firewall.allow(bob, true);
+    market.deposit(100 ether, bob);
+
+    firewall.allow(bob, false);
+    vm.startPrank(bob);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.borrow(10 ether, address(this), bob);
+  }
+
+  function test_borrowAtMaturity_borrows_whenBorrowerIsAllowed() external {
+    market.deposit(100 ether, address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 11 ether, bob, address(this));
+    assertEq(asset.balanceOf(bob), 10 ether);
+  }
+
+  function test_borrowAtMaturity_reverts_withNotAllowed_whenBorrowerIsNotAllowed() external {
+    firewall.allow(bob, true);
+    market.deposit(100 ether, bob);
+    firewall.allow(bob, false);
+
+    vm.startPrank(bob);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 11 ether, bob, bob);
+  }
 
   function test_depositAtMaturity_deposits_whenSenderAndReceiverAreAllowed() external {
     market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));
