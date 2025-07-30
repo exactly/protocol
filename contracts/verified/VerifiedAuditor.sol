@@ -21,6 +21,11 @@ contract VerifiedAuditor is Auditor {
     setLiquidationIncentive(liquidationIncentive_);
   }
 
+  function checkBorrow(Market market, address borrower) public override {
+    if (!firewall.isAllowed(borrower)) revert NotAllowed(borrower);
+    super.checkBorrow(market, borrower);
+  }
+
   function maxRepayAmount(
     LiquidityVars memory base,
     MarketVars memory repay,
@@ -69,3 +74,5 @@ contract VerifiedAuditor is Auditor {
 /// @notice Emitted when the firewall is set.
 /// @param firewall the new firewall.
 event FirewallSet(Firewall indexed firewall);
+
+error NotAllowed(address account);

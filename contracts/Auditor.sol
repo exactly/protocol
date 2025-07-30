@@ -151,7 +151,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @dev To be called after adding the borrowed debt to the account position.
   /// @param market address of the market where the borrow is made.
   /// @param borrower address of the account that will repay the debt.
-  function checkBorrow(Market market, address borrower) external {
+  function checkBorrow(Market market, address borrower) public virtual {
     MarketData storage m = markets[market];
     if (!m.isListed) revert MarketNotListed();
 
