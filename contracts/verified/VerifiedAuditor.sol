@@ -23,6 +23,11 @@ contract VerifiedAuditor is Auditor {
     _setFirewall(firewall_);
   }
 
+  function checkBorrow(Market market, address borrower) public override {
+    if (!firewall.isAllowed(borrower)) revert NotAllowed(borrower);
+    super.checkBorrow(market, borrower);
+  }
+
   function maxRepayAmount(
     LiquidityVars memory base,
     MarketVars memory repay,
@@ -73,3 +78,4 @@ contract VerifiedAuditor is Auditor {
 event FirewallSet(Firewall indexed firewall);
 
 error InvalidInitializer();
+error NotAllowed(address account);
