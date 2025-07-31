@@ -12,10 +12,7 @@ contract VerifiedMarket is Market {
     uint256 assets,
     uint256 minAssetsRequired,
     address receiver
-  ) public override returns (uint256) {
-    if (!isAllowed(msg.sender)) revert NotAllowed(msg.sender);
-    if (!isAllowed(receiver)) revert NotAllowed(receiver);
-
+  ) public override onlyAllowed(msg.sender) onlyAllowed(receiver) returns (uint256) {
     return super.depositAtMaturity(maturity, assets, minAssetsRequired, receiver);
   }
 
@@ -25,13 +22,17 @@ contract VerifiedMarket is Market {
     uint256 minAssetsRequired,
     address receiver,
     address owner
-  ) public override returns (uint256 assetsDiscounted) {
-    if (!isAllowed(owner)) revert NotAllowed(owner);
+  ) public override onlyAllowed(owner) returns (uint256 assetsDiscounted) {
     return super.withdrawAtMaturity(maturity, positionAssets, minAssetsRequired, receiver, owner);
   }
 
-  function isAllowed(address account) internal view returns (bool) {
-    return VerifiedAuditor(address(auditor)).firewall().isAllowed(account);
+  function _requireAllowed(address account) internal view {
+    if (!VerifiedAuditor(address(auditor)).firewall().isAllowed(account)) revert NotAllowed(account);
   }
 
+
+  modifier onlyAllowed(address account) {
+    _requireAllowed(account);
+    _;
+  }
 }
