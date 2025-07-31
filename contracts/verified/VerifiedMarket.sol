@@ -7,6 +7,20 @@ import { NotAllowed, VerifiedAuditor } from "./VerifiedAuditor.sol";
 contract VerifiedMarket is Market {
   constructor(ERC20 asset_, VerifiedAuditor auditor_) Market(asset_, auditor_) {}
 
+  function deposit(
+    uint256 assets,
+    address receiver
+  ) public override onlyAllowed(msg.sender) onlyAllowed(receiver) returns (uint256 shares) {
+    return super.deposit(assets, receiver);
+  }
+
+  function mint(
+    uint256 shares,
+    address receiver
+  ) public override onlyAllowed(msg.sender) onlyAllowed(receiver) returns (uint256 assets) {
+    return super.mint(shares, receiver);
+  }
+
   function depositAtMaturity(
     uint256 maturity,
     uint256 assets,
