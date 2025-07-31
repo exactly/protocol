@@ -25,6 +25,10 @@ contract VerifiedAuditor is Auditor {
     super.checkBorrow(market, borrower);
   }
 
+  function checkShortfall(Market market, address account, uint256 amount) public view override onlyAllowed(account) {
+    super.checkShortfall(market, account, amount);
+  }
+
   function maxRepayAmount(
     LiquidityVars memory base,
     MarketVars memory repay,

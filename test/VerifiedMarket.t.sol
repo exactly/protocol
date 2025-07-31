@@ -180,6 +180,40 @@ contract VerifiedMarketTest is Test {
     market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
   }
 
+  function test_redeem_redeems_whenSenderIsAllowed() external {
+    market.deposit(10 ether, address(this));
+    firewall.allow(bob, true);
+    uint256 assets = market.redeem(10 ether, bob, address(this));
+    assertEq(asset.balanceOf(bob), assets);
+  }
+
+  function test_redeem_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
+    firewall.allow(bob, true);
+    market.deposit(10 ether, bob);
+    firewall.allow(bob, false);
+
+    vm.startPrank(bob);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.redeem(10 ether, address(this), bob);
+  }
+
+  function test_withdraw_withdraws_whenSenderIsAllowed() external {
+    market.deposit(10 ether, address(this));
+    uint256 balance = asset.balanceOf(bob);
+    market.withdraw(10 ether, bob, address(this));
+    assertEq(asset.balanceOf(bob), balance + 10 ether);
+  }
+
+  function test_withdraw_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
+    firewall.allow(bob, true);
+    market.deposit(10 ether, bob);
+    firewall.allow(bob, false);
+
+    vm.startPrank(bob);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.withdraw(10 ether, address(this), bob);
+  }
+
   function test_withdrawAtMaturity_withdraws_whenOwnerIsAllowed() external {
     firewall.allow(bob, true);
     market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
