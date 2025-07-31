@@ -23,8 +23,7 @@ contract VerifiedAuditor is Auditor {
     _setFirewall(firewall_);
   }
 
-  function checkBorrow(Market market, address borrower) public override {
-    if (!firewall.isAllowed(borrower)) revert NotAllowed(borrower);
+  function checkBorrow(Market market, address borrower) public override onlyAllowed(borrower) {
     super.checkBorrow(market, borrower);
   }
 
@@ -67,9 +66,18 @@ contract VerifiedAuditor is Auditor {
     _setFirewall(firewall_);
   }
 
+  function _requireAllowed(address account) internal view {
+    if (!firewall.isAllowed(account)) revert NotAllowed(account);
+  }
+
   function _setFirewall(Firewall firewall_) internal {
     firewall = firewall_;
     emit FirewallSet(firewall_);
+  }
+
+  modifier onlyAllowed(address account) {
+    _requireAllowed(account);
+    _;
   }
 }
 
