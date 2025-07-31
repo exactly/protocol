@@ -93,6 +93,70 @@ contract VerifiedMarketTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 11 ether, bob, bob);
   }
 
+  function test_deposit_deposits_whenSenderAndReceiverAreAllowed() external {
+    market.deposit(10 ether, address(this));
+    assertEq(market.maxWithdraw(address(this)), 10 ether);
+
+    firewall.allow(bob, true);
+    market.deposit(10 ether, bob);
+    assertEq(market.maxWithdraw(bob), 10 ether);
+  }
+
+  function test_mint_mints_whenSenderAndReceiverAreAllowed() external {
+    market.mint(10 ether, address(this));
+    assertEq(market.balanceOf(address(this)), 10 ether);
+
+    firewall.allow(bob, true);
+    market.mint(10 ether, bob);
+    assertEq(market.balanceOf(bob), 10 ether);
+  }
+
+  function test_deposit_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
+    asset.mint(bob, 10 ether);
+
+    vm.startPrank(bob);
+    asset.approve(address(market), 10 ether);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.deposit(10 ether, address(this));
+  }
+
+  function test_deposit_reverts_withNotAllowed_whenReceiverIsNotAllowed() external {
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.deposit(10 ether, bob);
+  }
+
+  function test_deposit_revert_withNotAllowed_whenBothSenderAndReceiverAreNotAllowed() external {
+    asset.mint(bob, 10 ether);
+
+    vm.startPrank(bob);
+    asset.approve(address(market), 10 ether);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.deposit(10 ether, bob);
+  }
+
+  function test_mint_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
+    asset.mint(bob, 10 ether);
+
+    vm.startPrank(bob);
+    asset.approve(address(market), 10 ether);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.mint(10 ether, address(this));
+  }
+
+  function test_mint_reverts_withNotAllowed_whenReceiverIsNotAllowed() external {
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.mint(10 ether, bob);
+  }
+
+  function test_mint_revert_withNotAllowed_whenBothSenderAndReceiverAreNotAllowed() external {
+    asset.mint(bob, 10 ether);
+
+    vm.startPrank(bob);
+    asset.approve(address(market), 10 ether);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.mint(10 ether, bob);
+  }
+
   function test_depositAtMaturity_deposits_whenSenderAndReceiverAreAllowed() external {
     market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));
 
