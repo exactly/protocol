@@ -176,7 +176,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param market address of the market where the operation will happen.
   /// @param account address of the account to check for possible shortfall.
   /// @param amount amount that the account wants to withdraw or transfer.
-  function checkShortfall(Market market, address account, uint256 amount) public view {
+  function checkShortfall(Market market, address account, uint256 amount) public view virtual {
     // if the account is not 'in' the market, bypass the liquidity check
     if ((accountMarkets[account] & (1 << markets[market].index)) == 0) return;
 
