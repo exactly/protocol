@@ -30,6 +30,14 @@ contract VerifiedMarket is Market {
     return super.depositAtMaturity(maturity, assets, minAssetsRequired, receiver);
   }
 
+  function transfer(address to, uint256 shares) public override onlyAllowed(to) returns (bool) {
+    return super.transfer(to, shares);
+  }
+
+  function transferFrom(address from, address to, uint256 shares) public override onlyAllowed(to) returns (bool) {
+    return super.transferFrom(from, to, shares);
+  }
+
   function withdrawAtMaturity(
     uint256 maturity,
     uint256 positionAssets,
