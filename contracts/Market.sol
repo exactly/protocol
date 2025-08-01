@@ -787,7 +787,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @dev Makes sure that the caller doesn't have shortfall after transferring.
   /// @param to address to which the assets will be transferred.
   /// @param shares amount of shares to be transferred.
-  function transfer(address to, uint256 shares) public override whenNotPaused returns (bool) {
+  function transfer(address to, uint256 shares) public virtual override whenNotPaused returns (bool) {
     auditor.checkShortfall(this, msg.sender, previewRedeem(shares));
     handleRewards(false, msg.sender);
     handleRewards(false, to);
@@ -799,7 +799,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param from address from which the assets will be transferred.
   /// @param to address to which the assets will be transferred.
   /// @param shares amount of shares to be transferred.
-  function transferFrom(address from, address to, uint256 shares) public override whenNotPaused returns (bool) {
+  function transferFrom(address from, address to, uint256 shares) public virtual override whenNotPaused returns (bool) {
     auditor.checkShortfall(this, from, previewRedeem(shares));
     handleRewards(false, from);
     handleRewards(false, to);

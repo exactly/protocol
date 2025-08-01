@@ -197,6 +197,73 @@ contract VerifiedMarketTest is Test {
     market.redeem(10 ether, address(this), bob);
   }
 
+  function test_transfer_transfers_whenSenderAndReceiverAreAllowed() external {
+    market.deposit(10 ether, address(this));
+
+    firewall.allow(bob, true);
+    market.transfer(bob, 10 ether);
+    assertEq(market.maxWithdraw(bob), 10 ether);
+  }
+
+  function test_transfer_reverts_withNotAllowed_whenReceiverIsNotAllowed() external {
+    market.deposit(10 ether, address(this));
+
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.transfer(bob, 10 ether);
+  }
+
+  function test_transfer_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
+    firewall.allow(bob, true);
+    market.deposit(10 ether, bob);
+    firewall.allow(bob, false);
+
+    vm.startPrank(bob);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.transfer(address(this), 10 ether);
+  }
+
+  function test_transfer_reverts_withNotAllowed_whenBothSenderAndReceiverAreNotAllowed() external {
+    market.deposit(10 ether, address(this));
+
+    firewall.allow(address(this), false);
+
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.transfer(bob, 10 ether);
+  }
+
+  function test_transferFrom_transfers_whenSenderAndReceiverAreAllowed() external {
+    market.deposit(10 ether, address(this));
+    firewall.allow(bob, true);
+
+    market.approve(bob, 10 ether);
+    vm.startPrank(bob);
+    market.transferFrom(address(this), bob, 10 ether);
+    assertEq(market.maxWithdraw(bob), 10 ether);
+  }
+
+  function test_transferFrom_reverts_withNotAllowed_whenReceiverIsNotAllowed() external {
+    market.deposit(10 ether, address(this));
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.transferFrom(address(this), bob, 10 ether);
+  }
+
+  function test_transferFrom_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
+    firewall.allow(bob, true);
+    market.deposit(10 ether, bob);
+    firewall.allow(bob, false);
+
+    vm.startPrank(bob);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.transferFrom(bob, address(this), 10 ether);
+  }
+
+  function test_transferFrom_reverts_withNotAllowed_whenBothSenderAndReceiverAreNotAllowed() external {
+    market.deposit(10 ether, address(this));
+    firewall.allow(address(this), false);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    market.transferFrom(address(this), bob, 10 ether);
+  }
+
   function test_withdraw_withdraws_whenSenderIsAllowed() external {
     market.deposit(10 ether, address(this));
     uint256 balance = asset.balanceOf(bob);
