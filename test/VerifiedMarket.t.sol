@@ -16,17 +16,20 @@ import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
 
 contract VerifiedMarketTest is Test {
-  MockERC20 public asset;
+  MockERC20 public weth;
+  MockERC20 public usdc;
   VerifiedAuditor public auditor;
-  VerifiedMarket public market;
+  VerifiedMarket public marketWETH;
+  VerifiedMarket public marketUSDC;
   Firewall public firewall;
   MockInterestRateModel public irm;
-  MockPriceFeed public marketPriceFeed;
+  MockPriceFeed public marketWETHPriceFeed;
 
   address public bob = makeAddr("bob");
 
   function setUp() public {
-    asset = new MockERC20("Asset", "ASSET", 18);
+    weth = new MockERC20("Wrapped ETH", "WETH", 18);
+    usdc = new MockERC20("USD Coin", "USDC", 6);
     firewall = Firewall(address(new ERC1967Proxy(address(new Firewall()), "")));
     firewall.initialize();
     firewall.grantRole(firewall.GRANTER_ROLE(), address(this));
@@ -37,9 +40,9 @@ contract VerifiedMarketTest is Test {
     auditor.initializeVerified(Auditor.LiquidationIncentive(0.09e18, 0.01e18), firewall);
     vm.label(address(auditor), "Auditor");
 
-    market = VerifiedMarket(address(new ERC1967Proxy(address(new VerifiedMarket(asset, auditor)), "")));
-    market.initialize(
-      "ASSET",
+    marketWETH = VerifiedMarket(address(new ERC1967Proxy(address(new VerifiedMarket(weth, auditor)), "")));
+    marketWETH.initialize(
+      "WETH",
       3,
       1e18,
       InterestRateModel(address(new MockInterestRateModel(0.1e18))),
@@ -49,265 +52,283 @@ contract VerifiedMarketTest is Test {
       0.0046e18,
       0.42e18
     );
-    vm.label(address(market), "Market");
+    vm.label(address(marketWETH), "MarketWETH");
 
-    marketPriceFeed = new MockPriceFeed(18, 2e18);
-    auditor.enableMarket(market, marketPriceFeed, 0.8e18);
+    marketUSDC = VerifiedMarket(address(new ERC1967Proxy(address(new VerifiedMarket(usdc, auditor)), "")));
+    marketUSDC.initialize(
+      "USDC",
+      3,
+      1e18,
+      InterestRateModel(address(new MockInterestRateModel(0.1e18))),
+      0.02e18 / uint256(1 days),
+      1e17,
+      0,
+      0.0046e18,
+      0.42e18
+    );
+    vm.label(address(marketUSDC), "MarketUSDC");
 
-    asset.mint(address(this), 1000 ether);
-    asset.approve(address(market), type(uint256).max);
+    marketWETHPriceFeed = new MockPriceFeed(18, 3_500e18);
+    auditor.enableMarket(marketWETH, marketWETHPriceFeed, 0.86e18);
+    auditor.enableMarket(marketUSDC, new MockPriceFeed(18, 1e18), 0.91e18);
+
+    weth.mint(address(this), 1000 ether);
+    weth.approve(address(marketWETH), type(uint256).max);
+    usdc.mint(address(this), 1_000_000e6);
+    usdc.approve(address(marketUSDC), type(uint256).max);
+    usdc.mint(bob, 1_000_000e6);
   }
 
   // solhint-disable func-name-mixedcase
 
   function test_borrow_borrows_whenBorrowerIsAllowed() external {
-    market.deposit(100 ether, address(this));
+    marketWETH.deposit(100 ether, address(this));
 
-    market.borrow(10 ether, bob, address(this));
+    marketWETH.borrow(10 ether, bob, address(this));
 
-    assertEq(asset.balanceOf(bob), 10 ether);
+    assertEq(weth.balanceOf(bob), 10 ether);
   }
 
   function test_borrow_reverts_withNotAllowed_whenBorrowerIsNotAllowed() external {
     firewall.allow(bob, true);
-    market.deposit(100 ether, bob);
+    marketWETH.deposit(100 ether, bob);
 
     firewall.allow(bob, false);
     vm.startPrank(bob);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.borrow(10 ether, address(this), bob);
+    marketWETH.borrow(10 ether, address(this), bob);
   }
 
   function test_borrowAtMaturity_borrows_whenBorrowerIsAllowed() external {
-    market.deposit(100 ether, address(this));
-    market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 11 ether, bob, address(this));
-    assertEq(asset.balanceOf(bob), 10 ether);
+    marketWETH.deposit(100 ether, address(this));
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 11 ether, bob, address(this));
+    assertEq(weth.balanceOf(bob), 10 ether);
   }
 
   function test_borrowAtMaturity_reverts_withNotAllowed_whenBorrowerIsNotAllowed() external {
     firewall.allow(bob, true);
-    market.deposit(100 ether, bob);
+    marketWETH.deposit(100 ether, bob);
     firewall.allow(bob, false);
 
     vm.startPrank(bob);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 11 ether, bob, bob);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 11 ether, bob, bob);
   }
 
   function test_deposit_deposits_whenSenderAndReceiverAreAllowed() external {
-    market.deposit(10 ether, address(this));
-    assertEq(market.maxWithdraw(address(this)), 10 ether);
+    marketWETH.deposit(10 ether, address(this));
+    assertEq(marketWETH.maxWithdraw(address(this)), 10 ether);
 
     firewall.allow(bob, true);
-    market.deposit(10 ether, bob);
-    assertEq(market.maxWithdraw(bob), 10 ether);
+    marketWETH.deposit(10 ether, bob);
+    assertEq(marketWETH.maxWithdraw(bob), 10 ether);
   }
 
   function test_mint_mints_whenSenderAndReceiverAreAllowed() external {
-    market.mint(10 ether, address(this));
-    assertEq(market.balanceOf(address(this)), 10 ether);
+    marketWETH.mint(10 ether, address(this));
+    assertEq(marketWETH.balanceOf(address(this)), 10 ether);
 
     firewall.allow(bob, true);
-    market.mint(10 ether, bob);
-    assertEq(market.balanceOf(bob), 10 ether);
+    marketWETH.mint(10 ether, bob);
+    assertEq(marketWETH.balanceOf(bob), 10 ether);
   }
 
   function test_deposit_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
-    asset.mint(bob, 10 ether);
+    weth.mint(bob, 10 ether);
 
     vm.startPrank(bob);
-    asset.approve(address(market), 10 ether);
+    weth.approve(address(marketWETH), 10 ether);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.deposit(10 ether, address(this));
+    marketWETH.deposit(10 ether, address(this));
   }
 
   function test_deposit_reverts_withNotAllowed_whenReceiverIsNotAllowed() external {
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.deposit(10 ether, bob);
+    marketWETH.deposit(10 ether, bob);
   }
 
   function test_deposit_revert_withNotAllowed_whenBothSenderAndReceiverAreNotAllowed() external {
-    asset.mint(bob, 10 ether);
+    weth.mint(bob, 10 ether);
 
     vm.startPrank(bob);
-    asset.approve(address(market), 10 ether);
+    weth.approve(address(marketWETH), 10 ether);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.deposit(10 ether, bob);
+    marketWETH.deposit(10 ether, bob);
   }
 
   function test_mint_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
-    asset.mint(bob, 10 ether);
+    weth.mint(bob, 10 ether);
 
     vm.startPrank(bob);
-    asset.approve(address(market), 10 ether);
+    weth.approve(address(marketWETH), 10 ether);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.mint(10 ether, address(this));
+    marketWETH.mint(10 ether, address(this));
   }
 
   function test_mint_reverts_withNotAllowed_whenReceiverIsNotAllowed() external {
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.mint(10 ether, bob);
+    marketWETH.mint(10 ether, bob);
   }
 
   function test_mint_revert_withNotAllowed_whenBothSenderAndReceiverAreNotAllowed() external {
-    asset.mint(bob, 10 ether);
+    weth.mint(bob, 10 ether);
 
     vm.startPrank(bob);
-    asset.approve(address(market), 10 ether);
+    weth.approve(address(marketWETH), 10 ether);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.mint(10 ether, bob);
+    marketWETH.mint(10 ether, bob);
   }
 
   function test_depositAtMaturity_deposits_whenSenderAndReceiverAreAllowed() external {
-    market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));
 
-    (uint256 principal, ) = market.fixedDepositPositions(FixedLib.INTERVAL, address(this));
+    (uint256 principal, ) = marketWETH.fixedDepositPositions(FixedLib.INTERVAL, address(this));
     assertEq(principal, 10 ether);
 
     firewall.allow(bob, true);
-    market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
-    (principal, ) = market.fixedDepositPositions(FixedLib.INTERVAL, bob);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
+    (principal, ) = marketWETH.fixedDepositPositions(FixedLib.INTERVAL, bob);
     assertEq(principal, 10 ether);
   }
 
   function test_depositAtMaturity_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
     vm.startPrank(bob);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));
   }
 
   function test_depositAtMaturity_reverts_withNotAllowed_whenReceiverIsNotAllowed() external {
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
   }
 
   function test_redeem_redeems_whenSenderIsAllowed() external {
-    market.deposit(10 ether, address(this));
+    marketWETH.deposit(10 ether, address(this));
     firewall.allow(bob, true);
-    uint256 assets = market.redeem(10 ether, bob, address(this));
-    assertEq(asset.balanceOf(bob), assets);
+    uint256 assets = marketWETH.redeem(10 ether, bob, address(this));
+    assertEq(weth.balanceOf(bob), assets);
   }
 
   function test_redeem_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
     firewall.allow(bob, true);
-    market.deposit(10 ether, bob);
+    marketWETH.deposit(10 ether, bob);
     firewall.allow(bob, false);
 
     vm.startPrank(bob);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.redeem(10 ether, address(this), bob);
+    marketWETH.redeem(10 ether, address(this), bob);
   }
 
   function test_transfer_transfers_whenSenderAndReceiverAreAllowed() external {
-    market.deposit(10 ether, address(this));
+    marketWETH.deposit(10 ether, address(this));
 
     firewall.allow(bob, true);
-    market.transfer(bob, 10 ether);
-    assertEq(market.maxWithdraw(bob), 10 ether);
+    marketWETH.transfer(bob, 10 ether);
+    assertEq(marketWETH.maxWithdraw(bob), 10 ether);
   }
 
   function test_transfer_reverts_withNotAllowed_whenReceiverIsNotAllowed() external {
-    market.deposit(10 ether, address(this));
+    marketWETH.deposit(10 ether, address(this));
 
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.transfer(bob, 10 ether);
+    marketWETH.transfer(bob, 10 ether);
   }
 
   function test_transfer_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
     firewall.allow(bob, true);
-    market.deposit(10 ether, bob);
+    marketWETH.deposit(10 ether, bob);
     firewall.allow(bob, false);
 
     vm.startPrank(bob);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.transfer(address(this), 10 ether);
+    marketWETH.transfer(address(this), 10 ether);
   }
 
   function test_transfer_reverts_withNotAllowed_whenBothSenderAndReceiverAreNotAllowed() external {
-    market.deposit(10 ether, address(this));
+    marketWETH.deposit(10 ether, address(this));
 
     firewall.allow(address(this), false);
 
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.transfer(bob, 10 ether);
+    marketWETH.transfer(bob, 10 ether);
   }
 
   function test_transferFrom_transfers_whenSenderAndReceiverAreAllowed() external {
-    market.deposit(10 ether, address(this));
+    marketWETH.deposit(10 ether, address(this));
     firewall.allow(bob, true);
 
-    market.approve(bob, 10 ether);
+    marketWETH.approve(bob, 10 ether);
     vm.startPrank(bob);
-    market.transferFrom(address(this), bob, 10 ether);
-    assertEq(market.maxWithdraw(bob), 10 ether);
+    marketWETH.transferFrom(address(this), bob, 10 ether);
+    assertEq(marketWETH.maxWithdraw(bob), 10 ether);
   }
 
   function test_transferFrom_reverts_withNotAllowed_whenReceiverIsNotAllowed() external {
-    market.deposit(10 ether, address(this));
+    marketWETH.deposit(10 ether, address(this));
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.transferFrom(address(this), bob, 10 ether);
+    marketWETH.transferFrom(address(this), bob, 10 ether);
   }
 
   function test_transferFrom_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
     firewall.allow(bob, true);
-    market.deposit(10 ether, bob);
+    marketWETH.deposit(10 ether, bob);
     firewall.allow(bob, false);
 
     vm.startPrank(bob);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.transferFrom(bob, address(this), 10 ether);
+    marketWETH.transferFrom(bob, address(this), 10 ether);
   }
 
   function test_transferFrom_reverts_withNotAllowed_whenBothSenderAndReceiverAreNotAllowed() external {
-    market.deposit(10 ether, address(this));
+    marketWETH.deposit(10 ether, address(this));
     firewall.allow(address(this), false);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.transferFrom(address(this), bob, 10 ether);
+    marketWETH.transferFrom(address(this), bob, 10 ether);
   }
 
   function test_withdraw_withdraws_whenSenderIsAllowed() external {
-    market.deposit(10 ether, address(this));
-    uint256 balance = asset.balanceOf(bob);
-    market.withdraw(10 ether, bob, address(this));
-    assertEq(asset.balanceOf(bob), balance + 10 ether);
+    marketWETH.deposit(10 ether, address(this));
+    uint256 balance = weth.balanceOf(bob);
+    marketWETH.withdraw(10 ether, bob, address(this));
+    assertEq(weth.balanceOf(bob), balance + 10 ether);
   }
 
   function test_withdraw_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
     firewall.allow(bob, true);
-    market.deposit(10 ether, bob);
+    marketWETH.deposit(10 ether, bob);
     firewall.allow(bob, false);
 
     vm.startPrank(bob);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.withdraw(10 ether, address(this), bob);
+    marketWETH.withdraw(10 ether, address(this), bob);
   }
 
   function test_withdrawAtMaturity_withdraws_whenOwnerIsAllowed() external {
     firewall.allow(bob, true);
-    market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
 
     skip(FixedLib.INTERVAL);
     vm.startPrank(bob);
-    market.withdrawAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob, bob);
+    marketWETH.withdrawAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob, bob);
 
-    (uint256 principal, ) = market.fixedDepositPositions(FixedLib.INTERVAL, bob);
+    (uint256 principal, ) = marketWETH.fixedDepositPositions(FixedLib.INTERVAL, bob);
     assertEq(principal, 0);
-    assertEq(asset.balanceOf(bob), 10 ether);
+    assertEq(weth.balanceOf(bob), 10 ether);
   }
 
   function test_withdrawAtMaturity_reverts_withNotAllowed_whenOwnerIsNotAllowed() external {
     firewall.allow(bob, true);
-    market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
 
     skip(FixedLib.INTERVAL);
     firewall.allow(bob, false);
     vm.startPrank(bob);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
-    market.withdrawAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob, bob);
+    marketWETH.withdrawAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob, bob);
 
-    (uint256 principal, ) = market.fixedDepositPositions(FixedLib.INTERVAL, bob);
+    (uint256 principal, ) = marketWETH.fixedDepositPositions(FixedLib.INTERVAL, bob);
     assertEq(principal, 10 ether);
-    assertEq(asset.balanceOf(bob), 0);
+    assertEq(weth.balanceOf(bob), 0);
   }
 
   // solhint-enable func-name-mixedcase
