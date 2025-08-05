@@ -2,6 +2,7 @@
 pragma solidity ^0.8.17;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
+import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { Test } from "forge-std/Test.sol";
 
@@ -16,6 +17,11 @@ import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
 
 contract VerifiedMarketTest is Test {
+  using FixedPointMathLib for uint256;
+
+  uint256 public immutable lendersIncentive = 0.01e18;
+  uint256 public immutable liquidatorIncentive = 0.09e18;
+
   MockERC20 public weth;
   MockERC20 public usdc;
   VerifiedAuditor public auditor;
@@ -37,7 +43,7 @@ contract VerifiedMarketTest is Test {
     vm.label(address(firewall), "Firewall");
 
     auditor = VerifiedAuditor(address(new ERC1967Proxy(address(new VerifiedAuditor(18)), "")));
-    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18), firewall);
+    auditor.initialize(Auditor.LiquidationIncentive(uint128(liquidatorIncentive), uint128(lendersIncentive)), firewall);
     vm.label(address(auditor), "Auditor");
 
     marketWETH = VerifiedMarket(address(new ERC1967Proxy(address(new VerifiedMarket(weth, auditor)), "")));
@@ -327,6 +333,77 @@ contract VerifiedMarketTest is Test {
     (uint256 principal, ) = marketWETH.fixedDepositPositions(FixedLib.INTERVAL, bob);
     assertEq(principal, 10 ether);
     assertEq(weth.balanceOf(bob), 0);
+  }
+
+  function test_liquidateAllowedAccount_liquidates_withIncentives() external {
+    marketWETH.deposit(10 ether, address(this));
+
+    firewall.allow(bob, true);
+    marketUSDC.deposit(5_000e6, bob);
+
+    vm.startPrank(bob);
+    auditor.enterMarket(marketUSDC);
+    marketWETH.borrow(1 ether, bob, bob);
+    vm.stopPrank();
+
+    uint256 usdcBefore = usdc.balanceOf(address(this));
+    assertEq(marketWETH.earningsAccumulator(), 0);
+
+    marketWETHPriceFeed.setPrice(4_000e18);
+    uint256 repaidAssets = marketWETH.liquidate(bob, 1 ether, marketUSDC);
+
+    assertEq(
+      marketWETH.earningsAccumulator(),
+      repaidAssets.mulWadDown(lendersIncentive),
+      "10% incentive to lenders != expected"
+    );
+    assertEq(
+      usdc.balanceOf(address(this)) - usdcBefore + marketUSDC.maxWithdraw(bob),
+      5_000e6,
+      "usdc didn't go to liquidator"
+    );
+  }
+
+  function test_liquidateNotAllowedAccount_liquidates_withoutIncentives() external {
+    marketWETH.deposit(10 ether, address(this));
+
+    firewall.allow(bob, true);
+    marketUSDC.deposit(5_000e6, bob);
+
+    vm.startPrank(bob);
+    auditor.enterMarket(marketUSDC);
+    marketWETH.borrow(1 ether, bob, bob);
+    vm.stopPrank();
+
+    firewall.allow(bob, false);
+
+    uint256 repaidAssets = marketWETH.liquidate(bob, 1 ether, marketUSDC);
+    assertEq(marketWETH.earningsAccumulator(), 0, "lenders got incentives");
+    assertEq(repaidAssets, 1 ether, "deb't didn't repay in full");
+    assertEq(marketWETH.previewDebt(bob), 0, "position not closed");
+    assertEq(marketUSDC.maxWithdraw(bob), 5_000e6 - 3_500e6, "collateral left"); // eth price is 3_500e18
+  }
+
+  function test_liquidateNotAllowedAccount_underwater_liquidates_withoutIncentives() external {
+    marketWETH.deposit(10 ether, address(this));
+
+    firewall.allow(bob, true);
+    marketUSDC.deposit(5_000e6, bob);
+
+    vm.startPrank(bob);
+    auditor.enterMarket(marketUSDC);
+    marketWETH.borrow(1 ether, bob, bob);
+    vm.stopPrank();
+
+    firewall.allow(bob, false);
+
+    marketWETHPriceFeed.setPrice(4_000e18);
+    uint256 repaidAssets = marketWETH.liquidate(bob, 1 ether, marketUSDC);
+
+    assertEq(marketWETH.earningsAccumulator(), 0, "lenders got incentives");
+    assertEq(repaidAssets, 1 ether, "deb't didn't repay in full");
+    assertEq(marketWETH.previewDebt(bob), 0, "position not closed");
+    assertEq(marketUSDC.maxWithdraw(bob), 5_000e6 - 4_000e6, "collateral left");
   }
 
   // solhint-enable func-name-mixedcase
