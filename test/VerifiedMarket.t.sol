@@ -411,5 +411,23 @@ contract VerifiedMarketTest is Test {
     assertEq(marketUSDC.maxWithdraw(bob), 5_000e6 - 4_000e6, "collateral left");
   }
 
+  function test_liquidate_reverts_withNotAllowed_whenLiquidatorIsNotAllowed() external {
+    marketWETH.deposit(10 ether, address(this));
+
+    firewall.allow(bob, true);
+    marketUSDC.deposit(5_000e6, bob);
+
+    vm.startPrank(bob);
+    auditor.enterMarket(marketUSDC);
+    marketWETH.borrow(1 ether, bob, bob);
+    vm.stopPrank();
+
+    marketWETHPriceFeed.setPrice(6_000e18);
+
+    firewall.allow(address(this), false);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, address(this)));
+    marketWETH.liquidate(bob, 1 ether, marketUSDC);
+  }
+
   // solhint-enable func-name-mixedcase
 }
