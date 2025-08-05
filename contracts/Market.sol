@@ -571,7 +571,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     address borrower,
     uint256 maxAssets,
     Market seizeMarket
-  ) external whenNotPaused returns (uint256 repaidAssets) {
+  ) public virtual whenNotPaused returns (uint256 repaidAssets) {
     if (msg.sender == borrower) revert SelfLiquidation();
     floatingAssets += accrueAccumulatedEarnings();
 
