@@ -4,8 +4,9 @@ pragma solidity ^0.8.17;
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 
-import { Auditor, LiquidityVars, Market, MarketVars } from "../Auditor.sol";
+import { Auditor, LiquidityVars, Market, MarketVars, RemainingDebt } from "../Auditor.sol";
 import { Firewall } from "./Firewall.sol";
+import { VerifiedMarket } from "./VerifiedMarket.sol";
 
 contract VerifiedAuditor is Auditor {
   using FixedPointMathLib for uint256;
@@ -29,6 +30,27 @@ contract VerifiedAuditor is Auditor {
 
   function checkShortfall(Market market, address account, uint256 amount) public view override onlyAllowed(account) {
     super.checkShortfall(market, account, amount);
+  }
+
+  function lock(address account) external onlyAllowed(msg.sender) {
+    if (firewall.isAllowed(account)) revert InvalidOperation();
+
+    uint256 marketMap = accountMarkets[account];
+    for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
+      if (marketMap & 1 != 0) {
+        Market market = marketList[i];
+        (, uint256 debt) = market.accountSnapshot(account);
+        if (debt != 0) revert RemainingDebt();
+      }
+      unchecked {
+        ++i;
+      }
+    }
+
+    for (uint256 i = 0; i < marketList.length; i++) {
+      VerifiedMarket market = VerifiedMarket(address(marketList[i]));
+      market.lock(account);
+    }
   }
 
   function maxRepayAmount(
@@ -90,4 +112,5 @@ contract VerifiedAuditor is Auditor {
 event FirewallSet(Firewall indexed firewall);
 
 error InvalidInitializer();
+error InvalidOperation();
 error NotAllowed(address account);
