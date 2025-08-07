@@ -28,6 +28,7 @@ import {
   NotPausingRole,
   InsufficientProtocolLiquidity
 } from "../contracts/Market.sol";
+import { Firewall, VerifiedAuditor, VerifiedMarket } from "../contracts/verified/VerifiedAuditor.sol";
 
 contract MarketTest is Test {
   using FixedPointMathLib for uint256;
@@ -36,12 +37,13 @@ contract MarketTest is Test {
   address internal constant BOB = address(0x69);
   address internal constant ALICE = address(0x420);
 
-  Market internal market;
-  Market internal marketWETH;
-  Auditor internal auditor;
+  VerifiedMarket internal market;
+  VerifiedMarket internal marketWETH;
+  VerifiedAuditor internal auditor;
   MockERC20 internal weth;
   MockPriceFeed internal daiPriceFeed;
   MockInterestRateModel internal irm;
+  Firewall internal firewall;
 
   function setUp() external {
     vm.warp(0);
@@ -49,18 +51,23 @@ contract MarketTest is Test {
     MockERC20 asset = new MockERC20("DAI", "DAI", 18);
     weth = new MockERC20("WETH", "WETH", 18);
 
-    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
-    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    firewall = Firewall(address(new ERC1967Proxy(address(new Firewall()), "")));
+    firewall.initialize();
+    firewall.grantRole(firewall.GRANTER_ROLE(), address(this));
+    vm.label(address(firewall), "Firewall");
+
+    auditor = VerifiedAuditor(address(new ERC1967Proxy(address(new VerifiedAuditor(18)), "")));
+    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18), firewall);
     vm.label(address(auditor), "Auditor");
 
     irm = new MockInterestRateModel(0.1e18);
 
-    market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    market = VerifiedMarket(address(new ERC1967Proxy(address(new VerifiedMarket(asset, auditor)), "")));
     market.initialize(3, 1e18, InterestRateModel(address(irm)), 0.02e18 / uint256(1 days), 1e17, 0, 0.0046e18, 0.42e18);
     vm.label(address(market), "MarketDAI");
     daiPriceFeed = new MockPriceFeed(18, 1e18);
 
-    marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH = VerifiedMarket(address(new ERC1967Proxy(address(new VerifiedMarket(weth, auditor)), "")));
     marketWETH.initialize(
       12,
       1e18,
@@ -83,6 +90,10 @@ contract MarketTest is Test {
     asset.mint(ALICE, 50_000 ether);
     asset.mint(address(this), 1_000_000 ether);
     weth.mint(address(this), 1_000_000 ether);
+
+    firewall.allow(address(this), true);
+    firewall.allow(BOB, true);
+    firewall.allow(ALICE, true);
 
     asset.approve(address(market), type(uint256).max);
     weth.approve(address(marketWETH), type(uint256).max);
@@ -847,6 +858,7 @@ contract MarketTest is Test {
     // LIQUIDATOR liquidates ALICE, wiping ALICE'S maturity borrow
     // and ignores its unassigned rewards
     address liquidator = makeAddr("liquidator");
+    firewall.allow(liquidator, true);
     vm.startPrank(liquidator);
     deal(address(asset), liquidator, assets);
     asset.approve(address(market), assets);
@@ -855,6 +867,7 @@ contract MarketTest is Test {
 
     // ATTACKER deposits to borrow at maturity
     address attacker = makeAddr("attacker");
+    firewall.allow(attacker, true);
     deal(address(asset), attacker, 20);
     vm.startPrank(attacker);
     asset.approve(address(market), 20);
@@ -945,6 +958,7 @@ contract MarketTest is Test {
 
     // Liquidator liquidates
     address liquidator = makeAddr("liquidator");
+    firewall.allow(liquidator, true);
     deal(address(asset), liquidator, assets);
     vm.startPrank(liquidator);
     asset.approve(address(market), type(uint256).max);
@@ -1144,6 +1158,7 @@ contract MarketTest is Test {
     assertEq(unassignedEarningsAfter, 0);
 
     address account = makeAddr("account");
+    firewall.allow(account, true);
     vm.startPrank(account);
     deal(address(weth), account, 10);
     weth.approve(address(marketWETH), 10);
@@ -1636,6 +1651,7 @@ contract MarketTest is Test {
 
     // LIQUIDATION doesn't fail as transfer from is before withdrawing collateral
     address liquidator = makeAddr("liquidator");
+    firewall.allow(liquidator, true);
     deal(address(asset), liquidator, 100_000 ether);
     vm.startPrank(liquidator);
     asset.approve(address(market), type(uint256).max);
