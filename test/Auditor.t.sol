@@ -15,23 +15,32 @@ import {
   MarketAlreadyListed,
   InsufficientAccountLiquidity
 } from "../contracts/Auditor.sol";
+import { Firewall, VerifiedAuditor } from "../contracts/verified/VerifiedAuditor.sol";
 
 contract AuditorTest is Test {
   using FixedPointMathLib for uint256;
 
   address internal constant BOB = address(0x420);
 
-  Auditor internal auditor;
+  VerifiedAuditor internal auditor;
   MockMarket internal market;
   IPriceFeed internal priceFeed;
+  Firewall internal firewall;
 
   event MarketListed(Market indexed market, uint8 decimals);
   event MarketEntered(Market indexed market, address indexed account);
   event MarketExited(Market indexed market, address indexed account);
 
   function setUp() external {
-    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
-    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    firewall = Firewall(address(new ERC1967Proxy(address(new Firewall()), "")));
+    firewall.initialize();
+    firewall.grantRole(firewall.GRANTER_ROLE(), address(this));
+    firewall.allow(address(this), true);
+    vm.label(address(firewall), "Firewall");
+    firewall.allow(BOB, true);
+
+    auditor = VerifiedAuditor(address(new ERC1967Proxy(address(new VerifiedAuditor(18)), "")));
+    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18), firewall);
     vm.label(address(auditor), "Auditor");
     market = new MockMarket(auditor, 18);
     priceFeed = new MockPriceFeed(18, 1e18);
