@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import { ERC20, Market, RewardsController } from "../Market.sol";
+import { ERC20, Market, NotAuditor, RewardsController } from "../Market.sol";
 import { NotAllowed, VerifiedAuditor } from "./VerifiedAuditor.sol";
 
 contract VerifiedMarket is Market {
+  mapping(address account => uint256 assets) public lockedAssets;
+
   constructor(ERC20 asset_, VerifiedAuditor auditor_) Market(asset_, auditor_) {}
 
   function deposit(
@@ -28,6 +30,20 @@ contract VerifiedMarket is Market {
     address receiver
   ) public override onlyAllowed(msg.sender) onlyAllowed(receiver) returns (uint256) {
     return super.depositAtMaturity(maturity, assets, minAssetsRequired, receiver);
+  }
+
+  function lock(address account) external {
+    if (msg.sender != address(auditor)) revert NotAuditor();
+
+    uint256 shares = balanceOf[account];
+    uint256 assets = convertToAssets(shares);
+    beforeWithdraw(assets, shares);
+    _burn(account, shares);
+    lockedAssets[account] += assets;
+
+    emit Seize(msg.sender, account, assets);
+    emit Locked(account, assets);
+    emitMarketUpdate();
   }
 
   function liquidate(
@@ -73,3 +89,5 @@ contract VerifiedMarket is Market {
     _;
   }
 }
+
+event Locked(address indexed account, uint256 assets);
