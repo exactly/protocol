@@ -26,6 +26,9 @@ contract Firewall is Initializable, AccessControlUpgradeable {
   }
 
   function allow(address account, bool allowed) external onlyRole(GRANTER_ROLE) {
+    if (!allowed && allowlist[account].granter != msg.sender) revert NotGranter(account, msg.sender);
+    if (allowed && allowlist[account].allowed) revert AlreadyAllowed(account);
+
     allowlist[account] = Allowed({ granter: msg.sender, allowed: allowed });
     emit AllowlistSet(account, msg.sender, allowed);
   }
@@ -45,3 +48,6 @@ struct Allowed {
   address granter;
   bool allowed;
 }
+
+error AlreadyAllowed(address account);
+error NotGranter(address account, address granter);
