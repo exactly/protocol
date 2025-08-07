@@ -8,9 +8,10 @@ import { Test } from "forge-std/Test.sol";
 
 import { Auditor } from "../contracts/Auditor.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
+import { Market } from "../contracts/Market.sol";
 import { Firewall } from "../contracts/verified/Firewall.sol";
-import { NotAllowed, VerifiedAuditor } from "../contracts/verified/VerifiedAuditor.sol";
-import { VerifiedMarket } from "../contracts/verified/VerifiedMarket.sol";
+import { NotAllowed, RemainingDebt, VerifiedAuditor } from "../contracts/verified/VerifiedAuditor.sol";
+import { Locked, NotAuditor, VerifiedMarket } from "../contracts/verified/VerifiedMarket.sol";
 
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
@@ -422,6 +423,58 @@ contract VerifiedMarketTest is Test {
     firewall.allow(address(this), false);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, address(this)));
     marketWETH.liquidate(bob, 1 ether, marketUSDC);
+  }
+
+  function test_lock_reverts_withRemainingDebt_whenAccountHasDebt() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+
+    vm.prank(bob);
+    marketWETH.borrow(1 ether, bob, bob);
+
+    firewall.allow(bob, false);
+
+    vm.expectRevert(abi.encodeWithSelector(RemainingDebt.selector));
+    auditor.lock(bob);
+  }
+
+  function test_lock_locks_whenAccountHasNoDebt() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+    firewall.allow(bob, false);
+
+    assertEq(marketWETH.balanceOf(bob), 10 ether, "bob has wrong shares");
+    assertEq(marketWETH.totalAssets(), 10 ether, "wrong total assets");
+
+    auditor.lock(bob);
+
+    assertEq(marketWETH.balanceOf(bob), 0, "bob preserved shares");
+    assertEq(marketWETH.totalAssets(), 0, "total assets preserved");
+  }
+
+  function test_lock_emits_locked() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+    firewall.allow(bob, false);
+
+    vm.expectEmit(true, true, true, true);
+    emit Locked(bob, 10 ether);
+    auditor.lock(bob);
+  }
+
+  function test_lock_emits_seize() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+    firewall.allow(bob, false);
+
+    vm.expectEmit(true, true, true, true);
+    emit Market.Seize(address(auditor), bob, 10 ether);
+    auditor.lock(bob);
+  }
+
+  function test_lock_reverts_withNotAuditor_whenNotCalledByAuditor() external {
+    vm.expectRevert(abi.encodeWithSelector(NotAuditor.selector));
+    marketWETH.lock(bob);
   }
 
   // solhint-enable func-name-mixedcase

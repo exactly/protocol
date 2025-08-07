@@ -7,11 +7,18 @@ import { ERC1967Proxy } from "@openzeppelin/contracts-v5/proxy/ERC1967/ERC1967Pr
 import { IAccessControl } from "@openzeppelin/contracts-v5/access/IAccessControl.sol";
 
 import { Firewall } from "../contracts/verified/Firewall.sol";
-import { Auditor, FirewallSet, VerifiedAuditor } from "../contracts/verified/VerifiedAuditor.sol";
+import {
+  Auditor,
+  FirewallSet,
+  InvalidOperation,
+  NotAllowed,
+  VerifiedAuditor
+} from "../contracts/verified/VerifiedAuditor.sol";
 
 contract VerifiedAuditorTest is Test {
   VerifiedAuditor internal auditor;
   Firewall internal firewall;
+  address internal bob;
 
   function setUp() public {
     firewall = Firewall(address(new ERC1967Proxy(address(new Firewall()), "")));
@@ -20,6 +27,10 @@ contract VerifiedAuditorTest is Test {
     auditor = VerifiedAuditor(address(new ERC1967Proxy(address(new VerifiedAuditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18), firewall);
     vm.label(address(auditor), "VerifiedAuditor");
+
+    bob = makeAddr("bob");
+    firewall.grantRole(firewall.GRANTER_ROLE(), address(this));
+    firewall.allow(address(this), true);
   }
 
   // solhint-disable func-name-mixedcase
@@ -43,6 +54,17 @@ contract VerifiedAuditorTest is Test {
     vm.expectEmit(true, true, true, true, address(auditor));
     emit FirewallSet(newFirewall);
     auditor.setFirewall(newFirewall);
+  }
+
+  function test_freeze_reverts_withNotAllowed_whenSenderNotAllowed() public {
+    vm.startPrank(bob);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    auditor.lock(bob);
+  }
+
+  function test_freeze_reverts_whenTargetIsAllowed() public {
+    vm.expectRevert(abi.encodeWithSelector(InvalidOperation.selector));
+    auditor.lock(address(this));
   }
 
   // solhint-enable func-name-mixedcase
