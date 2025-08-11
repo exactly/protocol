@@ -1155,31 +1155,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emit TreasurySet(treasury_, treasuryFeeRate_);
   }
 
-  /// @notice Retrieves all principals for an `account` across all `account` maturities.
-  /// @param account address to retrieve the fixed principals.
-  /// @param packedMaturities maturities to retrieve the fixed principals.
-  /// @param isBorrow boolean to determine if the principals are borrows or deposits.
-  /// @return principals amount of fixed principals.
-  function fixedPrincipals(
-    address account,
-    uint256 packedMaturities,
-    bool isBorrow
-  ) internal view returns (uint256 principals) {
-    uint256 maturity = packedMaturities & ((1 << 32) - 1);
-    packedMaturities = packedMaturities >> 32;
-    mapping(uint256 => mapping(address => FixedLib.Position)) storage fixedPositions = isBorrow
-      ? fixedBorrowPositions
-      : fixedDepositPositions;
-    while (packedMaturities != 0) {
-      if (packedMaturities & 1 != 0) {
-        FixedLib.Position memory position = fixedPositions[maturity][account];
-        principals += position.principal;
-      }
-      packedMaturities >>= 1;
-      maturity += FixedLib.INTERVAL;
-    }
-  }
-
   /// @notice Sets the pause state to true in case of emergency, triggered by an authorized account.
   function pause() external onlyPausingRoles {
     _pause();
