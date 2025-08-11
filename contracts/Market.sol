@@ -378,25 +378,57 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     address receiver,
     address owner
   ) public virtual whenNotPaused returns (uint256 assetsDiscounted) {
+    FixedLib.Pool storage pool;
+    FixedLib.Position memory position;
+    (assetsDiscounted, pool, position, positionAssets) = _prepareWithdrawAtMaturity(
+      maturity,
+      positionAssets,
+      minAssetsRequired,
+      owner
+    );
+
+    spendAllowance(owner, assetsDiscounted);
+
+    _processWithdrawAtMaturity(pool, position, maturity, positionAssets, owner, assetsDiscounted);
+
+    emit WithdrawAtMaturity(maturity, msg.sender, receiver, owner, positionAssets, assetsDiscounted);
+    asset.safeTransfer(receiver, assetsDiscounted);
+  }
+
+  function _prepareWithdrawAtMaturity(
+    uint256 maturity,
+    uint256 positionAssets,
+    uint256 minAssetsRequired,
+    address owner
+  )
+    internal
+    returns (
+      uint256 assetsDiscounted,
+      FixedLib.Pool storage pool,
+      FixedLib.Position memory position,
+      uint256 effectiveAssets
+    )
+  {
     if (positionAssets == 0) revert ZeroWithdraw();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
 
-    FixedLib.Pool storage pool = fixedPools[maturity];
+    pool = fixedPools[maturity];
     depositToTreasury(updateFloatingDebt());
     floatingAssets += pool.accrueEarnings(maturity);
 
     handleRewards(false, owner);
 
-    FixedLib.Position memory position = fixedDepositPositions[maturity][owner];
-
-    if (positionAssets > position.principal + position.fee) positionAssets = position.principal + position.fee;
+    position = fixedDepositPositions[maturity][owner];
+    effectiveAssets = positionAssets > position.principal + position.fee
+      ? position.principal + position.fee
+      : positionAssets;
 
     {
       // remove the supply from the fixed rate pool
       uint256 newFloatingBackupBorrowed = floatingBackupBorrowed +
         pool.withdraw(
-          FixedLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal
+          FixedLib.Position(position.principal, position.fee).scaleProportionally(effectiveAssets).principal
         );
       if (newFloatingBackupBorrowed + floatingDebt > floatingAssets) revert InsufficientProtocolLiquidity();
       floatingBackupBorrowed = newFloatingBackupBorrowed;
@@ -415,15 +447,22 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         floatingUtilization(memFloatingAssetsAverage, memFloatingDebt),
         globalUtilization(memFloatingAssetsAverage, memFloatingDebt, memFloatingBackupBorrowed)
       );
-      assetsDiscounted = positionAssets.divWadDown(1e18 + fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
+      assetsDiscounted = effectiveAssets.divWadDown(1e18 + fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     } else {
-      assetsDiscounted = positionAssets;
+      assetsDiscounted = effectiveAssets;
     }
 
     if (assetsDiscounted < minAssetsRequired) revert Disagreement();
+  }
 
-    spendAllowance(owner, assetsDiscounted);
-
+  function _processWithdrawAtMaturity(
+    FixedLib.Pool storage pool,
+    FixedLib.Position memory position,
+    uint256 maturity,
+    uint256 positionAssets,
+    address owner,
+    uint256 assetsDiscounted
+  ) internal {
     // all the fees go to unassigned or to the floating pool
     (uint256 unassignedEarnings, uint256 newBackupEarnings) = pool.distributeEarnings(
       chargeTreasuryFee(positionAssets - assetsDiscounted),
@@ -448,11 +487,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       fixedDepositPositions[maturity][owner] = position;
     }
 
-    emit WithdrawAtMaturity(maturity, msg.sender, receiver, owner, positionAssets, assetsDiscounted);
     emitMarketUpdate();
     emitFixedEarningsUpdate(maturity);
-
-    asset.safeTransfer(receiver, assetsDiscounted);
   }
 
   /// @notice Repays a certain amount to a maturity.
