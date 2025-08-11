@@ -477,5 +477,120 @@ contract VerifiedMarketTest is Test {
     marketWETH.lock(bob);
   }
 
+  function test_repay_repays_whenBorrowerAndRepayerAreAllowed() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+    vm.prank(bob);
+    marketWETH.borrow(1 ether, bob, bob);
+
+    marketWETH.repay(1 ether, bob);
+
+    assertEq(marketWETH.previewDebt(bob), 0);
+    assertEq(weth.balanceOf(bob), 1 ether);
+  }
+
+  function test_repay_reverts_withNotAllowed_whenBorrowerIsNotAllowed() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+
+    vm.prank(bob);
+    marketWETH.borrow(1 ether, bob, bob);
+
+    firewall.allow(bob, false);
+
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    marketWETH.repay(1 ether, bob);
+  }
+
+  function test_repay_reverts_withNotAllowed_whenRepayerIsNotAllowed() external {
+    marketWETH.deposit(10 ether, address(this));
+    marketWETH.borrow(1 ether, address(this), address(this));
+
+    vm.startPrank(bob);
+    weth.mint(bob, 1 ether);
+    weth.approve(address(marketWETH), type(uint256).max);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    marketWETH.repay(1 ether, address(this));
+  }
+
+  function test_repay_reverts_withNotAllowed_whenBothBorrowerAndRepayerAreNotAllowed() external {
+    marketWETH.deposit(10 ether, address(this));
+    marketWETH.borrow(1 ether, address(this), address(this));
+
+    firewall.allow(address(this), false);
+
+    vm.startPrank(bob);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    marketWETH.repay(1 ether, address(this));
+  }
+
+  function test_repayAtMaturity_repays_whenBorrowerAndRepayerAreAllowed() external {
+    marketWETH.deposit(10 ether, address(this));
+    uint256 assetsOwed = marketWETH.borrowAtMaturity(
+      FixedLib.INTERVAL,
+      1 ether,
+      type(uint256).max,
+      address(this),
+      address(this)
+    );
+
+    firewall.allow(bob, true);
+    weth.mint(bob, 10 ether);
+    vm.startPrank(bob);
+    weth.approve(address(marketWETH), type(uint256).max);
+    assertEq(marketWETH.previewDebt(address(this)), assetsOwed);
+    marketWETH.repayAtMaturity(FixedLib.INTERVAL, assetsOwed, type(uint256).max, address(this));
+
+    assertEq(marketWETH.previewDebt(address(this)), 0);
+  }
+
+  function test_repayAtMaturity_reverts_withNotAllowed_whenBorrowerIsNotAllowed() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+    vm.prank(bob);
+    uint256 assetsOwed = marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, type(uint256).max, bob, bob);
+
+    firewall.allow(bob, false);
+
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    marketWETH.repayAtMaturity(FixedLib.INTERVAL, assetsOwed, type(uint256).max, bob);
+  }
+
+  function test_repayAtMaturity_reverts_withNotAllowed_whenRepayerIsNotAllowed() external {
+    marketWETH.deposit(10 ether, address(this));
+    uint256 assetsOwed = marketWETH.borrowAtMaturity(
+      FixedLib.INTERVAL,
+      1 ether,
+      type(uint256).max,
+      address(this),
+      address(this)
+    );
+
+    weth.mint(bob, 10 ether);
+    vm.startPrank(bob);
+    weth.approve(address(marketWETH), type(uint256).max);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    marketWETH.repayAtMaturity(FixedLib.INTERVAL, assetsOwed, type(uint256).max, address(this));
+  }
+
+  function test_repayAtMaturity_reverts_withNotAllowed_whenBothBorrowerAndRepayerAreNotAllowed() external {
+    marketWETH.deposit(10 ether, address(this));
+    uint256 assetsOwed = marketWETH.borrowAtMaturity(
+      FixedLib.INTERVAL,
+      1 ether,
+      type(uint256).max,
+      address(this),
+      address(this)
+    );
+
+    firewall.allow(address(this), false);
+    weth.mint(bob, 10 ether);
+
+    vm.startPrank(bob);
+    weth.approve(address(marketWETH), type(uint256).max);
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    marketWETH.repayAtMaturity(FixedLib.INTERVAL, assetsOwed, type(uint256).max, address(this));
+  }
+
   // solhint-enable func-name-mixedcase
 }

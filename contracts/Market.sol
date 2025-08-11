@@ -179,7 +179,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function repay(
     uint256 assets,
     address borrower
-  ) external whenNotPaused returns (uint256 actualRepay, uint256 borrowShares) {
+  ) public virtual whenNotPaused returns (uint256 actualRepay, uint256 borrowShares) {
     (actualRepay, borrowShares) = noTransferRefund(previewRepay(assets), borrower);
     emitMarketUpdate();
     asset.safeTransferFrom(msg.sender, address(this), actualRepay);
@@ -463,7 +463,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 positionAssets,
     uint256 maxAssets,
     address borrower
-  ) external whenNotPaused returns (uint256 actualRepayAssets) {
+  ) public virtual whenNotPaused returns (uint256 actualRepayAssets) {
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
 
