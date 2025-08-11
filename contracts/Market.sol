@@ -375,18 +375,34 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     address receiver,
     address owner
   ) public virtual whenNotPaused returns (uint256 assetsDiscounted) {
+    FixedLib.Pool storage pool;
+    FixedLib.Position memory position;
+    (assetsDiscounted, pool, position) = _prepareWithdrawAtMaturity(maturity, positionAssets, minAssetsRequired, owner);
+
+    spendAllowance(owner, assetsDiscounted);
+
+    _processWithdrawAtMaturity(pool, position, maturity, positionAssets, receiver, owner, assetsDiscounted);
+    emit WithdrawAtMaturity(maturity, msg.sender, receiver, owner, positionAssets, assetsDiscounted);
+  }
+
+  function _prepareWithdrawAtMaturity(
+    uint256 maturity,
+    uint256 positionAssets,
+    uint256 minAssetsRequired,
+    address owner
+  ) internal returns (uint256 assetsDiscounted, FixedLib.Pool storage pool, FixedLib.Position memory position) {
     if (positionAssets == 0) revert ZeroWithdraw();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
 
-    FixedLib.Pool storage pool = fixedPools[maturity];
+    pool = fixedPools[maturity];
     depositToTreasury(updateFloatingDebt());
     floatingAssets += pool.accrueEarnings(maturity);
 
     handleRewards(false, owner);
 
-    FixedLib.Position memory position = fixedDepositPositions[maturity][owner];
 
+    position = fixedDepositPositions[maturity][owner];
     if (positionAssets > position.principal + position.fee) positionAssets = position.principal + position.fee;
 
     {
@@ -418,9 +434,17 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     }
 
     if (assetsDiscounted < minAssetsRequired) revert Disagreement();
+  }
 
-    spendAllowance(owner, assetsDiscounted);
-
+  function _processWithdrawAtMaturity(
+    FixedLib.Pool storage pool,
+    FixedLib.Position memory position,
+    uint256 maturity,
+    uint256 positionAssets,
+    address receiver,
+    address owner,
+    uint256 assetsDiscounted
+  ) internal {
     // all the fees go to unassigned or to the floating pool
     (uint256 unassignedEarnings, uint256 newBackupEarnings) = pool.distributeEarnings(
       chargeTreasuryFee(positionAssets - assetsDiscounted),
@@ -445,7 +469,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       fixedDepositPositions[maturity][owner] = position;
     }
 
-    emit WithdrawAtMaturity(maturity, msg.sender, receiver, owner, positionAssets, assetsDiscounted);
     emitMarketUpdate();
     emitFixedEarningsUpdate(maturity);
 
