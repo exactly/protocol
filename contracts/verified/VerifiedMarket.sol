@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import { ERC20, Market, NotAuditor, RewardsController } from "../Market.sol";
+import { ERC20, FixedLib, Market, NotAuditor, RewardsController } from "../Market.sol";
 import { NotAllowed, VerifiedAuditor } from "./VerifiedAuditor.sol";
 
 contract VerifiedMarket is Market {
@@ -39,6 +39,36 @@ contract VerifiedMarket is Market {
     uint256 assets = convertToAssets(shares);
     beforeWithdraw(assets, shares);
     _burn(account, shares);
+
+    // iterate over all the fixed deposits
+    uint256 packedMaturities = accounts[account].fixedDeposits;
+    uint256 maturity = packedMaturities & ((1 << 32) - 1);
+    packedMaturities = packedMaturities >> 32;
+    while (packedMaturities != 0) {
+      if (packedMaturities & 1 != 0) {
+        FixedLib.Position memory position = fixedDepositPositions[maturity][account];
+        uint256 positionAssets = position.principal + position.fee;
+        if (positionAssets != 0) {
+          FixedLib.Pool storage pool = fixedPools[maturity];
+          uint256 assetsDiscounted;
+          (assetsDiscounted, pool, ) = _prepareWithdrawAtMaturity(maturity, positionAssets, 0, account);
+          _processWithdrawAtMaturity(
+            pool,
+            position,
+            maturity,
+            positionAssets,
+            address(this),
+            account,
+            assetsDiscounted
+          );
+
+          assets += positionAssets - assetsDiscounted;
+        }
+      }
+      packedMaturities >>= 1;
+      maturity += FixedLib.INTERVAL;
+    }
+
     lockedAssets[account] += assets;
 
     emit Seize(msg.sender, account, assets);
