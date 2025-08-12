@@ -457,6 +457,22 @@ contract VerifiedMarketTest is Test {
     assertEq(marketWETH.totalAssets(), 0, "total assets preserved");
   }
 
+  function test_lock_locks_whenAccountHasFixedDeposits() external {
+    firewall.allow(bob, true);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, bob);
+
+    firewall.allow(bob, false);
+    auditor.lock(bob);
+
+    assertGt(marketWETH.lockedAssets(bob), 0, "locked assets not accounted for bob");
+    (uint256 deposits, ) = marketWETH.fixedConsolidated(bob);
+    assertEq(deposits, 0, "fixed deposits not accounted for bob");
+    (uint256 totalDeposits, ) = marketWETH.fixedOps();
+    assertEq(totalDeposits, 0, "fixed deposits not accounted for ops");
+    (uint256 fixedDeposits, , ) = marketWETH.accounts(bob);
+    assertEq(fixedDeposits, 0, "fixed deposits not accounted for account");
+  }
+
   function test_lock_emits_locked() external {
     firewall.allow(bob, true);
     marketWETH.deposit(10 ether, bob);
