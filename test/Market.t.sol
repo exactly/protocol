@@ -40,13 +40,14 @@ contract MarketTest is Test {
   Market internal marketWETH;
   Auditor internal auditor;
   MockERC20 internal weth;
+  MockERC20 internal asset;
   MockPriceFeed internal daiPriceFeed;
   MockInterestRateModel internal irm;
 
-  function setUp() external {
+  function setUp() public virtual {
     vm.warp(0);
 
-    MockERC20 asset = new MockERC20("DAI", "DAI", 18);
+    asset = new MockERC20("DAI", "DAI", 18);
     weth = new MockERC20("WETH", "WETH", 18);
 
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
@@ -534,7 +535,7 @@ contract MarketTest is Test {
   }
 
   function testRoundingDownAssetsToValidateShortfallWhenTransferringFrom() external {
-    MockERC20 asset = new MockERC20("DAI", "DAI", 18);
+    asset = new MockERC20("DAI", "DAI", 18);
 
     // deploy a harness market to be able to set different supply and floatingAssets
     MarketHarness marketHarness = new MarketHarness(
@@ -569,7 +570,7 @@ contract MarketTest is Test {
   }
 
   function testRoundingDownAssetsToValidateShortfallWhenTransferring() external {
-    MockERC20 asset = new MockERC20("DAI", "DAI", 18);
+    asset = new MockERC20("DAI", "DAI", 18);
 
     // deploy a harness market to be able to set different supply and floatingAssets
     MarketHarness marketHarness = new MarketHarness(
@@ -602,10 +603,13 @@ contract MarketTest is Test {
   }
 
   function testAccountLiquidityAdjustedDebt() external {
+    emit log_named_address("address this market.t.sol", address(this));
     // deposit 1000 as collateral
     market.deposit(1_000 ether, address(this));
 
     irm.setRate(0);
+
+    emit log_named_decimal_uint("allowance", market.allowance(address(this), address(this)), 18);
     // borrow 100 as debt
     market.borrowAtMaturity(FixedLib.INTERVAL, 100 ether, 100 ether, address(this), address(this));
 
@@ -824,7 +828,6 @@ contract MarketTest is Test {
   function testEarlyRepayLiquidationUnassignedEarnings() public {
     uint256 maturity = FixedLib.INTERVAL;
     uint256 assets = 10_000 ether;
-    ERC20 asset = market.asset();
     deal(address(asset), ALICE, assets);
 
     vm.startPrank(ALICE);
@@ -928,8 +931,7 @@ contract MarketTest is Test {
     market.deposit(assets, BOB);
 
     // ALICE deposits and borrows
-    ERC20 asset = market.asset();
-    deal(address(asset), ALICE, assets);
+    asset.mint(ALICE, assets);
     vm.startPrank(ALICE);
     market.deposit(assets, ALICE);
     market.borrowAtMaturity(maturity, (assets * 78 * 78) / 100 / 100, type(uint256).max, ALICE, ALICE);
@@ -1625,8 +1627,7 @@ contract MarketTest is Test {
 
     // ALICE deposits and borrows DAI
     uint256 assets = 10_000 ether;
-    ERC20 asset = market.asset();
-    deal(address(asset), ALICE, assets);
+    asset.mint(ALICE, assets);
     market.deposit(assets, ALICE);
     market.borrow((assets * 9 * 9) / 10 / 10, ALICE, ALICE);
 
@@ -2756,7 +2757,7 @@ contract MarketTest is Test {
     Market[4] memory markets;
     string[4] memory symbols = ["DAI", "USDC", "WETH", "WBTC"];
     for (uint256 i = 0; i < symbols.length; i++) {
-      MockERC20 asset = new MockERC20(symbols[i], symbols[i], 18);
+      asset = new MockERC20(symbols[i], symbols[i], 18);
       markets[i] = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
       markets[i].initialize(
         3,

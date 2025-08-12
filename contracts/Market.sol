@@ -401,7 +401,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     handleRewards(false, owner);
 
-
     position = fixedDepositPositions[maturity][owner];
     if (positionAssets > position.principal + position.fee) positionAssets = position.principal + position.fee;
 
