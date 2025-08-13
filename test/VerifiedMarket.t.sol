@@ -597,5 +597,56 @@ contract VerifiedMarketTest is Test {
     marketWETH.repayAtMaturity(FixedLib.INTERVAL, assetsOwed, type(uint256).max, address(this));
   }
 
+  function test_refund_refunds_whenBorrowerAndRefunderAreAllowed() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+
+    vm.prank(bob);
+    uint256 borrowShares = marketWETH.borrow(1 ether, bob, bob);
+
+    assertEq(marketWETH.previewDebt(bob), 1 ether);
+
+    marketWETH.refund(borrowShares, bob);
+
+    assertEq(marketWETH.previewDebt(bob), 0);
+  }
+
+  function test_refund_reverts_withNotAllowed_whenBorrowerIsNotAllowed() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+
+    vm.prank(bob);
+    uint256 borrowShares = marketWETH.borrow(1 ether, bob, bob);
+
+    firewall.allow(bob, false);
+
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
+    marketWETH.refund(borrowShares, bob);
+  }
+
+  function test_refund_reverts_withNotAllowed_whenRefunderIsNotAllowed() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+    vm.prank(bob);
+    uint256 borrowShares = marketWETH.borrow(1 ether, bob, bob);
+
+    firewall.allow(address(this), false);
+
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, address(this)));
+    marketWETH.refund(borrowShares, bob);
+  }
+
+  function test_refund_reverts_withNotAllowed_whenBothBorrowerAndRefunderAreNotAllowed() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+    vm.prank(bob);
+    uint256 borrowShares = marketWETH.borrow(1 ether, bob, bob);
+
+    firewall.allow(address(this), false);
+    firewall.allow(bob, false);
+
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, address(this)));
+    marketWETH.refund(borrowShares, bob);
+  }
   // solhint-enable func-name-mixedcase
 }

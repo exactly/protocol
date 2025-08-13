@@ -54,6 +54,13 @@ contract VerifiedMarket is Market {
     return super.liquidate(borrower, maxAssets, seizeMarket);
   }
 
+  function refund(
+    uint256 borrowShares,
+    address borrower
+  ) public override onlyAllowed(msg.sender) onlyAllowed(borrower) returns (uint256 assets, uint256 actualShares) {
+    return super.refund(borrowShares, borrower);
+  }
+
   function repay(
     uint256 assets,
     address borrower
