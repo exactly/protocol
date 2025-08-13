@@ -41,7 +41,7 @@ export default async (
       });
     }
   } catch (error) {
-    if (account !== safe) {
+    if (senderAddress !== safeAddress) {
       // eslint-disable-next-line no-console
       console.log(`${safe}: error`, error instanceof Error ? error.message : error);
       return printManual(safe, to, data);
