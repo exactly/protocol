@@ -3,6 +3,7 @@ import type { ProxyAdmin, TimelockController } from "../types";
 import timelockPropose from "./.utils/timelockPropose";
 import revokeRole from "./.utils/revokeRole";
 import tenderlify from "./.utils/tenderlify";
+import { keccak256, toUtf8Bytes } from "ethers";
 
 const func: DeployFunction = async ({
   network: {
@@ -33,7 +34,12 @@ const func: DeployFunction = async ({
   if ((await timelock.getMinDelay()) !== BigInt(timelockDelay)) {
     await timelockPropose(timelock, "updateDelay", [timelockDelay]);
   }
-  await revokeRole(timelock, await timelock.CANCELLER_ROLE(), deployer);
+  await revokeRole(
+    timelock,
+    keccak256(toUtf8Bytes("CANCELLER_ROLE")),
+    deployer,
+    keccak256(toUtf8Bytes("TIMELOCK_ADMIN_ROLE")),
+  );
 
   const proxyAdmin = await getContract<ProxyAdmin>("ProxyAdmin", await getSigner(deployer));
   if ((await proxyAdmin.owner()).toLowerCase() !== timelockAddress.toLowerCase()) {
