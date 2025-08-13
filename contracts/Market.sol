@@ -196,7 +196,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function refund(
     uint256 borrowShares,
     address borrower
-  ) external whenNotPaused returns (uint256 assets, uint256 actualShares) {
+  ) public virtual whenNotPaused returns (uint256 assets, uint256 actualShares) {
     (assets, actualShares) = noTransferRefund(borrowShares, borrower);
     emitMarketUpdate();
     asset.safeTransferFrom(msg.sender, address(this), assets);
