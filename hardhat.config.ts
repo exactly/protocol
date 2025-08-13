@@ -52,6 +52,7 @@ const hardhatConfig: Config = {
       },
       url: env.OP_SEPOLIA_NODE ?? "",
     },
+    "base-sepolia": { priceDecimals: 8, url: env.BASE_SEPOLIA_NODE ?? "" },
   },
   namedAccounts: {
     deployer: {
@@ -59,6 +60,7 @@ const hardhatConfig: Config = {
       ethereum: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
       optimism: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
       "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
+      "base-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
     multisig: {
       default: 0,
@@ -69,11 +71,13 @@ const hardhatConfig: Config = {
       default: 0,
       optimism: "0x23fD464e0b0eE21cEdEb929B19CABF9bD5215019",
       "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
+      "base-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
     savings: {
       default: 0,
       optimism: "0x8a1c05C4462b3554814a637E940b3342ffBE02f2",
       "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
+      "base-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
     hypernative: {
       optimism: "0xEa2127b14D05229CB3d4b75b42052e556AB7391F",
@@ -169,7 +173,7 @@ const hardhatConfig: Config = {
         },
       },
       DAI: {
-        networks: ["ethereum", "op-sepolia"],
+        networks: ["ethereum", "op-sepolia", "base-sepolia"],
         adjustFactor: 0.9,
       },
       USDC: {
@@ -247,6 +251,7 @@ const hardhatConfig: Config = {
         },
       },
       WBTC: {
+        networks: ["ethereum", "optimism", "op-sepolia"],
         adjustFactor: 0.85,
         interestRateModel: {
           minRate: 1e-2,
@@ -278,6 +283,7 @@ const hardhatConfig: Config = {
         },
       },
       wstETH: {
+        networks: ["ethereum", "optimism", "op-sepolia"],
         adjustFactor: 0.82,
         overrides: {
           ethereum: { priceFeed: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n } },
@@ -354,6 +360,17 @@ const hardhatConfig: Config = {
               },
             },
           },
+        },
+      },
+      cbBTC: {
+        networks: ["base-sepolia"],
+        adjustFactor: 0.85,
+        interestRateModel: {
+          minRate: 1e-2,
+          naturalRate: 15e-2,
+          maxUtilization: 1.05,
+          naturalUtilization: 0.5,
+          growthSpeed: 2,
         },
       },
     },
