@@ -10,8 +10,13 @@ import { Auditor } from "../contracts/Auditor.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { Market } from "../contracts/Market.sol";
 import { Firewall } from "../contracts/verified/Firewall.sol";
-import { NotAllowed, RemainingDebt, VerifiedAuditor } from "../contracts/verified/VerifiedAuditor.sol";
-import { Locked, NotAuditor, VerifiedMarket } from "../contracts/verified/VerifiedMarket.sol";
+import {
+  InvalidOperation,
+  NotAllowed,
+  RemainingDebt,
+  VerifiedAuditor
+} from "../contracts/verified/VerifiedAuditor.sol";
+import { Locked, NotAuditor, Unlocked, VerifiedMarket } from "../contracts/verified/VerifiedMarket.sol";
 
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
@@ -664,5 +669,71 @@ contract VerifiedMarketTest is Test {
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, address(this)));
     marketWETH.refund(borrowShares, bob);
   }
+
+  function test_unlock_unlocks_whenAccountIsAllowedBack() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+    firewall.allow(bob, false);
+
+    assertEq(marketWETH.balanceOf(bob), 10 ether, "bob has wrong shares");
+    assertEq(marketWETH.totalAssets(), 10 ether, "wrong total assets");
+
+    auditor.lock(bob);
+
+    firewall.allow(bob, true);
+
+    assertEq(marketWETH.balanceOf(bob), 0, "bob preserved shares");
+    assertEq(marketWETH.totalAssets(), 0, "total assets preserved");
+
+    auditor.unlock(bob);
+
+    assertEq(marketWETH.balanceOf(bob), 10 ether, "bob has wrong shares");
+    assertEq(marketWETH.totalAssets(), 10 ether, "wrong total assets");
+  }
+
+  function test_unlock_reverts_withNotAuditor_whenNotCalledByAuditor() external {
+    vm.expectRevert(abi.encodeWithSelector(NotAuditor.selector));
+    marketWETH.unlock(bob);
+  }
+
+  function test_unlock_reverts_withNotAllowed_whenAccountIsNotAllowed() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+
+    firewall.allow(bob, false);
+    auditor.lock(bob);
+
+    vm.expectRevert(abi.encodeWithSelector(InvalidOperation.selector));
+    auditor.unlock(bob);
+  }
+
+  function test_unlock_updatesFloatingAssets() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+
+    firewall.allow(bob, false);
+    auditor.lock(bob);
+
+    assertEq(marketWETH.floatingAssets(), 0, "floating assets not updated");
+
+    firewall.allow(bob, true);
+    auditor.unlock(bob);
+
+    assertEq(marketWETH.floatingAssets(), 10 ether, "floating assets not updated");
+  }
+
+  function test_unlock_emits_unlocked() external {
+    firewall.allow(bob, true);
+    marketWETH.deposit(10 ether, bob);
+    firewall.allow(bob, false);
+    auditor.lock(bob);
+
+    firewall.allow(bob, true);
+
+    vm.expectEmit(true, true, true, true);
+    emit Unlocked(bob, 10 ether);
+    auditor.unlock(bob);
+  }
+
   // solhint-enable func-name-mixedcase
 }

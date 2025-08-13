@@ -71,6 +71,19 @@ contract VerifiedMarket is Market {
     emitMarketUpdate();
   }
 
+  function unlock(address account) external {
+    if (msg.sender != address(auditor)) revert NotAuditor();
+
+    uint256 lockedAssets_ = lockedAssets[account];
+    if (lockedAssets_ == 0) return;
+
+    lockedAssets[account] = 0;
+    uint256 shares = previewDeposit(lockedAssets_);
+    _mint(account, shares);
+    afterDeposit(lockedAssets_, shares);
+    emit Unlocked(account, lockedAssets_);
+  }
+
   function liquidate(
     address borrower,
     uint256 maxAssets,
@@ -139,3 +152,4 @@ contract VerifiedMarket is Market {
 }
 
 event Locked(address indexed account, uint256 assets);
+event Unlocked(address indexed account, uint256 assets);
