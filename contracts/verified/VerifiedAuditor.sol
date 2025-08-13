@@ -53,6 +53,14 @@ contract VerifiedAuditor is Auditor {
     }
   }
 
+  function unlock(address account) external onlyAllowed(msg.sender) {
+    if (!firewall.isAllowed(account)) revert InvalidOperation();
+
+    for (uint256 i = 0; i < marketList.length; ++i) {
+      VerifiedMarket(address(marketList[i])).unlock(account);
+    }
+  }
+
   function maxRepayAmount(
     LiquidityVars memory base,
     MarketVars memory repay,
