@@ -11,13 +11,17 @@ import { keccak256, toUtf8Bytes } from "ethers";
 
 const func: DeployFunction = async ({
   network: {
-    config: { finance },
+    config: { finance, verified },
     live,
   },
   ethers: { ZeroAddress, parseUnits, getContractOrNull, getContract, getSigner },
   deployments: { deploy, get, getOrNull },
   getNamedAccounts,
 }) => {
+  if (verified && Object.values(finance.markets).some(({ rewards }) => rewards)) {
+    throw new Error("verified markets do not support rewards");
+  }
+
   const [rewards, debtManager, auditor, pauser, { address: timelock }, { deployer, multisig, treasury = ZeroAddress }] =
     await Promise.all([
       getContractOrNull<RewardsController>("RewardsController"),
@@ -42,7 +46,7 @@ const func: DeployFunction = async ({
     await validateUpgrade(
       marketName,
       {
-        contract: "Market",
+        contract: verified ? "VerifiedMarket" : "Market",
         args: [asset.target, auditor.target],
         envKey: "MARKETS",
         unsafeAllow: ["constructor", "state-variable-immutable"],

@@ -10,14 +10,16 @@ const func: DeployFunction = async ({
       finance: {
         liquidationIncentive: { liquidator: liquidatorIncentive, lenders: lendersIncentive },
       },
+      verified,
     },
   },
   ethers: { parseUnits, getContract, getSigner },
-  deployments: { deploy, get },
+  deployments: { deploy, get, getOrNull },
   getNamedAccounts,
 }) => {
-  const [{ address: timelockAddress }, { deployer }] = await Promise.all([
+  const [{ address: timelockAddress }, firewall, { deployer }] = await Promise.all([
     get("TimelockController"),
+    getOrNull("Firewall"),
     getNamedAccounts(),
   ]);
   const liquidationIncentive = {
@@ -28,12 +30,16 @@ const func: DeployFunction = async ({
   await validateUpgrade("Auditor", { args: [priceDecimals], envKey: "AUDITOR" }, async (name, opts) =>
     deploy(name, {
       ...opts,
+      contract: verified ? "VerifiedAuditor" : "Auditor",
       proxy: {
         owner: timelockAddress,
         viaAdminContract: { name: "ProxyAdmin" },
         proxyContract: "TransparentUpgradeableProxy",
         execute: {
-          init: { methodName: "initialize", args: [liquidationIncentive] },
+          init: {
+            methodName: verified ? "initializeVerified" : "initialize",
+            args: [liquidationIncentive, ...(verified ? [firewall!.address] : [])],
+          },
         },
       },
       from: deployer,
@@ -52,6 +58,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Auditor"];
-func.dependencies = ["Governance"];
+func.dependencies = ["Governance", "Firewall"];
 
 export default func;
