@@ -56,7 +56,7 @@ const hardhatConfig: Config = {
       },
       url: env.OP_SEPOLIA_NODE ?? "",
     },
-    "base-sepolia": { priceDecimals: 8, url: env.BASE_SEPOLIA_NODE ?? "" },
+    "base-sepolia": { priceDecimals: 8, verified: true, url: env.BASE_SEPOLIA_NODE ?? "" },
   },
   namedAccounts: {
     deployer: {
@@ -562,6 +562,7 @@ declare module "hardhat/types/config" {
     priceDecimals: number;
     timelockDelay?: number;
     finance?: Omit<Partial<FinanceConfig>, "staking"> & { staking?: Partial<StakingParameters> };
+    verified?: boolean;
     sunset?: boolean;
   }
 
@@ -569,6 +570,7 @@ declare module "hardhat/types/config" {
     priceDecimals: number;
     timelockDelay: undefined;
     finance: FinanceConfig;
+    verified: undefined;
     sunset: undefined;
   }
 
@@ -576,6 +578,7 @@ declare module "hardhat/types/config" {
     priceDecimals: number;
     timelockDelay?: number;
     finance: FinanceConfig;
+    verified?: boolean;
     sunset?: boolean;
   }
 }
