@@ -44,7 +44,7 @@ contract VerifiedMarketTest is Test {
     usdc = new MockERC20("USD Coin", "USDC", 6);
     firewall = Firewall(address(new ERC1967Proxy(address(new Firewall()), "")));
     firewall.initialize();
-    firewall.grantRole(firewall.GRANTER_ROLE(), address(this));
+    firewall.grantRole(firewall.ALLOWER_ROLE(), address(this));
     firewall.allow(address(this), true);
     vm.label(address(firewall), "Firewall");
 

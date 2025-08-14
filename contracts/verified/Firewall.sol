@@ -8,7 +8,7 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 contract Firewall is Initializable, AccessControlUpgradeable {
   using FixedPointMathLib for uint256;
 
-  bytes32 public constant GRANTER_ROLE = keccak256("GRANTER_ROLE");
+  bytes32 public constant ALLOWER_ROLE = keccak256("ALLOWER_ROLE");
 
   mapping(address account => Allowed allowed) public allowlist;
 
@@ -25,11 +25,11 @@ contract Firewall is Initializable, AccessControlUpgradeable {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
 
-  function allow(address account, bool allowed) external onlyRole(GRANTER_ROLE) {
-    if (!allowed && allowlist[account].granter != msg.sender) revert NotGranter(account, msg.sender);
+  function allow(address account, bool allowed) external onlyRole(ALLOWER_ROLE) {
+    if (!allowed && allowlist[account].allower != msg.sender) revert NotAllower(account, msg.sender);
     if (allowed && allowlist[account].allowed) revert AlreadyAllowed(account);
 
-    allowlist[account] = Allowed({ granter: msg.sender, allowed: allowed });
+    allowlist[account] = Allowed({ allower: msg.sender, allowed: allowed });
     emit AllowlistSet(account, msg.sender, allowed);
   }
 
@@ -39,15 +39,15 @@ contract Firewall is Initializable, AccessControlUpgradeable {
 
   /// @notice Emitted when a new account is allowlisted.
   /// @param account address of the account that was allowlisted.
-  /// @param granter address of the granter that allowed the account.
+  /// @param allower address of the allower that allowed the account.
   /// @param allowed whether the account is allowlisted.
-  event AllowlistSet(address indexed account, address indexed granter, bool allowed);
+  event AllowlistSet(address indexed account, address indexed allower, bool allowed);
 }
 
 struct Allowed {
-  address granter;
+  address allower;
   bool allowed;
 }
 
 error AlreadyAllowed(address account);
-error NotGranter(address account, address granter);
+error NotAllower(address account, address allower);
