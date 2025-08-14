@@ -28,7 +28,7 @@ contract VerifiedAuditorTest is Test {
     vm.label(address(auditor), "VerifiedAuditor");
 
     bob = makeAddr("bob");
-    firewall.grantRole(firewall.GRANTER_ROLE(), address(this));
+    firewall.grantRole(firewall.ALLOWER_ROLE(), address(this));
     firewall.allow(address(this), true);
   }
 
