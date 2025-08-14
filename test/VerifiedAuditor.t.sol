@@ -17,7 +17,7 @@ contract VerifiedAuditorTest is Test {
     firewall.initialize();
     vm.label(address(firewall), "Firewall");
     auditor = VerifiedAuditor(address(new ERC1967Proxy(address(new VerifiedAuditor(18)), "")));
-    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18), firewall);
+    auditor.initializeVerified(Auditor.LiquidationIncentive(0.09e18, 0.01e18), firewall);
     vm.label(address(auditor), "VerifiedAuditor");
   }
 
