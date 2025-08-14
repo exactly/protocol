@@ -55,15 +55,31 @@ contract VerifiedAuditorTest is Test {
     auditor.setFirewall(newFirewall);
   }
 
-  function test_freeze_reverts_withNotAllowed_whenSenderNotAllowed() public {
+  function test_lock_reverts_withNotAllowed_whenSenderNotAllowed() public {
     vm.startPrank(bob);
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, bob));
     auditor.lock(bob);
   }
 
-  function test_freeze_reverts_whenTargetIsAllowed() public {
+  function test_lock_reverts_whenTargetIsAllowed() public {
     vm.expectRevert(abi.encodeWithSelector(InvalidOperation.selector));
     auditor.lock(address(this));
+  }
+
+  function test_unlock_reverts_withInvalidOperation_whenAccountIsNotAllowed() external {
+    auditor.lock(bob);
+
+    vm.expectRevert(abi.encodeWithSelector(InvalidOperation.selector));
+    auditor.unlock(bob);
+  }
+
+  function test_unlock_reverts_withNotAllowed_whenSenderIsNotAllowed() external {
+    auditor.lock(bob);
+    firewall.allow(bob, true);
+    firewall.allow(address(this), false);
+
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, address(this)));
+    auditor.unlock(bob);
   }
 
   // solhint-enable func-name-mixedcase

@@ -10,12 +10,7 @@ import { Auditor } from "../contracts/Auditor.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { Market } from "../contracts/Market.sol";
 import { Firewall } from "../contracts/verified/Firewall.sol";
-import {
-  InvalidOperation,
-  NotAllowed,
-  RemainingDebt,
-  VerifiedAuditor
-} from "../contracts/verified/VerifiedAuditor.sol";
+import { NotAllowed, RemainingDebt, VerifiedAuditor } from "../contracts/verified/VerifiedAuditor.sol";
 import { Locked, NotAuditor, Unlocked, VerifiedMarket } from "../contracts/verified/VerifiedMarket.sol";
 
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
@@ -694,17 +689,6 @@ contract VerifiedMarketTest is Test {
   function test_unlock_reverts_withNotAuditor_whenNotCalledByAuditor() external {
     vm.expectRevert(abi.encodeWithSelector(NotAuditor.selector));
     marketWETH.unlock(bob);
-  }
-
-  function test_unlock_reverts_withNotAllowed_whenAccountIsNotAllowed() external {
-    firewall.allow(bob, true);
-    marketWETH.deposit(10 ether, bob);
-
-    firewall.allow(bob, false);
-    auditor.lock(bob);
-
-    vm.expectRevert(abi.encodeWithSelector(InvalidOperation.selector));
-    auditor.unlock(bob);
   }
 
   function test_unlock_updatesFloatingAssets() external {
