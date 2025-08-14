@@ -50,7 +50,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
   /// @notice Initializes the contract.
   /// @dev can only be called once.
-  function initialize(LiquidationIncentive memory liquidationIncentive_) external initializer {
+  function initialize(LiquidationIncentive memory liquidationIncentive_) public virtual initializer {
     __AccessControl_init();
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
