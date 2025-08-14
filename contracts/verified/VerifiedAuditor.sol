@@ -14,11 +14,13 @@ contract VerifiedAuditor is Auditor {
 
   constructor(uint256 priceDecimals_) Auditor(priceDecimals_) {}
 
-  function initialize(LiquidationIncentive memory liquidationIncentive_, Firewall firewall_) external initializer {
-    __AccessControl_init();
-    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+  function initialize(LiquidationIncentive memory) public pure override {
+    revert InvalidInitializer();
+  }
+
+  function initializeVerified(LiquidationIncentive memory liquidationIncentive_, Firewall firewall_) external {
+    super.initialize(liquidationIncentive_);
     _setFirewall(firewall_);
-    setLiquidationIncentive(liquidationIncentive_);
   }
 
   function maxRepayAmount(
@@ -69,3 +71,5 @@ contract VerifiedAuditor is Auditor {
 /// @notice Emitted when the firewall is set.
 /// @param firewall the new firewall.
 event FirewallSet(Firewall indexed firewall);
+
+error InvalidInitializer();
