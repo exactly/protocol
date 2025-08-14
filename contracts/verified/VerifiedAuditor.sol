@@ -47,18 +47,13 @@ contract VerifiedAuditor is Auditor {
       }
     }
 
-    for (uint256 i = 0; i < marketList.length; i++) {
-      VerifiedMarket market = VerifiedMarket(address(marketList[i]));
-      market.lock(account);
-    }
+    for (uint256 i = 0; i < marketList.length; ++i) VerifiedMarket(address(marketList[i])).lock(account);
   }
 
   function unlock(address account) external onlyAllowed(msg.sender) {
     if (!firewall.isAllowed(account)) revert InvalidOperation();
 
-    for (uint256 i = 0; i < marketList.length; ++i) {
-      VerifiedMarket(address(marketList[i])).unlock(account);
-    }
+    for (uint256 i = 0; i < marketList.length; ++i) VerifiedMarket(address(marketList[i])).unlock(account);
   }
 
   function maxRepayAmount(
