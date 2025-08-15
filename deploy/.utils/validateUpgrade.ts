@@ -1,6 +1,8 @@
 import hre from "hardhat";
 import { env } from "process";
 import { Manifest } from "@openzeppelin/upgrades-core";
+import { makeForceImport } from "@openzeppelin/hardhat-upgrades/dist/force-import";
+import type { ForceImportOptions } from "@openzeppelin/hardhat-upgrades/dist/utils";
 import { validateImpl } from "@openzeppelin/hardhat-upgrades/dist/utils/validate-impl";
 import { getDeployData } from "@openzeppelin/hardhat-upgrades/dist/utils/deploy-impl";
 import { UnknownSignerError } from "hardhat-deploy/dist/src/errors";
@@ -17,17 +19,27 @@ const {
 
 export default async (name: string, opts?: DeployOptions, deploy?: DeployCallback) => {
   const contractName = opts?.contract ?? name;
-  const deployData = await getDeployData(hre, await getContractFactory(contractName), {
-    constructorArgs: opts?.args,
-    unsafeAllow: opts?.unsafeAllow,
-  });
-  await validateImpl(deployData, deployData.fullOpts, (await getOrNull(`${name}_Implementation`))?.address);
+  const contractFactory = await getContractFactory(contractName);
+  const upgradeOpts = { constructorArgs: opts?.args, unsafeAllow: opts?.unsafeAllow };
+  const deployData = await getDeployData(hre, contractFactory, upgradeOpts);
+  const manifest = await Manifest.forNetwork(provider);
+  const preImpl = await getOrNull(`${name}_Implementation`);
+  if (preImpl) {
+    const { impls } = await manifest.read();
+    if (
+      !Object.keys(impls).find(
+        (v) => impls[v]?.address === preImpl?.address || impls[v]?.allAddresses?.includes(preImpl?.address),
+      )
+    ) {
+      await makeForceImport(hre)(preImpl.address, contractFactory, upgradeOpts as ForceImportOptions);
+    }
+  }
+  await validateImpl(deployData, deployData.fullOpts, preImpl?.address);
 
   if (!deploy) return;
 
   const { address, transactionHash: txHash, implementation } = await tryDeploy(deploy, name, opts);
   const { layout } = deployData;
-  const manifest = await Manifest.forNetwork(provider);
   await manifest.lockedRun(async () => {
     const d = await manifest.read();
 
