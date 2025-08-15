@@ -130,11 +130,11 @@ importers:
         specifier: ^2.10.0
         version: 2.10.0(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2))
       hardhat-deploy:
-        specifier: ^0.12.4
-        version: 0.12.4
+        specifier: ^1.0.4
+        version: 1.0.4
       hardhat-deploy-ethers:
         specifier: ^0.4.2
-        version: 0.4.2(@nomicfoundation/hardhat-ethers@3.0.8(ethers@6.13.2)(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2)))(hardhat-deploy@0.12.4)(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2))
+        version: 0.4.2(@nomicfoundation/hardhat-ethers@3.0.8(ethers@6.13.2)(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2)))(hardhat-deploy@1.0.4)(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2))
       hardhat-gas-reporter:
         specifier: ^2.2.1
         version: 2.2.1(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2))(typescript@5.6.2)
@@ -2117,8 +2117,8 @@ packages:
   hardhat-deploy@0.11.45:
     resolution: {integrity: sha512-aC8UNaq3JcORnEUIwV945iJuvBwi65tjHVDU3v6mOcqik7WAzHVCJ7cwmkkipsHrWysrB5YvGF1q9S1vIph83w==}
 
-  hardhat-deploy@0.12.4:
-    resolution: {integrity: sha512-bYO8DIyeGxZWlhnMoCBon9HNZb6ji0jQn7ngP1t5UmGhC8rQYhji7B73qETMOFhzt5ECZPr+U52duj3nubsqdQ==}
+  hardhat-deploy@1.0.4:
+    resolution: {integrity: sha512-vl6vYQHDtZmILerAIRERI2AjghLH5gJIcQjNrSldn2SjQdY5Y47umXVll4/ywPzBRlsqdpJfL92PhnQ+1xB+Sg==}
 
   hardhat-gas-reporter@2.2.1:
     resolution: {integrity: sha512-3AfPDGBn6VPmRKU65W28qVvG5x+qYL2gH9PAivd31oGj/ZHpZTutqXh6wq46993Vz35rnPDnrGo028U4/NP/Vw==}
@@ -2714,6 +2714,9 @@ packages:
 
   neo-async@2.6.2:
     resolution: {integrity: sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==}
+
+  neoqs@6.13.0:
+    resolution: {integrity: sha512-IysBpjrEG9qiUb/IT6XrXSz2ASzBxLebp4s8/GBm7STYC315vMNqH0aWdRR+f7KvXK4aRlLcf5r2Z6dOTxQSrQ==}
 
   node-addon-api@2.0.2:
     resolution: {integrity: sha512-Ntyt4AIXyaLIuMHF6IOoTakB3K+RWxwtsHNRxllEoA6vPwP9o4866g6YWDLUdnucilZhmkxiHwHr11gAENw+QA==}
@@ -6404,11 +6407,11 @@ snapshots:
       hardhat: 2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2)
       strip-ansi: 6.0.1
 
-  hardhat-deploy-ethers@0.4.2(@nomicfoundation/hardhat-ethers@3.0.8(ethers@6.13.2)(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2)))(hardhat-deploy@0.12.4)(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2)):
+  hardhat-deploy-ethers@0.4.2(@nomicfoundation/hardhat-ethers@3.0.8(ethers@6.13.2)(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2)))(hardhat-deploy@1.0.4)(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2)):
     dependencies:
       '@nomicfoundation/hardhat-ethers': 3.0.8(ethers@6.13.2)(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2))
       hardhat: 2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2)
-      hardhat-deploy: 0.12.4
+      hardhat-deploy: 1.0.4
 
   hardhat-deploy@0.11.45:
     dependencies:
@@ -6441,7 +6444,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  hardhat-deploy@0.12.4:
+  hardhat-deploy@1.0.4:
     dependencies:
       '@ethersproject/abi': 5.7.0
       '@ethersproject/abstract-signer': 5.7.0
@@ -6454,7 +6457,6 @@ snapshots:
       '@ethersproject/solidity': 5.7.0
       '@ethersproject/transactions': 5.7.0
       '@ethersproject/wallet': 5.7.0
-      '@types/qs': 6.9.16
       axios: 0.21.4(debug@4.3.7)
       chalk: 4.1.2
       chokidar: 3.6.0
@@ -6465,7 +6467,7 @@ snapshots:
       fs-extra: 10.1.0
       match-all: 1.2.6
       murmur-128: 0.2.1
-      qs: 6.13.0
+      neoqs: 6.13.0
       zksync-ethers: 5.9.2(ethers@5.7.2)
     transitivePeerDependencies:
       - bufferutil
@@ -7122,6 +7124,8 @@ snapshots:
   negotiator@0.6.3: {}
 
   neo-async@2.6.2: {}
+
+  neoqs@6.13.0: {}
 
   node-addon-api@2.0.2: {}
 
