@@ -33,7 +33,7 @@ contract VerifiedMarket is Market {
   }
 
   function lock(address account) external {
-    if (msg.sender != address(auditor)) revert NotAuditor();
+    _checkIsAuditor();
 
     uint256 shares = balanceOf[account];
     uint256 assets = convertToAssets(shares);
@@ -72,7 +72,7 @@ contract VerifiedMarket is Market {
   }
 
   function unlock(address account) external {
-    if (msg.sender != address(auditor)) revert NotAuditor();
+    _checkIsAuditor();
 
     uint256 lockedAssets_ = lockedAssets[account];
     if (lockedAssets_ == 0) return;
@@ -135,6 +135,10 @@ contract VerifiedMarket is Market {
 
   function _requireAllowed(address account) internal view {
     if (!VerifiedAuditor(address(auditor)).firewall().isAllowed(account)) revert NotAllowed(account);
+  }
+
+  function _checkIsAuditor() internal view {
+    if (msg.sender != address(auditor)) revert NotAuditor();
   }
 
   function handleRewards(bool, address) internal override {} // solhint-disable-line no-empty-blocks
