@@ -3285,12 +3285,14 @@ contract MarketTest is Test {
   }
 
   function testMaturityAllocationDeposit() external {
-    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+    asset = new MockERC20("USDC", "USDC", 18);
 
     Market newMarket = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     newMarket.initialize(
       MarketParams({
+        assetSymbol: "USDC",
         maxFuturePools: 7,
+        maxSupply: type(uint256).max,
         earningsAccumulatorSmoothFactor: 2e18,
         interestRateModel: new InterestRateModel(
           Parameters({
@@ -3343,12 +3345,14 @@ contract MarketTest is Test {
   }
 
   function testMaturityAllocationBorrow() external {
-    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+    asset = new MockERC20("USDC", "USDC", 18);
 
     Market newMarket = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     newMarket.initialize(
       MarketParams({
+        assetSymbol: "USDC",
         maxFuturePools: 7,
+        maxSupply: type(uint256).max,
         earningsAccumulatorSmoothFactor: 2e18,
         interestRateModel: new InterestRateModel(
           Parameters({
@@ -3402,12 +3406,14 @@ contract MarketTest is Test {
   }
 
   function testMaturityAllocationMultipleOperations() external {
-    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+    asset = new MockERC20("USDC", "USDC", 18);
 
     Market newMarket = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     newMarket.initialize(
       MarketParams({
+        assetSymbol: "USDC",
         maxFuturePools: 7,
+        maxSupply: type(uint256).max,
         earningsAccumulatorSmoothFactor: 2e18,
         interestRateModel: new InterestRateModel(
           Parameters({
@@ -3480,7 +3486,6 @@ contract MarketTest is Test {
 
     market.deposit(1_000 ether, address(this));
 
-    uint256 maxTime = maxFuturePools * FixedLib.INTERVAL;
     for (uint256 i = 0; i < maxFuturePools; i++) {
       vm.warp(block.timestamp + times[i]);
 
@@ -3489,10 +3494,16 @@ contract MarketTest is Test {
       if (block.timestamp >= maturity || memFloatingAssetsAverage == 0) continue;
 
       uint256 totalBorrows = 0;
-      for (uint256 m = maturity; m <= maxTime; m += FixedLib.INTERVAL) {
-        (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(m);
-        if (m == maturity) borrowed += amounts[i];
-        totalBorrows += borrowed > supplied ? borrowed - supplied : 0;
+      {
+        uint256 maxTime = block.timestamp -
+          (block.timestamp % FixedLib.INTERVAL) +
+          (maxFuturePools) *
+          FixedLib.INTERVAL;
+        for (uint256 m = maturity; m <= maxTime; m += FixedLib.INTERVAL) {
+          (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(m);
+          if (m == maturity) borrowed += amounts[i];
+          totalBorrows += borrowed > supplied ? borrowed - supplied : 0;
+        }
       }
       bool canBorrow = memFloatingAssetsAverage > 0
         ? totalBorrows.divWadDown(memFloatingAssetsAverage) <

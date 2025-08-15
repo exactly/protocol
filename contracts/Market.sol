@@ -874,8 +874,11 @@ contract Market is MarketBase {
   function canBorrowAtMaturity(uint256 maturity, uint256 assets) internal view returns (bool) {
     uint256 totalBorrows;
     {
-      uint256 maxTime = maxFuturePools * FixedLib.INTERVAL;
-      for (uint256 i = maturity; i <= maxTime; i += FixedLib.INTERVAL) {
+      uint256 maxMaturity = block.timestamp -
+        (block.timestamp % FixedLib.INTERVAL) +
+        (maxFuturePools) *
+        FixedLib.INTERVAL;
+      for (uint256 i = maturity; i <= maxMaturity; i += FixedLib.INTERVAL) {
         FixedLib.Pool memory pool = fixedPools[i];
         if (i == maturity) pool.borrowed += assets;
         totalBorrows += pool.borrowed > pool.supplied ? pool.borrowed - pool.supplied : 0;

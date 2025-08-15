@@ -153,7 +153,9 @@ contract InterestRateModelTest is Test {
       );
       market.initialize(
         MarketParams({
+          assetSymbol: "",
           maxFuturePools: 12,
+          maxSupply: type(uint256).max,
           earningsAccumulatorSmoothFactor: 2e18,
           interestRateModel: InterestRateModel(address(0)),
           penaltyRate: 0.0045e18 / uint256(1 days),
@@ -364,7 +366,9 @@ contract InterestRateModelTest is Test {
     Market market = Market(address(new ERC1967Proxy(address(new Market(asset, Auditor(address(0)))), "")));
     market.initialize(
       MarketParams({
+        assetSymbol: "",
         maxFuturePools: 7,
+        maxSupply: type(uint256).max,
         earningsAccumulatorSmoothFactor: 2e18,
         interestRateModel: InterestRateModel(address(0)),
         penaltyRate: 0.0045e18 / uint256(1 days),
@@ -433,7 +437,9 @@ contract InterestRateModelTest is Test {
     Market marketUSDC = Market(address(new ERC1967Proxy(address(new Market(asset, Auditor(address(0)))), "")));
     marketUSDC.initialize(
       MarketParams({
+        assetSymbol: "",
         maxFuturePools: 7,
+        maxSupply: type(uint256).max,
         earningsAccumulatorSmoothFactor: 2e18,
         interestRateModel: new InterestRateModel(
           Parameters({
@@ -607,7 +613,9 @@ contract InterestRateModelTest is Test {
     Market market = Market(address(new ERC1967Proxy(address(new Market(asset, Auditor(address(0)))), "")));
     market.initialize(
       MarketParams({
+        assetSymbol: "",
         maxFuturePools: 7,
+        maxSupply: type(uint256).max,
         earningsAccumulatorSmoothFactor: 2e18,
         interestRateModel: InterestRateModel(address(0)),
         penaltyRate: 0.0045e18 / uint256(1 days),
