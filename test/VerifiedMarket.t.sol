@@ -719,5 +719,50 @@ contract VerifiedMarketTest is Test {
     auditor.unlock(bob);
   }
 
+  function test_unlock_afterOperating_unlocks() external {
+    marketWETH.deposit(10 ether, address(this));
+    marketWETH.borrow(1 ether, address(this), address(this));
+
+    firewall.allow(address(this), false);
+    firewall.allow(bob, true);
+
+    vm.startPrank(bob);
+    weth.mint(bob, 10 ether);
+    weth.approve(address(marketWETH), type(uint256).max);
+    marketWETH.liquidate(address(this), type(uint256).max, marketWETH);
+
+    auditor.lock(address(this));
+    vm.stopPrank();
+
+    assertEq(marketWETH.balanceOf(address(this)), 0);
+    assertEq(marketWETH.previewDebt(address(this)), 0);
+    assertEq(marketWETH.floatingAssets(), 0);
+    assertEq(marketWETH.lockedAssets(address(this)), 9 ether);
+    assertEq(marketWETH.totalAssets(), 0);
+    assertEq(marketWETH.totalSupply(), 0);
+    assertEq(marketWETH.floatingDebt(), 0);
+
+    firewall.allow(address(this), true);
+
+    marketWETH.deposit(10 ether, address(this));
+    marketWETH.borrow(1 ether, address(this), address(this));
+
+    assertEq(marketWETH.balanceOf(address(this)), 10 ether);
+    assertEq(marketWETH.previewDebt(address(this)), 1 ether);
+    assertEq(marketWETH.floatingAssets(), 10 ether);
+    assertEq(marketWETH.lockedAssets(address(this)), 9 ether);
+    assertEq(marketWETH.totalAssets(), 10 ether);
+
+    auditor.unlock(address(this));
+
+    assertEq(marketWETH.balanceOf(address(this)), 19 ether);
+    assertEq(marketWETH.previewDebt(address(this)), 1 ether);
+    assertEq(marketWETH.floatingAssets(), 19 ether);
+    assertEq(marketWETH.lockedAssets(address(this)), 0);
+    assertEq(marketWETH.totalAssets(), 19 ether);
+    assertEq(marketWETH.totalSupply(), 19 ether);
+    assertEq(marketWETH.floatingDebt(), 1 ether);
+  }
+
   // solhint-enable func-name-mixedcase
 }
