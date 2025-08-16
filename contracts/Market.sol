@@ -21,8 +21,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   using FixedLib for FixedLib.Position;
   using FixedLib for uint256;
 
-  bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-  bytes32 public constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN_ROLE");
+  bytes32 private constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+  bytes32 private constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN_ROLE");
 
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
