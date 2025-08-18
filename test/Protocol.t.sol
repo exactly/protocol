@@ -78,7 +78,11 @@ contract ProtocolTest is Test {
           maturitySpeed: 0.5e18,
           timePreference: 0.01e18,
           fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
+          maxRate: 15_000e16,
+          maturityDurationSpeed: 0.5e18,
+          durationThreshold: 0.2e18,
+          durationGrowthLaw: 1e18,
+          penaltyDurationFactor: 1.333e18
         }),
         market
       );
@@ -1091,8 +1095,11 @@ contract ProtocolTest is Test {
   function previewCanBorrowAtMaturity(Market market, uint256 maturity, uint256 assets) internal view returns (bool) {
     uint256 totalBorrows;
     {
-      uint256 maxTime = market.maxFuturePools() * FixedLib.INTERVAL;
-      for (uint256 i = maturity; i <= maxTime; i += FixedLib.INTERVAL) {
+      uint256 maxMaturity = block.timestamp -
+        (block.timestamp % FixedLib.INTERVAL) +
+        (market.maxFuturePools()) *
+        FixedLib.INTERVAL;
+      for (uint256 i = maturity; i <= maxMaturity; i += FixedLib.INTERVAL) {
         (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(i);
         if (i == maturity) borrowed += assets;
         totalBorrows += borrowed > supplied ? borrowed - supplied : 0;
@@ -1121,7 +1128,8 @@ contract ProtocolTest is Test {
         previewFixedUtilization(market, borrowed, supplied),
         previewFloatingUtilization(market),
         previewGlobalUtilization(market, backupDebtAddition),
-        previewGlobalUtilizationAverage(market, backupDebtAddition)
+        previewGlobalUtilizationAverage(market, backupDebtAddition),
+        1e18
       );
   }
 

@@ -1135,7 +1135,11 @@ contract MarketTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.2e18,
             fixedAllocation: 0.6e18,
-            maxRate: 18.25e18
+            maxRate: 18.25e18,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           newMarket
         ),
@@ -1216,7 +1220,11 @@ contract MarketTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.2e18,
             fixedAllocation: 0.6e18,
-            maxRate: 18.25e18
+            maxRate: 18.25e18,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           newMarket
         ),
@@ -1283,7 +1291,8 @@ contract MarketTest is Test {
           0,
           floatingDebt.divWadUp(floatingAssets),
           floatingDebt.divWadUp(floatingAssets),
-          newMarket.previewGlobalUtilizationAverage()
+          newMarket.previewGlobalUtilizationAverage(),
+          1e18
         ),
         0.086e18
       );
@@ -1312,7 +1321,11 @@ contract MarketTest is Test {
           maturitySpeed: 0.5e18,
           timePreference: 0.01e18,
           fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
+          maxRate: 15_000e16,
+          maturityDurationSpeed: 0.5e18,
+          durationThreshold: 0.2e18,
+          durationGrowthLaw: 1e18,
+          penaltyDurationFactor: 1.333e18
         }),
         Market(address(0))
       )
@@ -1344,7 +1357,11 @@ contract MarketTest is Test {
           maturitySpeed: 0.5e18,
           timePreference: 0.01e18,
           fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
+          maxRate: 15_000e16,
+          maturityDurationSpeed: 0.5e18,
+          durationThreshold: 0.2e18,
+          durationGrowthLaw: 1e18,
+          penaltyDurationFactor: 1.333e18
         }),
         Market(address(0))
       )
@@ -2898,7 +2915,11 @@ contract MarketTest is Test {
           maturitySpeed: 0.5e18,
           timePreference: 0,
           fixedAllocation: 0.3e18,
-          maxRate: 100e16
+          maxRate: 100e16,
+          maturityDurationSpeed: 0.5e18,
+          durationThreshold: 0.2e18,
+          durationGrowthLaw: 1e18,
+          penaltyDurationFactor: 1.333e18
         }),
         market
       )
@@ -3312,7 +3333,11 @@ contract MarketTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.2e18,
             fixedAllocation: 0.6e18,
-            maxRate: 18.25e18
+            maxRate: 18.25e18,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           newMarket
         ),
@@ -3370,7 +3395,11 @@ contract MarketTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.2e18,
             fixedAllocation: 0.6e18,
-            maxRate: 18.25e18
+            maxRate: 18.25e18,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           newMarket
         ),
@@ -3429,7 +3458,11 @@ contract MarketTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.2e18,
             fixedAllocation: 0.6e18,
-            maxRate: 18.25e18
+            maxRate: 18.25e18,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           newMarket
         ),
