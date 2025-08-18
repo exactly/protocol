@@ -219,17 +219,23 @@ contract FixedPreviewer {
         assets -
         Math.min(Math.max(pool.borrowed, pool.supplied), pool.borrowed + assets)).divWadUp(floatingAssets)
       : 0;
-    uint256 memGlobalUtilizationAverage = market.globalUtilizationAverage();
-    uint256 averageFactor = uint256(
-      1e18 -
-        (
-          -int256(
-            globalUtilization < memGlobalUtilizationAverage
-              ? market.uDampSpeedDown()
-              : market.uDampSpeedUp() * (block.timestamp - market.lastAverageUpdate())
-          )
-        ).expWad()
-    );
+    uint256 uGlobalAverage;
+    {
+      uint256 averageFactor = uint256(
+        1e18 -
+          (
+            -int256(
+              globalUtilization < market.globalUtilizationAverage()
+                ? market.uDampSpeedDown()
+                : market.uDampSpeedUp() * (block.timestamp - market.lastAverageUpdate())
+            )
+          ).expWad()
+      );
+      uGlobalAverage =
+        market.globalUtilizationAverage().mulWadDown(1e18 - averageFactor) +
+        averageFactor.mulWadDown(globalUtilization);
+    }
+    uint256 memMaturityDuration = maturityDebtDuration(market, maturity, assets);
     return
       market.interestRateModel().fixedRate(
         maturity,
@@ -239,7 +245,8 @@ contract FixedPreviewer {
           : 0,
         floatingAssets != 0 ? market.totalFloatingBorrowAssets().divWadUp(floatingAssets) : 0,
         globalUtilization,
-        memGlobalUtilizationAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(globalUtilization)
+        uGlobalAverage,
+        memMaturityDuration
       );
   }
 
@@ -253,5 +260,23 @@ contract FixedPreviewer {
       );
     }
     (yield, ) = pool.calculateDeposit(assets, market.backupFeeRate());
+  }
+
+  function maturityDebtDuration(
+    Market market,
+    uint256 maturity,
+    uint256 assets
+  ) internal view returns (uint256 duration) {
+    uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
+    if (memFloatingAssetsAverage != 0) {
+      uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
+      uint256 maxMaturity = latestMaturity + (market.maxFuturePools()) * FixedLib.INTERVAL;
+      for (uint256 i = latestMaturity + FixedLib.INTERVAL; i <= maxMaturity; i += FixedLib.INTERVAL) {
+        (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(i);
+        if (i == maturity) borrowed += assets;
+        uint256 borrows = borrowed > supplied ? borrowed - supplied : 0;
+        duration += borrows.mulDivDown(maturity - block.timestamp, 365 days).divWadDown(memFloatingAssetsAverage);
+      }
+    }
   }
 }
