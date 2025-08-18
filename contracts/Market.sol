@@ -205,7 +205,6 @@ contract Market is MarketBase {
     if (assets == 0) revert ZeroBorrow();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
-    if (!canBorrowAtMaturity(maturity, assets)) revert InsufficientProtocolLiquidity();
 
     FixedLib.Pool storage pool = fixedPools[maturity];
     depositToTreasury(updateFloatingDebt());
@@ -227,13 +226,15 @@ contract Market is MarketBase {
     {
       uint256 memFloatingAssets = floatingAssets;
       uint256 memFloatingDebt = floatingDebt;
+      uint256 memMaturityDebtDuration = maturityDebtDuration(maturity);
       uint256 fixedRate = interestRateModel.fixedRate(
         maturity,
         maxFuturePools,
         fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssets),
         floatingUtilization(memFloatingAssets, memFloatingDebt),
         globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed),
-        previewGlobalUtilizationAverage()
+        previewGlobalUtilizationAverage(),
+        memMaturityDebtDuration
       );
       fee = assets.mulWadUp(fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     }
@@ -347,6 +348,7 @@ contract Market is MarketBase {
     if (block.timestamp < maturity) {
       uint256 memFloatingAssets = floatingAssets;
       uint256 memFloatingDebt = floatingDebt;
+      uint256 memMaturityDebtDuration = maturityDebtDuration(maturity);
 
       uint256 fixedRate = interestRateModel.fixedRate(
         maturity,
@@ -354,7 +356,8 @@ contract Market is MarketBase {
         fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssets),
         floatingUtilization(memFloatingAssets, memFloatingDebt),
         globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed),
-        previewGlobalUtilizationAverage()
+        previewGlobalUtilizationAverage(),
+        memMaturityDebtDuration
       );
       assetsDiscounted = effectiveAssets.divWadDown(1e18 + fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     } else {
@@ -869,27 +872,33 @@ contract Market is MarketBase {
 
   /// @notice Checks if the account can borrow at a certain fixed pool.
   /// @param maturity maturity date of the fixed pool.
-  /// @param assets amount of assets to borrow.
-  /// @return true if the account can borrow at the given maturity, false otherwise.
-  function canBorrowAtMaturity(uint256 maturity, uint256 assets) internal view returns (bool) {
-    uint256 totalBorrows;
+  /// @return duration modified duration debt metric.
+  function maturityDebtDuration(uint256 maturity) internal view returns (uint256 duration) {
+    uint256 borrows;
+    uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
     {
-      uint256 maxMaturity = block.timestamp -
-        (block.timestamp % FixedLib.INTERVAL) +
-        (maxFuturePools) *
-        FixedLib.INTERVAL;
-      for (uint256 i = maturity; i <= maxMaturity; i += FixedLib.INTERVAL) {
+      uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
+      uint256 maxMaturity = latestMaturity + (maxFuturePools) * FixedLib.INTERVAL;
+      for (uint256 i = latestMaturity + FixedLib.INTERVAL; i <= maxMaturity; i += FixedLib.INTERVAL) {
         FixedLib.Pool memory pool = fixedPools[i];
-        if (i == maturity) pool.borrowed += assets;
-        totalBorrows += pool.borrowed > pool.supplied ? pool.borrowed - pool.supplied : 0;
+        uint256 backupBorrowed = pool.borrowed > pool.supplied ? pool.borrowed - pool.supplied : 0;
+        duration += backupBorrowed.mulDivDown(i - block.timestamp, 365 days);
+        if (i >= maturity) {
+          borrows += backupBorrowed;
+        }
       }
     }
-    uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
-    return
-      memFloatingAssetsAverage != 0
-        ? totalBorrows.divWadDown(memFloatingAssetsAverage) < maturityAllocation(maturity - block.timestamp) &&
-          floatingBackupBorrowed + assets < memFloatingAssetsAverage.mulWadDown(uint256(fixedBorrowThreshold))
-        : true;
+    if (memFloatingAssetsAverage != 0) {
+      if (
+        borrows.divWadDown(memFloatingAssetsAverage) >= maturityAllocation(maturity - block.timestamp) ||
+        floatingBackupBorrowed >= memFloatingAssetsAverage.mulWadDown(uint256(fixedBorrowThreshold))
+      ) {
+        revert InsufficientProtocolLiquidity();
+      }
+      duration = duration.divWadDown(memFloatingAssetsAverage);
+    } else {
+      duration = 0;
+    }
   }
 
   /// @notice Calculates the maturity allocation for a given time to maturity.

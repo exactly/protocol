@@ -36,6 +36,11 @@ contract InterestRateModel {
   uint256 public immutable fixedAllocation;
   /// @notice maximum interest rate, represented with 18 decimals.
   uint256 public immutable maxRate;
+  /// @notice speed of maturity for the fixed rate, represented with 18 decimals.
+  int256 public immutable maturityDurationSpeed;
+  uint256 public immutable durationThreshold;
+  int256 public immutable durationGrowthLaw;
+  int256 public immutable penaltyDurationFactor;
 
   /// @dev maximum input value for expWad, ~ln((2^255 - 1) / 1e18), represented with 18 decimals.
   int256 internal constant EXP_THRESHOLD = 135305999368893231588;
@@ -67,6 +72,10 @@ contract InterestRateModel {
     maturitySpeed = p.maturitySpeed.toInt256();
     floatingMaxUtilization = p.maxUtilization;
     naturalUtilization = p.naturalUtilization;
+    maturityDurationSpeed = p.maturityDurationSpeed.toInt256();
+    durationThreshold = p.durationThreshold;
+    durationGrowthLaw = p.durationGrowthLaw.toInt256();
+    penaltyDurationFactor = p.penaltyDurationFactor.toInt256();
 
     floatingCurveA =
       ((p.naturalRate.mulWadUp(
@@ -107,7 +116,8 @@ contract InterestRateModel {
     uint256 uFixed,
     uint256 uFloating,
     uint256 uGlobal,
-    uint256 uGlobalAverage
+    uint256 uGlobalAverage,
+    uint256 maturityDebtDuration
   ) public view returns (uint256) {
     if (block.timestamp >= maturity) revert AlreadyMatured();
     if (uFixed > uGlobal || uFloating > uGlobal) revert UtilizationExceeded();
@@ -129,6 +139,12 @@ contract InterestRateModel {
       ((2e18 - v.sqFNatPools.toInt256()) * 1e36) /
       (v.fNatPools.toInt256() * (1e18 - v.fNatPools.toInt256()));
     v.maturityFactor = (maturity - block.timestamp).divWadDown(maxPools * FixedLib.INTERVAL);
+    int256 excessDuration = (
+      maturityDebtDuration != 0
+        ? ((durationGrowthLaw * (maturityDebtDuration.divWadDown(durationThreshold)).toInt256().lnWad()) / 1e18)
+          .expWad()
+        : int256(0)
+    ) - 1e18;
 
     uint256 spread = (1e18 +
       (((maturitySpeed * (v.maturityFactor).toInt256().lnWad()) / 1e18).expWad() *
@@ -140,7 +156,10 @@ contract InterestRateModel {
               1e18 -
               1e18)) /
           1e18)) /
-      1e18).toUint256();
+      1e18 +
+      ((((((maturityDurationSpeed * (v.maturityFactor).toInt256().lnWad()) / 1e18).expWad() * penaltyDurationFactor) /
+        1e18) * (excessDuration < 0 && maturityDebtDuration >= durationThreshold ? excessDuration : int256(0))) / 1e18))
+      .toUint256();
     uint256 base = baseRate(uFloating, uGlobalAverage);
 
     if (base >= maxRate.divWadDown(spread)) return maxRate;
@@ -213,7 +232,10 @@ contract InterestRateModel {
     uint256 floatingAssets = market.floatingAssets();
     uint256 floatingDebt = market.totalFloatingBorrowAssets();
     uint256 newBorrowed = borrowed + amount;
-    uint256 backupDebtAddition = newBorrowed - Math.min(Math.max(borrowed, supplied), newBorrowed);
+    uint256 backupBorrowed = market.floatingBackupBorrowed() +
+      newBorrowed -
+      Math.min(Math.max(borrowed, supplied), newBorrowed);
+    uint256 maturityDebtDuration = maturityDuration(maturity, amount);
 
     return
       fixedRate(
@@ -221,8 +243,9 @@ contract InterestRateModel {
         market.maxFuturePools(),
         fixedUtilization(supplied, newBorrowed, floatingAssets),
         floatingAssets != 0 ? floatingDebt.divWadUp(floatingAssets) : 0,
-        globalUtilization(floatingAssets, floatingDebt, market.floatingBackupBorrowed() + backupDebtAddition),
-        market.previewGlobalUtilizationAverage()
+        globalUtilization(floatingAssets, floatingDebt, backupBorrowed),
+        market.previewGlobalUtilizationAverage(),
+        maturityDebtDuration
       ).mulDivDown(maturity - block.timestamp, 365 days);
   }
 
@@ -243,7 +266,16 @@ contract InterestRateModel {
     uint256 uFloating,
     uint256 uGlobal
   ) external view returns (uint256) {
-    return fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal, market.previewGlobalUtilizationAverage());
+    return
+      fixedRate(
+        maturity,
+        maxPools,
+        uFixed,
+        uFloating,
+        uGlobal,
+        market.previewGlobalUtilizationAverage(),
+        maturityDuration(maturity, 0)
+      );
   }
 
   function globalUtilization(
@@ -260,6 +292,21 @@ contract InterestRateModel {
     uint256 floatingAssets
   ) internal pure returns (uint256) {
     return floatingAssets != 0 && borrowed > supplied ? (borrowed - supplied).divWadUp(floatingAssets) : 0;
+  }
+
+  function maturityDuration(uint256 maturity, uint256 assets) internal view returns (uint256 duration) {
+    uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
+    if (memFloatingAssetsAverage == 0) return 0;
+    {
+      uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
+      uint256 maxMaturity = latestMaturity + (market.maxFuturePools()) * FixedLib.INTERVAL;
+      for (uint256 i = latestMaturity + FixedLib.INTERVAL; i <= maxMaturity; i += FixedLib.INTERVAL) {
+        (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(i);
+        if (i == maturity) borrowed += assets;
+        uint256 borrows = borrowed > supplied ? borrowed - supplied : 0;
+        duration += borrows.mulDivDown(maturity - block.timestamp, 365 days).divWadDown(memFloatingAssetsAverage);
+      }
+    }
   }
 }
 
@@ -278,6 +325,10 @@ struct Parameters {
   int256 timePreference;
   uint256 fixedAllocation;
   uint256 maxRate;
+  uint256 maturityDurationSpeed;
+  uint256 durationThreshold;
+  uint256 durationGrowthLaw;
+  uint256 penaltyDurationFactor;
 }
 
 struct FixedVars {
