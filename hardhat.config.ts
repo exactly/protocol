@@ -33,7 +33,7 @@ const hardhatConfig: Config = {
       },
       "contracts/verified/VerifiedMarket.sol": {
         ...compiler,
-        settings: { ...compiler.settings, optimizer: { ...compiler.settings.optimizer, runs: 70 } },
+        settings: { ...compiler.settings, optimizer: { ...compiler.settings.optimizer, runs: 12 } },
       },
     },
   },
