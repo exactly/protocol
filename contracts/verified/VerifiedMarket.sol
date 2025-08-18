@@ -9,17 +9,15 @@ contract VerifiedMarket is Market {
 
   constructor(ERC20 asset_, VerifiedAuditor auditor_) Market(asset_, auditor_) {}
 
-  function deposit(
-    uint256 assets,
-    address receiver
-  ) public override onlyAllowed(msg.sender) onlyAllowed(receiver) returns (uint256 shares) {
+  function deposit(uint256 assets, address receiver) public override returns (uint256 shares) {
+    _requireAllowed(receiver);
+    _requireAllowed(msg.sender);
     return super.deposit(assets, receiver);
   }
 
-  function mint(
-    uint256 shares,
-    address receiver
-  ) public override onlyAllowed(msg.sender) onlyAllowed(receiver) returns (uint256 assets) {
+  function mint(uint256 shares, address receiver) public override returns (uint256 assets) {
+    _requireAllowed(msg.sender);
+    _requireAllowed(receiver);
     return super.mint(shares, receiver);
   }
 
@@ -28,7 +26,9 @@ contract VerifiedMarket is Market {
     uint256 assets,
     uint256 minAssetsRequired,
     address receiver
-  ) public override onlyAllowed(msg.sender) onlyAllowed(receiver) returns (uint256) {
+  ) public override returns (uint256) {
+    _requireAllowed(msg.sender);
+    _requireAllowed(receiver);
     return super.depositAtMaturity(maturity, assets, minAssetsRequired, receiver);
   }
 
@@ -88,21 +88,23 @@ contract VerifiedMarket is Market {
     address borrower,
     uint256 maxAssets,
     Market seizeMarket
-  ) public override onlyAllowed(msg.sender) returns (uint256 repaidAssets) {
+  ) public override returns (uint256 repaidAssets) {
+    _requireAllowed(msg.sender);
     return super.liquidate(borrower, maxAssets, seizeMarket);
   }
 
   function refund(
     uint256 borrowShares,
     address borrower
-  ) public override onlyAllowed(msg.sender) onlyAllowed(borrower) returns (uint256 assets, uint256 actualShares) {
+  ) public override returns (uint256 assets, uint256 actualShares) {
+    _requireAllowed(msg.sender);
+    _requireAllowed(borrower);
     return super.refund(borrowShares, borrower);
   }
 
-  function repay(
-    uint256 assets,
-    address borrower
-  ) public override onlyAllowed(msg.sender) onlyAllowed(borrower) returns (uint256 actualRepay, uint256 borrowShares) {
+  function repay(uint256 assets, address borrower) public override returns (uint256 actualRepay, uint256 borrowShares) {
+    _requireAllowed(msg.sender);
+    _requireAllowed(borrower);
     return super.repay(assets, borrower);
   }
 
@@ -111,15 +113,19 @@ contract VerifiedMarket is Market {
     uint256 assets,
     uint256 maxAssets,
     address borrower
-  ) public override onlyAllowed(msg.sender) onlyAllowed(borrower) returns (uint256 actualRepayAssets) {
+  ) public override returns (uint256 actualRepayAssets) {
+    _requireAllowed(msg.sender);
+    _requireAllowed(borrower);
     return super.repayAtMaturity(maturity, assets, maxAssets, borrower);
   }
 
-  function transfer(address to, uint256 shares) public override onlyAllowed(to) returns (bool) {
+  function transfer(address to, uint256 shares) public override returns (bool) {
+    _requireAllowed(to);
     return super.transfer(to, shares);
   }
 
-  function transferFrom(address from, address to, uint256 shares) public override onlyAllowed(to) returns (bool) {
+  function transferFrom(address from, address to, uint256 shares) public override returns (bool) {
+    _requireAllowed(to);
     return super.transferFrom(from, to, shares);
   }
 
@@ -129,7 +135,8 @@ contract VerifiedMarket is Market {
     uint256 minAssetsRequired,
     address receiver,
     address owner
-  ) public override onlyAllowed(owner) returns (uint256 assetsDiscounted) {
+  ) public override returns (uint256 assetsDiscounted) {
+    _requireAllowed(owner);
     return super.withdrawAtMaturity(maturity, positionAssets, minAssetsRequired, receiver, owner);
   }
 
@@ -139,11 +146,6 @@ contract VerifiedMarket is Market {
 
   function _checkIsAuditor() internal view {
     if (msg.sender != address(auditor)) revert NotAuditor();
-  }
-
-  modifier onlyAllowed(address account) {
-    _requireAllowed(account);
-    _;
   }
 }
 
