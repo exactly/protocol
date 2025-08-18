@@ -238,7 +238,8 @@ contract Previewer {
           f.fixedUtilization,
           f.floatingUtilization,
           f.globalUtilization,
-          market.previewGlobalUtilizationAverage()
+          market.previewGlobalUtilizationAverage(),
+          maturityDebtDuration(market, f.maturity)
         )
       });
       unchecked {
@@ -350,6 +351,19 @@ contract Previewer {
         unchecked {
           ++i;
         }
+      }
+    }
+  }
+
+  function maturityDebtDuration(Market market, uint256 maturity) internal view returns (uint256 duration) {
+    uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
+    if (memFloatingAssetsAverage != 0) {
+      uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
+      uint256 maxMaturity = latestMaturity + (market.maxFuturePools()) * FixedLib.INTERVAL;
+      for (uint256 i = latestMaturity + FixedLib.INTERVAL; i <= maxMaturity; i += FixedLib.INTERVAL) {
+        (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(i);
+        uint256 borrows = borrowed > supplied ? borrowed - supplied : 0;
+        duration += borrows.mulDivDown(maturity - block.timestamp, 365 days).divWadDown(memFloatingAssetsAverage);
       }
     }
   }

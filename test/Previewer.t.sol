@@ -59,7 +59,11 @@ contract PreviewerTest is Test {
         maturitySpeed: 0.5e18,
         timePreference: 0.01e18,
         fixedAllocation: 0.3e18,
-        maxRate: 150e16
+        maxRate: 150e16,
+        maturityDurationSpeed: 0.5e18,
+        durationThreshold: 0.2e18,
+        durationGrowthLaw: 1e18,
+        penaltyDurationFactor: 1.333e18
       }),
       market
     );
@@ -508,7 +512,11 @@ contract PreviewerTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.01e18,
             fixedAllocation: 0.6e18,
-            maxRate: 15_000e16
+            maxRate: 15_000e16,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           marketWETH
         ),
@@ -628,7 +636,11 @@ contract PreviewerTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.01e18,
             fixedAllocation: 0.6e18,
-            maxRate: 15_000e16
+            maxRate: 15_000e16,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           marketWETH
         ),
@@ -786,7 +798,11 @@ contract PreviewerTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.01e18,
             fixedAllocation: 0.6e18,
-            maxRate: 15_000e16
+            maxRate: 15_000e16,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           marketWETH
         ),
@@ -1017,7 +1033,11 @@ contract PreviewerTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.01e18,
             fixedAllocation: 0.6e18,
-            maxRate: 15_000e16
+            maxRate: 15_000e16,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           marketWETH
         ),
@@ -1359,7 +1379,11 @@ contract PreviewerTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.01e18,
             fixedAllocation: 0.6e18,
-            maxRate: 15_000e16
+            maxRate: 15_000e16,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           marketWETH
         ),
@@ -1447,7 +1471,11 @@ contract PreviewerTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.01e18,
             fixedAllocation: 0.6e18,
-            maxRate: 15_000e16
+            maxRate: 15_000e16,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           marketWETH
         ),
@@ -1507,7 +1535,11 @@ contract PreviewerTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.01e18,
             fixedAllocation: 0.6e18,
-            maxRate: 15_000e16
+            maxRate: 15_000e16,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           marketWETH
         ),
@@ -1579,7 +1611,11 @@ contract PreviewerTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.01e18,
             fixedAllocation: 0.6e18,
-            maxRate: 15_000e16
+            maxRate: 15_000e16,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           marketWETH
         ),
@@ -1706,7 +1742,11 @@ contract PreviewerTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.01e18,
             fixedAllocation: 0.6e18,
-            maxRate: 15_000e16
+            maxRate: 15_000e16,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           marketWETH
         ),
@@ -1763,7 +1803,11 @@ contract PreviewerTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.01e18,
             fixedAllocation: 0.6e18,
-            maxRate: 15_000e16
+            maxRate: 15_000e16,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           marketWETH
         ),
@@ -2001,26 +2045,26 @@ contract PreviewerTest is Test {
     uint256 feeAfterWithdraw = 0.47 ether - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
     assertEq(preview.assets, 0.47 ether - feeAfterWithdraw);
 
-    // vm.warp(5 days);
-    // preview = fixedPreviewer.previewWithdrawAtMaturity(market, maturity, 1.1 ether, address(this));
-    // balanceBeforeWithdraw = asset.balanceOf(address(this));
-    // market.withdrawAtMaturity(maturity, 1.1 ether, 0.7 ether, address(this), address(this));
-    // feeAfterWithdraw = 1.1 ether - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
-    // assertEq(preview.assets, 1.1 ether - feeAfterWithdraw);
+    vm.warp(5 days);
+    preview = fixedPreviewer.previewWithdrawAtMaturity(market, maturity, 1.1 ether, address(this));
+    balanceBeforeWithdraw = asset.balanceOf(address(this));
+    market.withdrawAtMaturity(maturity, 1.1 ether, 0.7 ether, address(this), address(this));
+    feeAfterWithdraw = 1.1 ether - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
+    assertEq(preview.assets, 1.1 ether - feeAfterWithdraw);
 
-    // vm.warp(6 days);
-    // (uint256 contractPositionPrincipal, uint256 contractPositionEarnings) = market.fixedDepositPositions(
-    //   maturity,
-    //   address(this)
-    // );
-    // uint256 contractPosition = contractPositionPrincipal + contractPositionEarnings;
-    // preview = fixedPreviewer.previewWithdrawAtMaturity(market, maturity, contractPosition, address(this));
-    // balanceBeforeWithdraw = asset.balanceOf(address(this));
-    // market.withdrawAtMaturity(maturity, contractPosition, contractPosition - 1 ether, address(this), address(this));
-    // feeAfterWithdraw = contractPosition - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
-    // (contractPositionPrincipal, ) = market.fixedDepositPositions(maturity, address(this));
+    vm.warp(6 days);
+    (uint256 contractPositionPrincipal, uint256 contractPositionEarnings) = market.fixedDepositPositions(
+      maturity,
+      address(this)
+    );
+    uint256 contractPosition = contractPositionPrincipal + contractPositionEarnings;
+    preview = fixedPreviewer.previewWithdrawAtMaturity(market, maturity, contractPosition, address(this));
+    balanceBeforeWithdraw = asset.balanceOf(address(this));
+    market.withdrawAtMaturity(maturity, contractPosition, contractPosition - 1 ether, address(this), address(this));
+    feeAfterWithdraw = contractPosition - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
+    (contractPositionPrincipal, ) = market.fixedDepositPositions(maturity, address(this));
 
-    // assertEq(preview.assets, contractPosition - feeAfterWithdraw);
+    assertApproxEqRel(preview.assets, contractPosition - feeAfterWithdraw, 1e15);
   }
 
   function testPreviewWithdrawAtMaturityWithEmptyMaturity() external {
@@ -2117,7 +2161,11 @@ contract PreviewerTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.01e18,
             fixedAllocation: 0.6e18,
-            maxRate: 15_000e16
+            maxRate: 15_000e16,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           marketWETH
         ),
@@ -2163,7 +2211,11 @@ contract PreviewerTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.01e18,
             fixedAllocation: 0.6e18,
-            maxRate: 15_000e16
+            maxRate: 15_000e16,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18
           }),
           marketWETH
         ),
