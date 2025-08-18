@@ -130,12 +130,12 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     setMaxFuturePools(maxFuturePools_);
-    setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
     setInterestRateModel(interestRateModel_);
     setPenaltyRate(penaltyRate_);
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
     _setDampSpeed(dampSpeedUp_, dampSpeedDown_);
+    _setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
   }
 
   /// @notice Borrows a certain amount from the floating pool.
@@ -1136,11 +1136,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Sets the factor used when smoothly accruing earnings to the floating pool.
   /// @param earningsAccumulatorSmoothFactor_ represented with 18 decimals.
-  function setEarningsAccumulatorSmoothFactor(
-    uint128 earningsAccumulatorSmoothFactor_
-  ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    floatingAssets += accrueAccumulatedEarnings();
-    emitMarketUpdate();
+  function _setEarningsAccumulatorSmoothFactor(uint128 earningsAccumulatorSmoothFactor_) internal {
     earningsAccumulatorSmoothFactor = earningsAccumulatorSmoothFactor_;
     emit EarningsAccumulatorSmoothFactorSet(earningsAccumulatorSmoothFactor_);
   }

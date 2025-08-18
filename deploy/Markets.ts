@@ -134,9 +134,6 @@ const func: DeployFunction = async ({
     if ((await market.maxFuturePools()) !== BigInt(finance.futurePools)) {
       await executeOrPropose(market, "setMaxFuturePools", [finance.futurePools]);
     }
-    if ((await market.earningsAccumulatorSmoothFactor()) !== earningsAccumulatorSmoothFactor) {
-      await executeOrPropose(market, "setEarningsAccumulatorSmoothFactor", [earningsAccumulatorSmoothFactor]);
-    }
     if ((await market.penaltyRate()) !== penaltyRate) {
       await executeOrPropose(market, "setPenaltyRate", [penaltyRate]);
     }

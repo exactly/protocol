@@ -419,15 +419,6 @@ describe("Market", function () {
       expect(await marketDAI.maxFuturePools()).to.be.equal(15);
     });
 
-    it("WHEN calling setEarningsAccumulatorSmoothFactor from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
-      await expect(marketDAI.setEarningsAccumulatorSmoothFactor(parseUnits("2"))).to.be.revertedWithoutReason();
-    });
-
-    it("WHEN calling setEarningsAccumulatorSmoothFactor, THEN the earningsAccumulatorSmoothFactor should be updated", async () => {
-      await timelockExecute(owner, marketDAI, "setEarningsAccumulatorSmoothFactor", [parseUnits("2")]);
-      expect(await marketDAI.earningsAccumulatorSmoothFactor()).to.be.equal(parseUnits("2"));
-    });
-
     it("WHEN calling setTreasury from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
       await expect(marketDAI.setTreasury(maria.address, 0)).to.be.revertedWithoutReason();
     });

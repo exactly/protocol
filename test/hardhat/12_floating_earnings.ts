@@ -110,32 +110,6 @@ describe("Smart Pool Earnings Distribution", function () {
         expect(await marketDAI.previewDeposit(parseUnits("10000"))).to.be.lt(parseUnits("9950.24875621"));
       });
 
-      describe("AND GIVEN accumulator factor is updated AND bob & john preview withdraw all their assets", () => {
-        let assetsInMarket: bigint;
-        let assetsToBeWithdrawn: bigint;
-
-        beforeEach(async () => {
-          assetsInMarket = await dai.balanceOf(marketDAI.target);
-
-          await timelockExecute(owner, marketDAI, "setEarningsAccumulatorSmoothFactor", [0]);
-          const assetsBob = await marketDAI.previewRedeem(await marketDAI.balanceOf(bob.address));
-          const assetsJohn = await marketDAI.connect(john).previewRedeem(await marketDAI.balanceOf(john.address));
-
-          assetsToBeWithdrawn = assetsBob + assetsJohn;
-        });
-
-        it("THEN the previous market DAI balance is equal to the total assets to be withdrawn + remaining earnings in accumulator", async () => {
-          expect(assetsInMarket).to.be.closeTo(assetsToBeWithdrawn + (await marketDAI.earningsAccumulator()), 1);
-          expect(
-            (await dai.balanceOf(marketDAI.target)) - (assetsToBeWithdrawn + (await marketDAI.earningsAccumulator())),
-          ).to.eq(1);
-        });
-
-        it("THEN the maturity used is also empty", async () => {
-          expect((await marketDAI.fixedPools(pools[0] + INTERVAL)).unassignedEarnings).to.be.eq(0);
-        });
-      });
-
       describe("AND GIVEN accumulator factor is not updated AND bob & john withdraw all their assets", () => {
         beforeEach(async () => {
           await marketDAI.redeem(await marketDAI.balanceOf(bob.address), bob.address, bob.address);

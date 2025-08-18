@@ -424,19 +424,6 @@ contract MarketTest is Test {
     // 25% was distributed
     assertEq(market.convertToAssets(market.balanceOf(address(this))), 11_002.5 ether);
     assertEq(market.earningsAccumulator(), 7.5 ether);
-
-    // set the factor to 0 and all is distributed in the following tx
-    market.setEarningsAccumulatorSmoothFactor(0);
-    vm.warp(FixedLib.INTERVAL + 1 seconds);
-    market.deposit(1 ether, address(this));
-    assertEq(market.convertToAssets(market.balanceOf(address(this))), 11_011 ether);
-    assertEq(market.earningsAccumulator(), 0);
-
-    // accumulator has 0 earnings so nothing is distributed
-    vm.warp(FixedLib.INTERVAL * 2);
-    market.deposit(1 ether, address(this));
-    assertEq(market.convertToAssets(market.balanceOf(address(this))), 11_012 ether);
-    assertEq(market.earningsAccumulator(), 0);
   }
 
   function testAnotherUserRedeemWhenOwnerHasShortfall() external {
@@ -1038,19 +1025,6 @@ contract MarketTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
     vm.warp(FixedLib.INTERVAL + 10 days);
     assertEq(market.totalAssets(), 10007671232876712328);
-  }
-
-  function testSetEarningsAccumulatorSmoothFactorShouldDistributeEarnings() external {
-    market.deposit(100 ether, address(this));
-    market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));
-    market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 15 ether, address(this), address(this));
-    vm.warp(1 days);
-    uint256 totalAssetsBefore = market.totalAssets();
-
-    vm.expectEmit(true, true, true, false, address(market));
-    emit MarketUpdate(block.timestamp, market.totalSupply(), 0, 0, 0, 0);
-    market.setEarningsAccumulatorSmoothFactor(2e18);
-    assertEq(totalAssetsBefore, market.totalAssets());
   }
 
   function testSetInterestRateModelShouldUpdateFloatingDebt() external {
@@ -3293,11 +3267,11 @@ contract MarketHarness is Market {
     }
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     setMaxFuturePools(maxFuturePools_);
-    setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
     setInterestRateModel(interestRateModel_);
     setPenaltyRate(penaltyRate_);
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
+    _setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
     _setDampSpeed(dampSpeedUp_, dampSpeedDown_);
   }
 

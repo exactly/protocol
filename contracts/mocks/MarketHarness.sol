@@ -24,11 +24,11 @@ contract MarketHarness is Market {
     }
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     setMaxFuturePools(maxFuturePools_);
-    setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
     setInterestRateModel(interestRateModel_);
     setPenaltyRate(penaltyRate_);
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
+    _setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
     _setDampSpeed(dampSpeedUp_, dampSpeedDown_);
   }
 
