@@ -121,13 +121,14 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     __AccessControl_init();
     __Pausable_init();
 
+    name = string.concat("exactly ", assetSymbol);
+    symbol = string.concat("exa", assetSymbol);
     lastAccumulatorAccrual = uint32(block.timestamp);
     lastFloatingDebtUpdate = uint32(block.timestamp);
     lastAverageUpdate = uint32(block.timestamp);
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-    setAssetSymbol(assetSymbol);
     setMaxFuturePools(maxFuturePools_);
     setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
     setInterestRateModel(interestRateModel_);
@@ -1074,13 +1075,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @dev Internal function to avoid code duplication.
   function emitFixedEarningsUpdate(uint256 maturity) internal {
     emit FixedEarningsUpdate(block.timestamp, maturity, fixedPools[maturity].unassignedEarnings);
-  }
-
-  /// @notice Sets name and symbol for the Market.
-  /// @param assetSymbol the symbol for the underlying asset.
-  function setAssetSymbol(string calldata assetSymbol) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    name = string.concat("exactly ", assetSymbol);
-    symbol = string.concat("exa", assetSymbol);
   }
 
   /// @notice Sets the rate charged to the fixed depositors that the floating pool suppliers will retain for initially

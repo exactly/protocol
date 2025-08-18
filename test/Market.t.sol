@@ -3224,18 +3224,6 @@ contract MarketTest is Test {
     assertFalse(market.paused());
   }
 
-  function testSetAssetSymbol() external {
-    market.setAssetSymbol("TEST");
-    assertEq(market.symbol(), "exaTEST");
-    assertEq(market.name(), "exactly TEST");
-  }
-
-  function testSetAssetSymbolNotAdmin() external {
-    vm.prank(BOB);
-    vm.expectRevert(bytes(""));
-    market.setAssetSymbol("TEST");
-  }
-
   event MarketUpdate(
     uint256 timestamp,
     uint256 floatingDepositShares,
