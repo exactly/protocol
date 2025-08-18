@@ -1053,17 +1053,6 @@ contract MarketTest is Test {
     assertEq(totalAssetsBefore, market.totalAssets());
   }
 
-  function testSetDampSpeedFactorShouldUpdateFloatingAssetsAverage() external {
-    market.deposit(100 ether, address(this));
-    vm.warp(30 seconds);
-    market.deposit(5, address(this));
-    vm.warp(100 seconds);
-    uint256 floatingAssetsAverageBefore = market.floatingAssetsAverage();
-
-    market.setDampSpeed(0.0083e18, 0.35e18);
-    assertGt(market.floatingAssetsAverage(), floatingAssetsAverageBefore);
-  }
-
   function testSetInterestRateModelShouldUpdateFloatingDebt() external {
     market.setInterestRateModel(InterestRateModel(address(new MockInterestRateModel(0.1e18))));
     market.deposit(100 ether, address(this));
@@ -3309,7 +3298,7 @@ contract MarketHarness is Market {
     setPenaltyRate(penaltyRate_);
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
-    setDampSpeed(dampSpeedUp_, dampSpeedDown_);
+    _setDampSpeed(dampSpeedUp_, dampSpeedDown_);
   }
 
   function setSupply(uint256 supply) external {

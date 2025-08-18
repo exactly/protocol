@@ -135,7 +135,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     setPenaltyRate(penaltyRate_);
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
-    setDampSpeed(dampSpeedUp_, dampSpeedDown_);
+    _setDampSpeed(dampSpeedUp_, dampSpeedDown_);
   }
 
   /// @notice Borrows a certain amount from the floating pool.
@@ -1128,8 +1128,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Sets the damp speed used to update the floatingAssetsAverage.
   /// @param up damp speed up, represented with 18 decimals.
   /// @param down damp speed down, represented with 18 decimals.
-  function setDampSpeed(uint256 up, uint256 down) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    updateFloatingAssetsAverage();
+  function _setDampSpeed(uint256 up, uint256 down) internal {
     dampSpeedUp = up;
     dampSpeedDown = down;
     emit DampSpeedSet(up, down);
