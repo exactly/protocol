@@ -148,8 +148,8 @@ contract RewardsControllerTest is Test {
     });
 
     rewardsController.config(configs);
-    marketUSDC.setRewardsController(rewardsController);
-    marketWETH.setRewardsController(rewardsController);
+    vm.store(address(marketUSDC), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
+    vm.store(address(marketWETH), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
     opRewardAsset.mint(address(rewardsController), 4_000 ether);
     exaRewardAsset.mint(address(rewardsController), 4_000 ether);
 
@@ -975,7 +975,7 @@ contract RewardsControllerTest is Test {
       depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
-    marketWBTC.setRewardsController(rewardsController);
+    vm.store(address(marketWBTC), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
     RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
     bool[] memory ops = new bool[](2);
     ops[0] = true;

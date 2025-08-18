@@ -122,7 +122,7 @@ contract ProtocolTest is Test {
       depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
-    markets[0].setRewardsController(rewardsController);
+    vm.store(address(markets[0]), bytes32(uint256(227)), bytes32(bytes20(address(rewardsController))));
 
     vm.label(BOB, "bob");
     vm.label(ALICE, "alice");

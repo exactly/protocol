@@ -14,7 +14,7 @@ const func: DeployFunction = async ({
     config: { finance, verified },
     live,
   },
-  ethers: { ZeroAddress, parseUnits, getContractOrNull, getContract, getSigner },
+  ethers: { ZeroAddress, parseUnits, getContractOrNull, getContract, getSigner, provider, zeroPadValue },
   deployments: { deploy, get, getOrNull },
   getNamedAccounts,
 }) => {
@@ -177,7 +177,8 @@ const func: DeployFunction = async ({
     if (marketRewards) {
       const configRewards = (config.rewards && (rewards?.target as string | undefined)) || ZeroAddress;
       if (marketRewards.toLowerCase() !== configRewards.toLowerCase()) {
-        await executeOrPropose(market, "setRewardsController", [configRewards]);
+        if (live) throw new Error("cannot set rewards controller");
+        await provider.send("hardhat_setStorageAt", [market.target, "0xE3", zeroPadValue(configRewards, 32)]);
       }
     }
 

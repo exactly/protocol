@@ -1156,13 +1156,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emit InterestRateModelSet(interestRateModel_);
   }
 
-  /// @notice Sets the rewards controller to update account rewards when operating with the Market.
-  /// @param rewardsController_ new rewards controller.
-  function setRewardsController(RewardsController rewardsController_) public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
-    _rewardsController = rewardsController_;
-    emit RewardsControllerSet(rewardsController_);
-  }
-
   /// @notice Sets the protocol's max future pools for fixed borrowing and lending.
   /// @dev If value is decreased, VALID maturities will become NOT_READY.
   /// @param futurePools number of pools to be active at the same time.

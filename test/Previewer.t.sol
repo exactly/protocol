@@ -655,7 +655,7 @@ contract PreviewerTest is Test {
       depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
-    market.setRewardsController(rewardsController);
+    vm.store(address(market), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
     uint256 deltaTime = 1 hours;
     uint256 depositAmount = 10_000 ether;
     uint256 floatingBorrowAmount = 2_000 ether;
@@ -794,8 +794,8 @@ contract PreviewerTest is Test {
       depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
-    market.setRewardsController(rewardsController);
-    marketWETH.setRewardsController(rewardsController);
+    vm.store(address(market), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
+    vm.store(address(marketWETH), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
 
     market.deposit(1_000 ether, address(this));
     marketWETH.deposit(1_000 ether, address(this));
@@ -851,7 +851,7 @@ contract PreviewerTest is Test {
       depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
-    market.setRewardsController(rewardsController);
+    vm.store(address(market), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
 
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data.length, 1);
@@ -884,7 +884,7 @@ contract PreviewerTest is Test {
       depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
-    market.setRewardsController(rewardsController);
+    vm.store(address(market), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
     market.deposit(200 ether, address(this));
     market.borrow(50 ether, address(this), address(this));
 
@@ -920,7 +920,7 @@ contract PreviewerTest is Test {
       depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
-    market.setRewardsController(rewardsController);
+    vm.store(address(market), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
     market.deposit(200 ether, address(this));
     vm.warp(block.timestamp + 10_000 seconds);
     market.borrowAtMaturity(FixedLib.INTERVAL, 50 ether, 100 ether, address(this), address(this));
@@ -986,7 +986,7 @@ contract PreviewerTest is Test {
       depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
-    marketWETH.setRewardsController(rewardsController);
+    vm.store(address(marketWETH), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
     uint256 deltaTime = 1 hours;
     uint256 depositAmount = 100 ether;
     uint256 floatingBorrowAmount = 20 ether;
@@ -1069,7 +1069,7 @@ contract PreviewerTest is Test {
       depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
-    market.setRewardsController(rewardsController);
+    vm.store(address(market), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
     previewer.exactly(address(this));
   }
 
@@ -1097,7 +1097,7 @@ contract PreviewerTest is Test {
       depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
-    market.setRewardsController(rewardsController);
+    vm.store(address(market), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
     market.deposit(10_000 ether, address(this));
     market.borrow(2_000 ether, address(this), address(this));
     vm.warp(block.timestamp + 1 weeks);
@@ -1132,7 +1132,7 @@ contract PreviewerTest is Test {
       depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
-    market.setRewardsController(rewardsController);
+    vm.store(address(market), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[0].rewardRates.length, 1);
     assertEq(data[0].rewardRates[0].maturities.length, 12);
@@ -1169,7 +1169,7 @@ contract PreviewerTest is Test {
       depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
-    market.setRewardsController(rewardsController);
+    vm.store(address(market), bytes32(uint256(227)), bytes32(uint256(uint160(address(rewardsController)))));
 
     vm.warp(1 days);
     market.deposit(100 ether, address(this));
