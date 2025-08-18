@@ -25,7 +25,7 @@ contract InterestRateModelTest is Test {
 
   function testFixedBorrowRate() external {
     irm = deployDefault();
-    assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18, 0.75e18), 66470614884441668);
+    assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18, 0.75e18, 1e18), 66470614884441668);
   }
 
   function testFuzzFixedRateTimeSensitivity(uint256 maxPools, uint256 maturity, uint256 intervals) external {
@@ -39,7 +39,8 @@ contract InterestRateModelTest is Test {
       0.5e18,
       0.3e18,
       0.8e18,
-      0.8e18
+      0.8e18,
+      1e18
     );
     skip(intervals * FixedLib.INTERVAL);
     uint256 rate2 = irm.fixedRate(
@@ -48,7 +49,8 @@ contract InterestRateModelTest is Test {
       0.5e18,
       0.3e18,
       0.8e18,
-      0.8e18
+      0.8e18,
+      1e18
     );
     assertEq(rate, rate2);
   }
@@ -71,7 +73,11 @@ contract InterestRateModelTest is Test {
         maturitySpeed: 0.5e18,
         timePreference: 0.01e18,
         fixedAllocation: 0.6e18,
-        maxRate: 15_000e16
+        maxRate: 15_000e16,
+        maturityDurationSpeed: 0.5e18,
+        durationThreshold: 0.2e18,
+        durationGrowthLaw: 1e18,
+        penaltyDurationFactor: 1.333e18
       }),
       Market(address(0))
     );
@@ -99,7 +105,11 @@ contract InterestRateModelTest is Test {
         maturitySpeed: 0.5e18,
         timePreference: 0.01e18,
         fixedAllocation: 0.6e18,
-        maxRate: p.maxRate
+        maxRate: p.maxRate,
+        maturityDurationSpeed: 0.5e18,
+        durationThreshold: 0.2e18,
+        durationGrowthLaw: 1e18,
+        penaltyDurationFactor: 1.333e18
       }),
       Market(address(0))
     );
@@ -182,7 +192,11 @@ contract InterestRateModelTest is Test {
           maturitySpeed: p.maturitySpeed,
           timePreference: p.timePreference,
           fixedAllocation: p.fixedAllocation,
-          maxRate: p.maxRate
+          maxRate: p.maxRate,
+          maturityDurationSpeed: 0.5e18,
+          durationThreshold: 0.2e18,
+          durationGrowthLaw: 1e18,
+          penaltyDurationFactor: 0
         }),
         market
       );
@@ -197,7 +211,7 @@ contract InterestRateModelTest is Test {
 
     string[] memory ffi = new string[](2);
     ffi[0] = "scripts/irm-fixed.sh";
-    uint256 rate = irm.fixedRate(maturity, irm.market().maxFuturePools(), uFixed, uFloating, uGlobal, uGlobal);
+    uint256 rate = irm.fixedRate(maturity, irm.market().maxFuturePools(), uFixed, uFloating, uGlobal, uGlobal, 1e18);
     ffi[1] = encodeHex(
       abi.encode(
         irm.base(uFloating, uGlobal),
@@ -260,7 +274,11 @@ contract InterestRateModelTest is Test {
         maturitySpeed: 0.5e18,
         timePreference: 0.01e18,
         fixedAllocation: 0.6e18,
-        maxRate: 15_000e16
+        maxRate: 15_000e16,
+        maturityDurationSpeed: 0.5e18,
+        durationThreshold: 0.2e18,
+        durationGrowthLaw: 1e18,
+        penaltyDurationFactor: 1.333e18
       }),
       market
     );
@@ -395,13 +413,17 @@ contract InterestRateModelTest is Test {
         maturitySpeed: 0.5e18,
         timePreference: 0.01e18,
         fixedAllocation: 0.6e18,
-        maxRate: 15_000e16
+        maxRate: 15_000e16,
+        maturityDurationSpeed: 0.5e18,
+        durationThreshold: 0.2e18,
+        durationGrowthLaw: 1e18,
+        penaltyDurationFactor: 1.333e18
       }),
       market
     );
 
-    uint256 rate = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed, uFloating, uGlobal, uGlobal);
-    uint256 rate2 = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed2, uFloating, uGlobal, uGlobal);
+    uint256 rate = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed, uFloating, uGlobal, uGlobal, 1e18);
+    uint256 rate2 = irm.fixedRate(2 * FixedLib.INTERVAL, 6, uFixed2, uFloating, uGlobal, uGlobal, 1e18);
     assertGe(rate2 + 1e15, rate, "rate2 < rate"); // HACK
   }
 
@@ -410,23 +432,23 @@ contract InterestRateModelTest is Test {
     vm.warp(FixedLib.INTERVAL);
 
     vm.expectRevert(AlreadyMatured.selector);
-    irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.3e18, 0.8e18, 0.8e18);
+    irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.3e18, 0.8e18, 0.8e18, 1e18);
   }
 
   function testFixedRateRevertUtilizationExceeded() external {
     irm = deployDefault();
 
     vm.expectRevert(UtilizationExceeded.selector);
-    irm.fixedRate(FixedLib.INTERVAL, 25, 0.9e18, 0.3e18, 0.8e18, 0.8e18);
+    irm.fixedRate(FixedLib.INTERVAL, 25, 0.9e18, 0.3e18, 0.8e18, 0.8e18, 1e18);
 
     vm.expectRevert(UtilizationExceeded.selector);
-    irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.9e18, 0.8e18, 0.8e18);
+    irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.9e18, 0.8e18, 0.8e18, 1e18);
   }
 
   function testMinTimeToMaturity() external {
     irm = deployDefault();
     vm.warp(FixedLib.INTERVAL - 1);
-    uint256 fixedRate = irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.3e18, 0.8e18, 0.8e18);
+    uint256 fixedRate = irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.3e18, 0.8e18, 0.8e18, 1e18);
     uint256 floatingRate = irm.floatingRate(0.3e18, 0.8e18);
     assertApproxEqRel(fixedRate, floatingRate, 4e13);
   }
@@ -453,7 +475,11 @@ contract InterestRateModelTest is Test {
             maturitySpeed: 0.5e18,
             timePreference: 0.2e18,
             fixedAllocation: 0.6e18,
-            maxRate: 18.25e18
+            maxRate: 18.25e18,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 0
           }),
           marketUSDC
         ),
@@ -472,15 +498,15 @@ contract InterestRateModelTest is Test {
     irm = InterestRateModelHarness(address(marketUSDC.interestRateModel()));
     // uFixed = 0
     assertEq(
-      irm.fixedRate(FixedLib.INTERVAL, marketUSDC.maxFuturePools(), 0, 0.5e18, 0.5e18, 0.5e18),
+      irm.fixedRate(FixedLib.INTERVAL, marketUSDC.maxFuturePools(), 0, 0.5e18, 0.5e18, 0.5e18, 1e18),
       0.048833162515292637 ether
     );
     assertEq(
-      irm.fixedRate(FixedLib.INTERVAL * 3, marketUSDC.maxFuturePools(), 0, 0.5e18, 0.5e18, 0.5e18),
+      irm.fixedRate(FixedLib.INTERVAL * 3, marketUSDC.maxFuturePools(), 0, 0.5e18, 0.5e18, 0.5e18, 1e18),
       0.047428926371895764 ether
     );
     assertEq(
-      irm.fixedRate(FixedLib.INTERVAL * 6, marketUSDC.maxFuturePools(), 0, 0.5e18, 0.5e18, 0.5e18),
+      irm.fixedRate(FixedLib.INTERVAL * 6, marketUSDC.maxFuturePools(), 0, 0.5e18, 0.5e18, 0.5e18, 1e18),
       0.046052719144263964 ether
     );
 
@@ -492,7 +518,8 @@ contract InterestRateModelTest is Test {
         marketUSDC.maturityAllocation(FixedLib.INTERVAL),
         0.5e18,
         0.5e18,
-        0.5e18
+        0.5e18,
+        1e18
       ),
       0.060342491995810201 ether
     );
@@ -503,7 +530,8 @@ contract InterestRateModelTest is Test {
         marketUSDC.maturityAllocation(FixedLib.INTERVAL * 3),
         0.5e18,
         0.5e18,
-        0.5e18
+        0.5e18,
+        1e18
       ),
       0.067363672800336898 ether
     );
@@ -514,7 +542,8 @@ contract InterestRateModelTest is Test {
         marketUSDC.maturityAllocation(FixedLib.INTERVAL * 3),
         0.5e18,
         0.5e18,
-        0.5e18
+        0.5e18,
+        1e18
       ),
       0.074927038042279002 ether
     );
@@ -534,7 +563,8 @@ contract InterestRateModelTest is Test {
         ),
         0.5e18,
         0.5e18,
-        0.5e18
+        0.5e18,
+        1e18
       ),
       0.054587826931364643 ether
     );
@@ -552,7 +582,8 @@ contract InterestRateModelTest is Test {
         ),
         0.5e18,
         0.5e18,
-        0.5e18
+        0.5e18,
+        1e18
       ),
       0.057396299367887613 ether
     );
@@ -642,7 +673,11 @@ contract InterestRateModelTest is Test {
         maturitySpeed: 0.5e18,
         timePreference: 0.01e18,
         fixedAllocation: 0.6e18,
-        maxRate: 15_000e16
+        maxRate: 15_000e16,
+        maturityDurationSpeed: 0.5e18,
+        durationThreshold: 0.2e18,
+        durationGrowthLaw: 1e18,
+        penaltyDurationFactor: 1.333e18
       }),
       market
     );
