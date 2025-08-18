@@ -423,6 +423,7 @@ extendConfig((extendedConfig, { finance }) => {
               ...market,
               ...overrides?.[live ? networkName : "optimism"],
               interestRateModel: { ...finance.interestRateModel, ...interestRateModel },
+              frozen: live && market.frozen,
             };
             if (config.rewards) {
               config.rewards = Object.fromEntries(
