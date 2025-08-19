@@ -13,7 +13,7 @@ import type {
 } from "../../types";
 import timelockExecute from "./utils/timelockExecute";
 
-const { parseUnits, getContractFactory, getNamedSigner, getContractAt, getContract } = ethers;
+const { parseUnits, getContractFactory, getNamedSigner, getContractAt, getContract, ZeroHash } = ethers;
 
 const { fixture, get } = deployments;
 
@@ -63,11 +63,10 @@ describe("Auditor Admin", function () {
 
   describe("GIVEN the ADMIN/multisig account", () => {
     beforeEach(async () => {
-      const ADMIN_ROLE = await auditor.DEFAULT_ADMIN_ROLE();
-      expect(await auditor.hasRole(ADMIN_ROLE, multisig.address)).to.equal(false);
-      expect(await marketDAI.hasRole(ADMIN_ROLE, multisig.address)).to.equal(false);
+      expect(await auditor.hasRole(ZeroHash, multisig.address)).to.equal(false);
+      expect(await marketDAI.hasRole(ZeroHash, multisig.address)).to.equal(false);
 
-      await timelockExecute(multisig, auditor, "grantRole", [ADMIN_ROLE, multisig.address]);
+      await timelockExecute(multisig, auditor, "grantRole", [ZeroHash, multisig.address]);
 
       auditor = auditor.connect(multisig);
     });

@@ -2999,7 +2999,7 @@ contract MarketTest is Test {
 
   function testPausable() external {
     assertFalse(market.paused());
-    market.grantRole(market.PAUSER_ROLE(), address(this));
+    market.grantRole(keccak256("PAUSER_ROLE"), address(this));
     market.pause();
     assertTrue(market.paused());
     market.unpause();
@@ -3007,7 +3007,7 @@ contract MarketTest is Test {
   }
 
   function testFullPause() external {
-    market.grantRole(market.PAUSER_ROLE(), address(this));
+    market.grantRole(keccak256("PAUSER_ROLE"), address(this));
 
     market.deposit(10 ether, address(this));
     market.pause();
@@ -3082,7 +3082,7 @@ contract MarketTest is Test {
     market.liquidate(BOB, 1 ether, marketWETH);
     market.unpause();
 
-    marketWETH.grantRole(marketWETH.PAUSER_ROLE(), address(this));
+    marketWETH.grantRole(keccak256("PAUSER_ROLE"), address(this));
     marketWETH.pause();
     vm.expectRevert(bytes(""));
     market.liquidate(BOB, 1 ether, marketWETH);
@@ -3111,9 +3111,9 @@ contract MarketTest is Test {
   }
 
   function testPauserRole() external {
-    assertFalse(market.hasRole(market.PAUSER_ROLE(), address(this)));
-    market.grantRole(market.PAUSER_ROLE(), address(this));
-    assertTrue(market.hasRole(market.PAUSER_ROLE(), address(this)));
+    assertFalse(market.hasRole(keccak256("PAUSER_ROLE"), address(this)));
+    market.grantRole(keccak256("PAUSER_ROLE"), address(this));
+    assertTrue(market.hasRole(keccak256("PAUSER_ROLE"), address(this)));
   }
 
   function testInitiallyUnfrozen() external view {
@@ -3222,14 +3222,14 @@ contract MarketTest is Test {
   }
 
   function testEmergencyAdminRole() external {
-    assertFalse(market.hasRole(market.EMERGENCY_ADMIN_ROLE(), address(this)));
+    assertFalse(market.hasRole(keccak256("EMERGENCY_ADMIN_ROLE"), address(this)));
     vm.expectRevert(NotPausingRole.selector);
     market.pause();
 
-    market.grantRole(market.EMERGENCY_ADMIN_ROLE(), address(this));
+    market.grantRole(keccak256("EMERGENCY_ADMIN_ROLE"), address(this));
     assertFalse(market.paused());
     // emergency admin can pause without having the pauser role
-    assertFalse(market.hasRole(market.PAUSER_ROLE(), address(this)));
+    assertFalse(market.hasRole(keccak256("PAUSER_ROLE"), address(this)));
     market.pause();
     assertTrue(market.paused());
 
@@ -3238,8 +3238,8 @@ contract MarketTest is Test {
     market.unpause();
 
     // pauser can unpause
-    market.grantRole(market.PAUSER_ROLE(), address(this));
-    assertTrue(market.hasRole(market.PAUSER_ROLE(), address(this)));
+    market.grantRole(keccak256("PAUSER_ROLE"), address(this));
+    assertTrue(market.hasRole(keccak256("PAUSER_ROLE"), address(this)));
     market.unpause();
     assertFalse(market.paused());
   }

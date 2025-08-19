@@ -4,7 +4,8 @@ import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"
 import type { Auditor, TimelockController } from "../../types";
 import timelockExecute from "./utils/timelockExecute";
 
-const { ZeroAddress, ZeroHash, getUnnamedSigners, getNamedSigner, getContract, provider } = ethers;
+const { ZeroAddress, ZeroHash, getUnnamedSigners, getNamedSigner, getContract, keccak256, toUtf8Bytes, provider } =
+  ethers;
 
 describe("Timelock - AccessControl", function () {
   let auditor: Auditor;
@@ -27,7 +28,7 @@ describe("Timelock - AccessControl", function () {
     priceFeed = (await deployments.get("PriceFeedDAI")).address;
     marketDAI = (await deployments.get("MarketDAI")).address;
 
-    await timelockExecute(owner, auditor, "grantRole", [await auditor.DEFAULT_ADMIN_ROLE(), owner.address]);
+    await timelockExecute(owner, auditor, "grantRole", [ZeroHash, owner.address]);
   });
 
   describe("GIVEN a deployed Auditor contract", () => {
@@ -37,13 +38,13 @@ describe("Timelock - AccessControl", function () {
 
     describe("AND GIVEN a deployed Timelock contract", () => {
       it("THEN owner address doesn't have TIMELOCK_ADMIN role for Timelock contract", async () => {
-        const TIMELOCK_ADMIN_ROLE = await timelockController.TIMELOCK_ADMIN_ROLE();
+        const TIMELOCK_ADMIN_ROLE = keccak256(toUtf8Bytes("TIMELOCK_ADMIN_ROLE"));
         expect(await timelockController.hasRole(TIMELOCK_ADMIN_ROLE, owner.address)).to.equal(false);
       });
 
       describe("AND WHEN the owner grants the ADMIN role to the Timelock contract address", () => {
         beforeEach(async () => {
-          await auditor.grantRole(await auditor.DEFAULT_ADMIN_ROLE(), timelockController.target);
+          await auditor.grantRole(ZeroHash, timelockController.target);
         });
 
         it("THEN it should still not revert when setting new asset sources with owner address", async () => {
@@ -81,7 +82,7 @@ describe("Timelock - AccessControl", function () {
 
         describe("AND WHEN the owner revokes his ADMIN role", () => {
           beforeEach(async () => {
-            await auditor.revokeRole(await auditor.DEFAULT_ADMIN_ROLE(), owner.address);
+            await auditor.revokeRole(ZeroHash, owner.address);
           });
 
           it("THEN it should revert when trying to set new asset sources with owner address", async () => {
@@ -94,8 +95,8 @@ describe("Timelock - AccessControl", function () {
           let EXECUTOR_ROLE: string;
 
           beforeEach(async () => {
-            PROPOSER_ROLE = await timelockController.PROPOSER_ROLE();
-            EXECUTOR_ROLE = await timelockController.EXECUTOR_ROLE();
+            PROPOSER_ROLE = keccak256(toUtf8Bytes("PROPOSER_ROLE"));
+            EXECUTOR_ROLE = keccak256(toUtf8Bytes("EXECUTOR_ROLE"));
             await timelockExecute(owner, timelockController, "grantRole", [PROPOSER_ROLE, account.address]);
             await timelockExecute(owner, timelockController, "grantRole", [EXECUTOR_ROLE, account.address]);
           });

@@ -4,6 +4,7 @@ import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"
 import type { Market } from "../../types";
 import { DefaultEnv } from "./defaultEnv";
 import futurePools from "./utils/futurePools";
+import { keccak256, toUtf8Bytes } from "ethers";
 
 describe("Market - Pausable", function () {
   let exactlyEnv: DefaultEnv;
@@ -21,7 +22,7 @@ describe("Market - Pausable", function () {
 
       exactlyEnv = await DefaultEnv.create();
       market = exactlyEnv.getMarket("DAI");
-      PAUSER_ROLE = await market.PAUSER_ROLE();
+      PAUSER_ROLE = keccak256(toUtf8Bytes("PAUSER_ROLE"));
 
       await market.grantRole(PAUSER_ROLE, owner.address);
       nextPoolId = (await futurePools(1))[0];

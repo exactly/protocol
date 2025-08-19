@@ -708,8 +708,8 @@ contract StakedEXATest is Test {
     stEXA.setRewardsDuration(rA, 1);
 
     address admin = address(0x2);
-    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
-    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+    stEXA.grantRole(bytes32(0), admin);
+    assertTrue(stEXA.hasRole(bytes32(0), admin));
 
     vm.prank(admin);
     stEXA.setRewardsDuration(rA, 1);
@@ -730,8 +730,8 @@ contract StakedEXATest is Test {
     stEXA.notifyRewardAmount(rA, amount);
 
     address admin = address(0x2);
-    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
-    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+    stEXA.grantRole(bytes32(0), admin);
+    assertTrue(stEXA.hasRole(bytes32(0), admin));
 
     vm.prank(admin);
     vm.expectEmit(true, true, true, true, address(stEXA));
@@ -968,17 +968,17 @@ contract StakedEXATest is Test {
 
   function testGrantRevokePauser() external {
     address pauser = address(0x1);
-    stEXA.grantRole(stEXA.PAUSER_ROLE(), pauser);
-    assertTrue(stEXA.hasRole(stEXA.PAUSER_ROLE(), pauser));
+    stEXA.grantRole(keccak256("PAUSER_ROLE"), pauser);
+    assertTrue(stEXA.hasRole(keccak256("PAUSER_ROLE"), pauser));
 
-    stEXA.revokeRole(stEXA.PAUSER_ROLE(), pauser);
-    assertFalse(stEXA.hasRole(stEXA.PAUSER_ROLE(), pauser));
+    stEXA.revokeRole(keccak256("PAUSER_ROLE"), pauser);
+    assertFalse(stEXA.hasRole(keccak256("PAUSER_ROLE"), pauser));
   }
 
   function testPauserCanPauseUnpause() external {
     address pauser = address(0x1);
-    stEXA.grantRole(stEXA.PAUSER_ROLE(), pauser);
-    assertTrue(stEXA.hasRole(stEXA.PAUSER_ROLE(), pauser));
+    stEXA.grantRole(keccak256("PAUSER_ROLE"), pauser);
+    assertTrue(stEXA.hasRole(keccak256("PAUSER_ROLE"), pauser));
 
     vm.startPrank(pauser);
     stEXA.pause();
@@ -991,17 +991,17 @@ contract StakedEXATest is Test {
 
   function testGrantRevokeEmergencyAdmin() external {
     address emergencyAdmin = address(0x1);
-    stEXA.grantRole(stEXA.EMERGENCY_ADMIN_ROLE(), emergencyAdmin);
-    assertTrue(stEXA.hasRole(stEXA.EMERGENCY_ADMIN_ROLE(), emergencyAdmin));
+    stEXA.grantRole(keccak256("EMERGENCY_ADMIN_ROLE"), emergencyAdmin);
+    assertTrue(stEXA.hasRole(keccak256("EMERGENCY_ADMIN_ROLE"), emergencyAdmin));
 
-    stEXA.revokeRole(stEXA.EMERGENCY_ADMIN_ROLE(), emergencyAdmin);
-    assertFalse(stEXA.hasRole(stEXA.EMERGENCY_ADMIN_ROLE(), emergencyAdmin));
+    stEXA.revokeRole(keccak256("EMERGENCY_ADMIN_ROLE"), emergencyAdmin);
+    assertFalse(stEXA.hasRole(keccak256("EMERGENCY_ADMIN_ROLE"), emergencyAdmin));
   }
 
   function testEmergencyAdminCanPauseNotUnpause() external {
     address emergencyAdmin = address(0x1);
-    stEXA.grantRole(stEXA.EMERGENCY_ADMIN_ROLE(), emergencyAdmin);
-    assertTrue(stEXA.hasRole(stEXA.EMERGENCY_ADMIN_ROLE(), emergencyAdmin));
+    stEXA.grantRole(keccak256("EMERGENCY_ADMIN_ROLE"), emergencyAdmin);
+    assertTrue(stEXA.hasRole(keccak256("EMERGENCY_ADMIN_ROLE"), emergencyAdmin));
 
     vm.startPrank(emergencyAdmin);
     stEXA.pause();
@@ -1011,7 +1011,7 @@ contract StakedEXATest is Test {
       abi.encodeWithSelector(
         IAccessControl.AccessControlUnauthorizedAccount.selector,
         emergencyAdmin,
-        stEXA.PAUSER_ROLE()
+        keccak256("PAUSER_ROLE")
       )
     );
     stEXA.unpause();
@@ -1023,7 +1023,7 @@ contract StakedEXATest is Test {
     stEXA.deposit(1, address(this));
 
     address pauser = address(0x1);
-    stEXA.grantRole(stEXA.PAUSER_ROLE(), pauser);
+    stEXA.grantRole(keccak256("PAUSER_ROLE"), pauser);
 
     vm.prank(pauser);
     stEXA.pause();
@@ -1068,8 +1068,8 @@ contract StakedEXATest is Test {
     assertEq(finishAt, 0);
 
     address admin = address(0x2);
-    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
-    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+    stEXA.grantRole(bytes32(0), admin);
+    assertTrue(stEXA.hasRole(bytes32(0), admin));
 
     vm.prank(admin);
     vm.expectEmit(true, true, true, true, address(stEXA));
@@ -1260,8 +1260,8 @@ contract StakedEXATest is Test {
     stEXA.finishDistribution(rA);
 
     address admin = address(0x2);
-    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
-    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+    stEXA.grantRole(bytes32(0), admin);
+    assertTrue(stEXA.hasRole(bytes32(0), admin));
 
     vm.prank(admin);
     vm.expectEmit(true, true, true, true, address(stEXA));
@@ -1328,8 +1328,8 @@ contract StakedEXATest is Test {
     stEXA.setMarket(newMarket);
 
     address admin = address(0x2);
-    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
-    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+    stEXA.grantRole(bytes32(0), admin);
+    assertTrue(stEXA.hasRole(bytes32(0), admin));
 
     vm.prank(admin);
     vm.expectEmit(true, true, true, true, address(stEXA));
@@ -1352,8 +1352,8 @@ contract StakedEXATest is Test {
     stEXA.setProvider(newProvider);
 
     address admin = address(0x3);
-    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
-    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+    stEXA.grantRole(bytes32(0), admin);
+    assertTrue(stEXA.hasRole(bytes32(0), admin));
 
     vm.prank(admin);
     vm.expectEmit(true, true, true, true, address(stEXA));
@@ -1371,8 +1371,8 @@ contract StakedEXATest is Test {
     stEXA.setProviderRatio(newProviderRatio);
 
     address admin = address(0x2);
-    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
-    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+    stEXA.grantRole(bytes32(0), admin);
+    assertTrue(stEXA.hasRole(bytes32(0), admin));
 
     vm.prank(admin);
     vm.expectEmit(true, true, true, true, address(stEXA));
@@ -1390,8 +1390,8 @@ contract StakedEXATest is Test {
     stEXA.setSavings(newSavings);
 
     address admin = address(0x3);
-    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
-    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+    stEXA.grantRole(bytes32(0), admin);
+    assertTrue(stEXA.hasRole(bytes32(0), admin));
 
     vm.prank(admin);
     vm.expectEmit(true, true, true, true, address(stEXA));
@@ -1659,7 +1659,7 @@ contract StakedEXATest is Test {
     stEXA.deposit(assets, address(this));
 
     address pauser = address(0x1);
-    stEXA.grantRole(stEXA.PAUSER_ROLE(), pauser);
+    stEXA.grantRole(keccak256("PAUSER_ROLE"), pauser);
 
     vm.prank(pauser);
     stEXA.pause();
@@ -1679,7 +1679,7 @@ contract StakedEXATest is Test {
 
   function testPausableHarvest() external {
     address pauser = address(0x1);
-    stEXA.grantRole(stEXA.PAUSER_ROLE(), pauser);
+    stEXA.grantRole(keccak256("PAUSER_ROLE"), pauser);
 
     vm.prank(pauser);
     stEXA.pause();
@@ -1805,8 +1805,8 @@ contract StakedEXATest is Test {
     stEXA.withdrawRewards(IERC20(address(market)), amount);
 
     address admin = address(0x2);
-    stEXA.grantRole(stEXA.DEFAULT_ADMIN_ROLE(), admin);
-    assertTrue(stEXA.hasRole(stEXA.DEFAULT_ADMIN_ROLE(), admin));
+    stEXA.grantRole(bytes32(0), admin);
+    assertTrue(stEXA.hasRole(bytes32(0), admin));
 
     vm.prank(admin);
     vm.expectEmit(true, true, true, true, address(stEXA));

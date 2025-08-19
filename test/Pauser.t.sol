@@ -39,8 +39,8 @@ contract PauserTest is Test {
       0.0046e18,
       0.42e18
     );
-    marketA.grantRole(marketA.PAUSER_ROLE(), address(this));
-    marketA.grantRole(marketA.PAUSER_ROLE(), address(pauser));
+    marketA.grantRole(keccak256("PAUSER_ROLE"), address(this));
+    marketA.grantRole(keccak256("PAUSER_ROLE"), address(pauser));
     auditor.enableMarket(marketA, new MockPriceFeed(18, 1e18), 0.8e18);
     vm.label(address(marketA), "MarketA");
 
@@ -56,8 +56,8 @@ contract PauserTest is Test {
       0.0046e18,
       0.42e18
     );
-    marketB.grantRole(marketB.PAUSER_ROLE(), address(this));
-    marketB.grantRole(marketB.PAUSER_ROLE(), address(pauser));
+    marketB.grantRole(keccak256("PAUSER_ROLE"), address(this));
+    marketB.grantRole(keccak256("PAUSER_ROLE"), address(pauser));
     auditor.enableMarket(marketB, new MockPriceFeed(18, 1e18), 0.8e18);
     vm.label(address(marketB), "MarketB");
 

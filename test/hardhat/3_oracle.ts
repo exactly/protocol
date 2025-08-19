@@ -4,7 +4,7 @@ import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"
 import type { MockPriceFeed, Auditor, Market } from "../../types";
 import timelockExecute from "./utils/timelockExecute";
 
-const { getUnnamedSigners, getNamedSigner, getContract } = ethers;
+const { getUnnamedSigners, getNamedSigner, getContract, ZeroHash } = ethers;
 
 describe("auditor", function () {
   let auditor: Auditor;
@@ -50,7 +50,7 @@ describe("auditor", function () {
   });
 
   it("SetPriceFeed should set the address source of an asset", async () => {
-    await timelockExecute(owner, auditor, "grantRole", [await auditor.DEFAULT_ADMIN_ROLE(), owner.address]);
+    await timelockExecute(owner, auditor, "grantRole", [ZeroHash, owner.address]);
     const { address } = await deployments.deploy("NewPriceFeed", {
       contract: "MockPriceFeed",
       args: [8, 1],

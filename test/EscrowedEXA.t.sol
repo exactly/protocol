@@ -46,7 +46,7 @@ contract EscrowedEXATest is ForkTest {
     alice = vm.addr(ALICE_KEY);
     vm.label(alice, "alice");
     exa.approve(address(esEXA), 100_000 ether);
-    esEXA.grantRole(esEXA.REDEEMER_ROLE(), REDEEMER);
+    esEXA.grantRole(keccak256("REDEEMER_ROLE"), REDEEMER);
   }
 
   function testMint() external {
@@ -137,14 +137,14 @@ contract EscrowedEXATest is ForkTest {
   }
 
   function testGrantTransferrerRoleAsAdmin() external {
-    esEXA.grantRole(esEXA.TRANSFERRER_ROLE(), alice);
-    assertTrue(esEXA.hasRole(esEXA.TRANSFERRER_ROLE(), alice));
+    esEXA.grantRole(keccak256("TRANSFERRER_ROLE"), alice);
+    assertTrue(esEXA.hasRole(keccak256("TRANSFERRER_ROLE"), alice));
   }
 
   function testTransferToTransferrer() external {
     esEXA.mint(1 ether, address(this));
 
-    esEXA.grantRole(esEXA.TRANSFERRER_ROLE(), alice);
+    esEXA.grantRole(keccak256("TRANSFERRER_ROLE"), alice);
     esEXA.transfer(alice, 1 ether);
     assertEq(esEXA.balanceOf(alice), 1 ether);
   }
