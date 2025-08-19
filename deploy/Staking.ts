@@ -6,6 +6,7 @@ import multisigPropose from "./.utils/multisigPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
 import grantRole from "./.utils/grantRole";
 import deployEXA from "./EXA";
+import { keccak256, toUtf8Bytes } from "ethers";
 
 const func: DeployFunction = async ({
   network: {
@@ -67,8 +68,8 @@ const func: DeployFunction = async ({
     await executeOrPropose(stEXA, "setProviderRatio", [providerRatio]);
   }
 
-  if (pauser) await grantRole(stEXA, await stEXA.EMERGENCY_ADMIN_ROLE(), pauser.address);
-  await grantRole(stEXA, await stEXA.PAUSER_ROLE(), multisig);
+  if (pauser) await grantRole(stEXA, keccak256(toUtf8Bytes("EMERGENCY_ADMIN_ROLE")), pauser.address);
+  await grantRole(stEXA, keccak256(toUtf8Bytes("PAUSER_ROLE")), multisig);
   await transferOwnership(stEXA, deployer, timelock);
 
   await validateUpgrade("StakingPreviewer", { args: [stEXA.target], envKey: "STAKING_PREVIEWER" }, async (name, opts) =>

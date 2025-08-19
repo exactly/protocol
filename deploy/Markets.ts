@@ -7,6 +7,7 @@ import executeOrPropose from "./.utils/executeOrPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
 import tenderlify from "./.utils/tenderlify";
 import grantRole from "./.utils/grantRole";
+import { keccak256, toUtf8Bytes } from "ethers";
 
 const func: DeployFunction = async ({
   network: {
@@ -187,9 +188,9 @@ const func: DeployFunction = async ({
       await (await debtManager.approve(market.target)).wait();
     }
 
-    if (pauser) await grantRole(market, await market.EMERGENCY_ADMIN_ROLE(), pauser.address);
+    if (pauser) await grantRole(market, keccak256(toUtf8Bytes("EMERGENCY_ADMIN_ROLE")), pauser.address);
 
-    await grantRole(market, await market.PAUSER_ROLE(), multisig);
+    await grantRole(market, keccak256(toUtf8Bytes("PAUSER_ROLE")), multisig);
 
     await transferOwnership(market, deployer, timelock);
   }

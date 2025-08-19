@@ -6,6 +6,7 @@ import executeOrPropose from "./.utils/executeOrPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
 import grantRole from "./.utils/grantRole";
 import airdrop from "../scripts/airdrop.json";
+import { toUtf8Bytes } from "ethers";
 
 const func: DeployFunction = async ({
   network: {
@@ -91,7 +92,7 @@ const func: DeployFunction = async ({
     await executeOrPropose(esEXA, "setReserveRatio", [parseUnits(String(escrow.reserveRatio))]);
   }
 
-  await grantRole(esEXA, await esEXA.TRANSFERRER_ROLE(), rewards);
+  await grantRole(esEXA, keccak256(toUtf8Bytes("TRANSFERRER_ROLE")), rewards);
   await transferOwnership(esEXA, deployer, timelock);
 };
 
