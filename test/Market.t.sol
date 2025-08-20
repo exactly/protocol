@@ -28,6 +28,7 @@ import {
   NotPausingRole,
   InsufficientProtocolLiquidity
 } from "../contracts/Market.sol";
+import { MarketExtension } from "../contracts/MarketExtension.sol";
 
 contract MarketTest is Test {
   using FixedPointMathLib for uint256;
@@ -127,6 +128,7 @@ contract MarketTest is Test {
   }
 
   function testWithdrawAtMaturity() external {
+    market.setMarketExtension(address(new MarketExtension(market.asset(), market.auditor())));
     market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
 
     vm.expectEmit(true, true, true, true, address(market));
@@ -142,6 +144,7 @@ contract MarketTest is Test {
   }
 
   function testBorrowAtMaturity() external {
+    market.setMarketExtension(address(new MarketExtension(market.asset(), market.auditor())));
     market.deposit(12 ether, address(this));
 
     vm.expectEmit(true, true, true, true, address(market));
@@ -912,6 +915,7 @@ contract MarketTest is Test {
   }
 
   function testFixedOperationsUpdateFloatingDebt() external {
+    market.setMarketExtension(address(new MarketExtension(market.asset(), market.auditor())));
     market.deposit(100 ether, address(this));
 
     vm.warp(1 days);

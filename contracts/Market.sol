@@ -11,6 +11,7 @@ import { InterestRateModel } from "./InterestRateModel.sol";
 import { RewardsController } from "./RewardsController.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Auditor } from "./Auditor.sol";
+import { MarketExtension } from "./MarketExtension.sol";
 
 contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable, ERC4626 {
   using FixedPointMathLib for int256;
@@ -99,6 +100,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   FixedOps public fixedOps;
   /// @notice Flag to initialize consolidated variables per account only once.
   mapping(address account => bool initialized) public isInitialized;
+  /// @notice Address of the market extension that handles fixed operations.
+  address public marketExtension;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
@@ -499,66 +502,17 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     depositToTreasury(updateFloatingDebt());
     floatingAssets += backupEarnings;
 
-    FixedLib.Position memory position = fixedBorrowPositions[maturity][borrower];
-
-    uint256 debtCovered = Math.min(positionAssets, position.principal + position.fee);
-
-    uint256 principalCovered = FixedLib
-      .Position(position.principal, position.fee)
-      .scaleProportionally(debtCovered)
-      .principal;
-
-    handleRewards(true, borrower);
-
-    // early repayment allows a discount from the unassigned earnings
-    if (block.timestamp < maturity) {
-      // calculate the deposit fee considering the amount of debt the account'll pay
-      (uint256 discountFee, uint256 backupFee) = pool.calculateDeposit(principalCovered, backupFeeRate);
-
-      // remove the fee from unassigned earnings
-      pool.unassignedEarnings -= discountFee + backupFee;
-      if (canDiscount) {
-        // the fee charged to the fixed pool supplier goes to the earnings accumulator
-        earningsAccumulator += backupFee;
-
-        // the fee gets discounted from the account through `actualRepayAssets`
-        actualRepayAssets = debtCovered - discountFee;
-      } else {
-        // all fees go to the earnings accumulator
-        earningsAccumulator += discountFee + backupFee;
-
-        // there is no discount due to liquidation
-        actualRepayAssets = debtCovered;
-      }
-    } else {
-      actualRepayAssets = debtCovered + debtCovered.mulWadDown((block.timestamp - maturity) * penaltyRate);
-
-      // all penalties go to the earnings accumulator
-      earningsAccumulator += actualRepayAssets - debtCovered;
-    }
-
-    // verify that the account agrees to this discount or penalty
-    if (actualRepayAssets > maxAssets) revert Disagreement();
-
-    // reduce the borrowed from the pool and might decrease the floating backup borrowed
-    floatingBackupBorrowed -= pool.repay(principalCovered);
-
-    uint256 principal = position.principal;
-    // update the account position
-    principalCovered = principal - position.reduceProportionally(debtCovered).principal;
-    fixedConsolidated[borrower].borrows -= principalCovered;
-    fixedOps.borrows -= principalCovered;
-    if (position.principal | position.fee == 0) {
-      delete fixedBorrowPositions[maturity][borrower];
-      Account storage account = accounts[borrower];
-      account.fixedBorrows = account.fixedBorrows.clearMaturity(maturity);
-    } else {
-      // proportionally reduce the values
-      fixedBorrowPositions[maturity][borrower] = position;
-    }
-
-    emit RepayAtMaturity(maturity, msg.sender, borrower, actualRepayAssets, debtCovered);
-    emitFixedEarningsUpdate(maturity);
+    (, bytes memory data) = marketExtension.delegatecall(
+      abi.encodeWithSelector(
+        MarketExtension.noTransferRepayAtMaturity.selector,
+        maturity,
+        positionAssets,
+        maxAssets,
+        borrower,
+        canDiscount
+      )
+    );
+    actualRepayAssets = abi.decode(data, (uint256));
   }
 
   /// @notice Liquidates undercollateralized fixed/floating (or both) position(s).
@@ -628,7 +582,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     asset.safeTransferFrom(msg.sender, address(this), repaidAssets + lendersAssets);
 
     if (address(seizeMarket) == address(this)) {
-      internalSeize(this, msg.sender, borrower, seizeAssets);
+      (bool success, ) = marketExtension.delegatecall(
+        abi.encodeWithSelector(MarketExtension.seize.selector, this, msg.sender, borrower, seizeAssets)
+      );
+      success;
     } else {
       seizeMarket.seize(msg.sender, borrower, seizeAssets);
 
@@ -647,45 +604,12 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     if (msg.sender != address(auditor)) revert NotAuditor();
 
     floatingAssets += accrueAccumulatedEarnings();
+    (, bytes memory data) = marketExtension.delegatecall(
+      abi.encodeWithSelector(MarketExtension.clearBadDebt.selector, borrower)
+    );
     Account storage account = accounts[borrower];
     uint256 accumulator = earningsAccumulator;
-    uint256 totalBadDebt = 0;
-    uint256 packedMaturities = account.fixedBorrows;
-    uint256 maturity = packedMaturities & ((1 << 32) - 1);
-    packedMaturities = packedMaturities >> 32;
-    while (packedMaturities != 0) {
-      if (packedMaturities & 1 != 0) {
-        FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
-        uint256 badDebt = position.principal + position.fee;
-        if (accumulator >= badDebt) {
-          handleRewards(true, borrower);
-          accumulator -= badDebt;
-          totalBadDebt += badDebt;
-          uint256 backupDebtReduction = fixedPools[maturity].repay(position.principal);
-
-          if (backupDebtReduction != 0) {
-            floatingBackupBorrowed -= backupDebtReduction;
-            uint256 yield = fixedPools[maturity].unassignedEarnings.mulDivDown(
-              Math.min(position.principal, backupDebtReduction),
-              backupDebtReduction
-            );
-            fixedPools[maturity].unassignedEarnings -= yield;
-            earningsAccumulator += yield;
-            accumulator += yield;
-          }
-
-          uint256 principal = position.principal;
-          fixedConsolidated[borrower].borrows -= principal;
-          fixedOps.borrows -= principal;
-          delete fixedBorrowPositions[maturity][borrower];
-          account.fixedBorrows = account.fixedBorrows.clearMaturity(maturity);
-
-          emit RepayAtMaturity(maturity, msg.sender, borrower, badDebt, badDebt);
-        }
-      }
-      packedMaturities >>= 1;
-      maturity += FixedLib.INTERVAL;
-    }
+    uint256 totalBadDebt = abi.decode(data, (uint256));
     if (account.floatingBorrowShares != 0 && (accumulator = previewRepay(accumulator)) != 0) {
       (uint256 badDebt, ) = noTransferRefund(accumulator, borrower);
       totalBadDebt += badDebt;
@@ -705,32 +629,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param borrower address from which the assets will be seized.
   /// @param assets amount to be removed from borrower's possession.
   function seize(address liquidator, address borrower, uint256 assets) external whenNotPaused {
-    internalSeize(Market(msg.sender), liquidator, borrower, assets);
-  }
-
-  /// @notice Internal function to seize a certain amount of assets.
-  /// @dev Internal function for liquidator to seize borrowers assets in the floating pool.
-  /// Will only be called from this Market on `liquidation` or through `seize` calls from another Market.
-  /// That's why msg.sender needs to be passed to the internal function (to be validated as a Market).
-  /// @param seizeMarket address which is calling the seize function (see `seize` public function).
-  /// @param liquidator address which will receive the seized assets.
-  /// @param borrower address from which the assets will be seized.
-  /// @param assets amount to be removed from borrower's possession.
-  function internalSeize(Market seizeMarket, address liquidator, address borrower, uint256 assets) internal {
-    if (assets == 0) revert ZeroWithdraw();
-
-    // reverts on failure
-    auditor.checkSeize(seizeMarket, this);
-
-    handleRewards(false, borrower);
-    uint256 shares = previewWithdraw(assets);
-    beforeWithdraw(assets, shares);
-    _burn(borrower, shares);
-    emit Withdraw(msg.sender, liquidator, borrower, assets, shares);
-    emit Seize(liquidator, borrower, assets);
-    emitMarketUpdate();
-
-    asset.safeTransfer(liquidator, assets);
+    (bool success, ) = marketExtension.delegatecall(
+      abi.encodeWithSelector(MarketExtension.seize.selector, Market(msg.sender), liquidator, borrower, assets)
+    );
+    success;
   }
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
@@ -917,21 +819,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Updates the floating pool borrows' variables.
   /// @return treasuryFee amount of fees charged by the treasury to the new calculated floating debt.
   function updateFloatingDebt() internal returns (uint256 treasuryFee) {
-    uint256 memFloatingDebt = floatingDebt;
-    uint256 memFloatingAssets = floatingAssets;
-    uint256 utilization = floatingUtilization(memFloatingAssets, memFloatingDebt);
-    uint256 newDebt = memFloatingDebt.mulWadDown(
-      interestRateModel
-        .floatingRate(utilization, globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed))
-        .mulDivDown(block.timestamp - lastFloatingDebtUpdate, 365 days)
+    (, bytes memory data) = marketExtension.delegatecall(
+      abi.encodeWithSelector(MarketExtension.updateFloatingDebt.selector)
     );
-
-    memFloatingDebt += newDebt;
-    treasuryFee = newDebt.mulWadDown(treasuryFeeRate);
-    floatingAssets = memFloatingAssets + newDebt - treasuryFee;
-    floatingDebt = memFloatingDebt;
-    lastFloatingDebtUpdate = uint32(block.timestamp);
-    emit FloatingDebtUpdate(block.timestamp, utilization);
+    return abi.decode(data, (uint256));
   }
 
   /// @notice Calculates the total floating debt, considering elapsed time since last update and current interest rate.
@@ -1083,6 +974,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function setAssetSymbol(string calldata assetSymbol) public onlyRole(DEFAULT_ADMIN_ROLE) {
     name = string.concat("exactly ", assetSymbol);
     symbol = string.concat("exa", assetSymbol);
+  }
+
+  function setMarketExtension(address marketExtension_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    marketExtension = marketExtension_;
   }
 
   /// @notice Sets the rate charged to the fixed depositors that the floating pool suppliers will retain for initially
@@ -1348,12 +1243,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     Market indexed seizeMarket,
     uint256 seizedAssets
   );
-
-  /// @notice Emitted when an account's collateral has been seized.
-  /// @param liquidator address which seized this collateral.
-  /// @param borrower address which had the original debt.
-  /// @param assets amount seized of the collateral.
-  event Seize(address indexed liquidator, address indexed borrower, uint256 assets);
 
   /// @notice Emitted when an account is cleared from bad debt.
   /// @param borrower address which was cleared from bad debt.

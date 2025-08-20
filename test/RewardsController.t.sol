@@ -8,6 +8,7 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { Auditor, IPriceFeed } from "../contracts/Auditor.sol";
+import { MarketExtension } from "../contracts/MarketExtension.sol";
 import { Market } from "../contracts/Market.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import {
@@ -1035,6 +1036,7 @@ contract RewardsControllerTest is Test {
   }
 
   function testSetNewTargetDebtWithClaimOnlyAtEnd() external {
+    marketWETH.setMarketExtension(address(new MarketExtension(marketWETH.asset(), marketWETH.auditor())));
     vm.warp(1);
     RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
     marketWETH.deposit(50_000 ether, address(this));
