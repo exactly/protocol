@@ -1020,10 +1020,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Sets the rewards controller to update account rewards when operating with the Market.
-  /// @param rewardsController_ new rewards controller.
-  function setRewardsController(RewardsController rewardsController_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    rewardsController = rewardsController_;
-    emit RewardsControllerSet(rewardsController_);
+  function setRewardsController(RewardsController) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    (bool success, ) = marketExtension.delegatecall(msg.data);
+    success;
   }
 
   /// @notice Sets the protocol's max future pools for fixed borrowing and lending.
@@ -1116,10 +1115,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Sets `isFrozen` state, triggered by an authorized account.
-  function setFrozen(bool isFrozen_) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (isFrozen == isFrozen_) return;
-    isFrozen = isFrozen_;
-    emit Frozen(msg.sender, isFrozen_);
+  function setFrozen(bool) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    (bool success, ) = marketExtension.delegatecall(msg.data);
+    success;
   }
 
   /// @dev Throws if the market is frozen.
@@ -1283,10 +1281,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param treasuryFeeRate represented with 18 decimals.
   event TreasurySet(address indexed treasury, uint256 treasuryFeeRate);
 
-  /// @notice Emitted when the rewardsController is changed by admin.
-  /// @param rewardsController new rewards controller to update account rewards when operating with the Market.
-  event RewardsControllerSet(RewardsController indexed rewardsController);
-
   /// @notice Emitted when market state is updated.
   /// @param timestamp current timestamp.
   /// @param floatingDepositShares total floating supply shares.
@@ -1317,9 +1311,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param timestamp current timestamp.
   /// @param utilization new floating utilization.
   event FloatingDebtUpdate(uint256 timestamp, uint256 utilization);
-
-  /// @notice Emitted when `account` sets the `isFrozen` flag.
-  event Frozen(address indexed account, bool isFrozen);
 
   /// @notice Stores fixed deposits and fixed borrows map and floating borrow shares of an account.
   /// @param fixedDeposits encoded map maturity dates where the account supplied to.

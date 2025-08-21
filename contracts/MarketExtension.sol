@@ -264,6 +264,20 @@ contract MarketExtension is MarketBase, ERC4626 {
     emit FloatingDebtUpdate(block.timestamp, utilization);
   }
 
+  /// @notice Sets `isFrozen` state, triggered by an authorized account.
+  function setFrozen(bool isFrozen_) external {
+    if (isFrozen == isFrozen_) return;
+    isFrozen = isFrozen_;
+    emit Frozen(msg.sender, isFrozen_);
+  }
+
+  /// @notice Sets the rewards controller to update account rewards when operating with the Market.
+  /// @param rewardsController_ new rewards controller.
+  function setRewardsController(RewardsController rewardsController_) external {
+    rewardsController = rewardsController_;
+    emit RewardsControllerSet(rewardsController_);
+  }
+
   /// @notice Retrieves global utilization of the floating pool.
   /// @dev Internal function to avoid code duplication.
   function globalUtilization(uint256 assets, uint256 debt, uint256 backupBorrowed) internal pure returns (uint256) {
@@ -322,6 +336,13 @@ contract MarketExtension is MarketBase, ERC4626 {
   /// @param borrower address which had the original debt.
   /// @param assets amount seized of the collateral.
   event Seize(address indexed liquidator, address indexed borrower, uint256 assets);
+
+  /// @notice Emitted when `account` sets the `isFrozen` flag.
+  event Frozen(address indexed account, bool isFrozen);
+
+  /// @notice Emitted when the rewardsController is changed by admin.
+  /// @param rewardsController new rewards controller to update account rewards when operating with the Market.
+  event RewardsControllerSet(RewardsController indexed rewardsController);
 
   struct Account {
     uint256 fixedDeposits;
