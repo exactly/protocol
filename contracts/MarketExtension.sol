@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import { Initializable } from "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/security/PausableUpgradeable.sol";
-import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable-v4/utils/math/MathUpgradeable.sol";
-import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol";
+import { Math } from "@openzeppelin/contracts-v4/utils/math/Math.sol";
 import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { RewardsController } from "./RewardsController.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Auditor } from "./Auditor.sol";
 import { Market } from "./Market.sol";
+import { MarketBase } from "./MarketBase.sol";
 
-contract MarketExtension is Initializable, AccessControlUpgradeable, PausableUpgradeable, ERC4626 {
+contract MarketExtension is MarketBase, ERC4626 {
   using FixedPointMathLib for int256;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
@@ -21,9 +19,6 @@ contract MarketExtension is Initializable, AccessControlUpgradeable, PausableUpg
   using FixedLib for FixedLib.Pool;
   using FixedLib for FixedLib.Position;
   using FixedLib for uint256;
-
-  bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-  bytes32 public constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN_ROLE");
 
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
@@ -103,8 +98,6 @@ contract MarketExtension is Initializable, AccessControlUpgradeable, PausableUpg
 
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
     auditor = auditor_;
-
-    _disableInitializers();
   }
 
   function totalAssets() public view override returns (uint256) {
