@@ -34,6 +34,7 @@ contract IntegrationPreviewerTest is ForkTest {
     deployment("MarketUSDC.e");
     deployment("MarketWBTC");
     deployment("MarketWETH");
+    deployment("USDC");
     vm.label(address(previewer), "IntegrationPreviewer");
     vm.label(address(exaUSDC.interestRateModel()), "InterestRateModelUSDC");
     vm.label(address(Market(deployment("MarketOP")).interestRateModel()), "InterestRateModelOP");
@@ -56,6 +57,58 @@ contract IntegrationPreviewerTest is ForkTest {
 
     vm.expectRevert(InsufficientAccountLiquidity.selector);
     exaUSDC.borrow(1, USER, USER);
+  }
+
+  function test_fixedRepayPosition_beforeMaturity() external {
+    uint256 maturity = 1_734_566_400;
+    uint256 repayAssets = 420e6;
+
+    uint256 positionAssets = previewer.fixedRepayPosition(USER, exaUSDC, maturity, repayAssets);
+
+    vm.startPrank(USER);
+    deal(address(exaUSDC.asset()), USER, 1_000_000e6);
+    exaUSDC.asset().approve(address(exaUSDC), type(uint256).max);
+    uint256 actualRepayAssets = exaUSDC.repayAtMaturity(maturity, positionAssets, type(uint256).max, USER);
+
+    assertLe(actualRepayAssets, repayAssets);
+    assertApproxEqAbs(actualRepayAssets, repayAssets, 1);
+  }
+
+  function test_fixedRepayPosition_afterMaturity() external {
+    uint256 maturity = 1_734_566_400;
+    uint256 repayAssets = 420e6;
+
+    skip(55 weeks);
+
+    uint256 positionAssets = previewer.fixedRepayPosition(USER, exaUSDC, maturity, repayAssets);
+
+    vm.startPrank(USER);
+    deal(address(exaUSDC.asset()), USER, 1_000_000e6);
+    exaUSDC.asset().approve(address(exaUSDC), type(uint256).max);
+    uint256 actualRepayAssets = exaUSDC.repayAtMaturity(maturity, positionAssets, type(uint256).max, USER);
+
+    assertLe(actualRepayAssets, repayAssets);
+    assertApproxEqAbs(actualRepayAssets, repayAssets, 1);
+  }
+
+  function test_fixedRepayPosition_maxUint() external {
+    uint256 maturity = 1_734_566_400;
+    uint256 repayAssets = type(uint256).max;
+    (uint256 principal, uint256 fee) = exaUSDC.fixedBorrowPositions(maturity, USER);
+
+    assertEq(previewer.fixedRepayPosition(USER, exaUSDC, maturity, repayAssets), principal + fee);
+
+    skip(55 weeks);
+
+    assertEq(previewer.fixedRepayPosition(USER, exaUSDC, maturity, repayAssets), principal + fee);
+  }
+
+  function test_fixedRepayPosition_saturatedFallback() external view {
+    uint256 maturity = 1_734_566_400;
+    uint256 repayAssets = 831_039_892;
+    (uint256 principal, uint256 fee) = exaUSDC.fixedBorrowPositions(maturity, USER);
+
+    assertEq(previewer.fixedRepayPosition(USER, exaUSDC, maturity, repayAssets), principal + fee);
   }
 
   // solhint-enable func-name-mixedcase
