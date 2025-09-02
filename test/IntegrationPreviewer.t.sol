@@ -59,6 +59,66 @@ contract IntegrationPreviewerTest is ForkTest {
     exaUSDC.borrow(1, USER, USER);
   }
 
+  function test_fixedRepayAssets_beforeMaturity() external {
+    uint256 maturity = 1_734_566_400;
+    uint256 positionAssets = 420e6;
+
+    uint256 repayAssets = previewer.fixedRepayAssets(USER, exaUSDC, maturity, positionAssets);
+
+    vm.startPrank(USER);
+    deal(address(exaUSDC.asset()), USER, 1_000_000e6);
+    exaUSDC.asset().approve(address(exaUSDC), type(uint256).max);
+    uint256 actualRepayAssets = exaUSDC.repayAtMaturity(maturity, positionAssets, type(uint256).max, USER);
+
+    assertEq(actualRepayAssets, repayAssets);
+  }
+
+  function test_fixedRepayAssets_afterMaturity() external {
+    uint256 maturity = 1_734_566_400;
+    uint256 positionAssets = 420e6;
+
+    skip(55 weeks);
+
+    uint256 repayAssets = previewer.fixedRepayAssets(USER, exaUSDC, maturity, positionAssets);
+
+    vm.startPrank(USER);
+    deal(address(exaUSDC.asset()), USER, 1_000_000e6);
+    exaUSDC.asset().approve(address(exaUSDC), type(uint256).max);
+    uint256 actualRepayAssets = exaUSDC.repayAtMaturity(maturity, positionAssets, type(uint256).max, USER);
+
+    assertEq(actualRepayAssets, repayAssets);
+  }
+
+  function test_fixedRepayAssets_maxUintBeforeMaturity() external {
+    uint256 maturity = 1_734_566_400;
+    uint256 positionAssets = type(uint256).max;
+
+    uint256 repayAssets = previewer.fixedRepayAssets(USER, exaUSDC, maturity, positionAssets);
+
+    vm.startPrank(USER);
+    deal(address(exaUSDC.asset()), USER, 1_000_000e6);
+    exaUSDC.asset().approve(address(exaUSDC), type(uint256).max);
+    uint256 actualRepayAssets = exaUSDC.repayAtMaturity(maturity, positionAssets, type(uint256).max, USER);
+
+    assertEq(actualRepayAssets, repayAssets);
+  }
+
+  function test_fixedRepayAssets_maxUintAfterMaturity() external {
+    uint256 maturity = 1_734_566_400;
+    uint256 positionAssets = type(uint256).max;
+
+    skip(55 weeks);
+
+    uint256 repayAssets = previewer.fixedRepayAssets(USER, exaUSDC, maturity, positionAssets);
+
+    vm.startPrank(USER);
+    deal(address(exaUSDC.asset()), USER, 1_000_000e6);
+    exaUSDC.asset().approve(address(exaUSDC), type(uint256).max);
+    uint256 actualRepayAssets = exaUSDC.repayAtMaturity(maturity, positionAssets, type(uint256).max, USER);
+
+    assertEq(actualRepayAssets, repayAssets);
+  }
+
   function test_fixedRepayPosition_beforeMaturity() external {
     uint256 maturity = 1_734_566_400;
     uint256 repayAssets = 420e6;

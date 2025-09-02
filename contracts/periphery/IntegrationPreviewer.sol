@@ -9,6 +9,8 @@ import { FixedLib } from "../utils/FixedLib.sol";
 
 contract IntegrationPreviewer {
   using FixedPointMathLib for uint256;
+  using FixedLib for FixedLib.Position;
+  using FixedLib for FixedLib.Pool;
 
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
@@ -31,6 +33,35 @@ contract IntegrationPreviewer {
     if (adjustedDebt >= maxAdjustedDebt) return 0;
     uint256 maxExtraDebt = maxAdjustedDebt - adjustedDebt;
     return maxExtraDebt.mulWadDown(adjustFactor).mulDivDown(10 ** decimals, auditor.assetPrice(priceFeed));
+  }
+
+  function fixedRepayAssets(
+    address account,
+    Market market,
+    uint256 maturity,
+    uint256 positionAssets
+  ) external view returns (uint256 assets) {
+    FixedLib.Position memory position;
+    (position.principal, position.fee) = market.fixedBorrowPositions(maturity, account);
+    uint256 totalPosition = position.principal + position.fee;
+    if (totalPosition == 0) return 0;
+    if (positionAssets > totalPosition) positionAssets = totalPosition;
+    if (block.timestamp >= maturity) {
+      return positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
+    }
+    FixedLib.Pool memory pool;
+    (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
+    if (maturity > pool.lastAccrual) {
+      pool.unassignedEarnings -= pool.unassignedEarnings.mulDivDown(
+        block.timestamp - pool.lastAccrual,
+        maturity - pool.lastAccrual
+      );
+    }
+    (uint256 yield, ) = pool.calculateDeposit(
+      position.scaleProportionally(positionAssets).principal,
+      market.backupFeeRate()
+    );
+    return positionAssets - yield;
   }
 
   function fixedRepayPosition(
