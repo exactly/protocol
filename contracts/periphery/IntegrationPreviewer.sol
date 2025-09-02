@@ -101,4 +101,34 @@ contract IntegrationPreviewer {
     // saturated fallback: x ≈ assets + netUnassignedEarnings, capped by total (safe add)
     return assets + Math.min(netUnassignedEarnings, totalPosition - assets);
   }
+
+  function fixedRepaySnapshot(
+    address account,
+    Market market,
+    uint256 maturity
+  ) external view returns (FixedRepaySnapshot memory snapshot) {
+    (uint256 borrowed, uint256 supplied, uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(maturity);
+    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(maturity, account);
+    snapshot = FixedRepaySnapshot({
+      penaltyRate: market.penaltyRate(),
+      backupFeeRate: market.backupFeeRate(),
+      borrowed: borrowed,
+      supplied: supplied,
+      unassignedEarnings: unassignedEarnings,
+      lastAccrual: lastAccrual,
+      principal: principal,
+      fee: fee
+    });
+  }
+
+  struct FixedRepaySnapshot {
+    uint256 penaltyRate;
+    uint256 backupFeeRate;
+    uint256 borrowed;
+    uint256 supplied;
+    uint256 unassignedEarnings;
+    uint256 lastAccrual;
+    uint256 principal;
+    uint256 fee;
+  }
 }
