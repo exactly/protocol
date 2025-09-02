@@ -20,12 +20,27 @@ contract IntegrationPreviewer {
     auditor = auditor_;
   }
 
+  /// @notice Returns the health factor of an `account` across supported markets.
+  /// @dev Uses `auditor.accountLiquidity` with no delta to obtain adjusted collateral and debt.
+  /// If the account has no debt, returns `type(uint256).max`.
+  /// Health factor is expressed in WAD (1e18 = 1.0).
+  /// @param account The account whose health factor is being queried.
+  /// @return healthFactor The account health factor in WAD, or max when there is no debt.
   function healthFactor(address account) external view returns (uint256) {
     (uint256 adjustedCollateral, uint256 adjustedDebt) = auditor.accountLiquidity(account, Market(address(0)), 0);
     if (adjustedDebt == 0) return type(uint256).max;
     return adjustedCollateral.divWadDown(adjustedDebt);
   }
 
+  /// @notice Returns the maximum additional amount of underlying assets the `account` can
+  /// borrow from `market` so that its health factor becomes `targetHealthFactor`.
+  /// @dev Computes the limit from current adjusted collateral and debt, applying the market
+  /// adjust factor and oracle price. All arithmetic is rounded down for safety.
+  /// Returns 0 if the account is already at or past the target.
+  /// @param account The borrower address to evaluate.
+  /// @param market The market from which additional assets would be borrowed.
+  /// @param targetHealthFactor The desired health factor in WAD (1e18 = 1.0).
+  /// @return maxAssets The maximum extra underlying assets that can be borrowed safely.
   function borrowLimit(address account, Market market, uint256 targetHealthFactor) external view returns (uint256) {
     (uint256 adjustedCollateral, uint256 adjustedDebt) = auditor.accountLiquidity(account, market, 0);
     (uint256 adjustFactor, uint256 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
@@ -35,6 +50,17 @@ contract IntegrationPreviewer {
     return maxExtraDebt.mulWadDown(adjustFactor).mulDivDown(10 ** decimals, auditor.assetPrice(priceFeed));
   }
 
+  /// @notice Preview the amount of underlying `assets` required to repay `positionAssets`
+  /// of a fixed-rate borrow position for `account` at `maturity` in `market`.
+  /// @dev Caps `positionAssets` to the total position (principal + fee). If the position
+  /// is past maturity, applies a linear penalty proportional to the elapsed time.
+  /// Before maturity, uses pool state and `calculateDeposit` to account for unassigned
+  /// earnings and backup fee rate; result is rounded down.
+  /// @param account The borrower whose fixed position is being repaid.
+  /// @param market The market that holds the fixed-rate position.
+  /// @param maturity The UNIX timestamp identifying the fixed-rate pool.
+  /// @param positionAssets The amount of position (principal + fee) to repay.
+  /// @return assets The required amount of underlying assets to transfer for the repay.
   function fixedRepayAssets(
     address account,
     Market market,
@@ -64,6 +90,17 @@ contract IntegrationPreviewer {
     return positionAssets - yield;
   }
 
+  /// @notice Preview the portion of the fixed-rate position that can be covered with `assets`
+  /// provided by `account` in `market` at `maturity`.
+  /// @dev Bounded by the total position (principal + fee). If the pool is past maturity,
+  /// accounts for the linear penalty. Before maturity, estimates based on pool
+  /// unassigned earnings and backup-supplied liquidity, using an unsaturated guess
+  /// with a saturated fallback when assumptions do not hold. All arithmetic rounds down.
+  /// @param account The borrower whose fixed position is being repaid.
+  /// @param market The market that holds the fixed-rate position.
+  /// @param maturity The UNIX timestamp identifying the fixed-rate pool.
+  /// @param assets The amount of underlying assets provided to cover the position.
+  /// @return positionAssets The portion of the position (principal + fee) that would be covered.
   function fixedRepayPosition(
     address account,
     Market market,
@@ -102,6 +139,13 @@ contract IntegrationPreviewer {
     return assets + Math.min(netUnassignedEarnings, totalPosition - assets);
   }
 
+  /// @notice Returns a snapshot of pool and position parameters used for fixed repay previews.
+  /// @dev Reads pool aggregates and the borrower's position at `maturity`; does not mutate state.
+  /// Useful for off-chain simulations and UI previews.
+  /// @param account The borrower whose position is queried.
+  /// @param market The market to query.
+  /// @param maturity The UNIX timestamp identifying the fixed-rate pool.
+  /// @return snapshot A `FixedRepaySnapshot` with penalty/fee rates, pool, and position data.
   function fixedRepaySnapshot(
     address account,
     Market market,
@@ -121,14 +165,23 @@ contract IntegrationPreviewer {
     });
   }
 
+  /// @notice Aggregated pool and position data used to preview fixed-position repayments.
   struct FixedRepaySnapshot {
+    /// @notice Late repayment penalty rate applied after maturity (WAD per second).
     uint256 penaltyRate;
+    /// @notice Backup fee rate kept by the protocol when using backup liquidity (WAD fraction).
     uint256 backupFeeRate;
+    /// @notice Total borrowed in the fixed pool at `maturity` (underlying asset units).
     uint256 borrowed;
+    /// @notice Total supplied in the fixed pool at `maturity` (underlying asset units).
     uint256 supplied;
+    /// @notice Unassigned earnings of the pool at snapshot (underlying asset units).
     uint256 unassignedEarnings;
+    /// @notice Last timestamp when the pool accrued earnings (UNIX seconds).
     uint256 lastAccrual;
+    /// @notice Borrower's principal outstanding for the fixed position (underlying asset units).
     uint256 principal;
+    /// @notice Borrower's fee outstanding for the fixed position (underlying asset units).
     uint256 fee;
   }
 }
