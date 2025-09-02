@@ -8,6 +8,7 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC4626 } from "solmate/src/mixins/ERC4626.sol";
 
 import { InterestRateModel } from "./InterestRateModel.sol";
+import { RewardsController } from "./RewardsController.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 
 abstract contract MarketBase is Initializable, AccessControlUpgradeable, PausableUpgradeable, ERC4626 {
@@ -74,6 +75,9 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   address public treasury;
   /// @notice Rate to be charged by the treasury to floating and fixed borrows.
   uint256 public treasuryFeeRate;
+
+  /// @notice Address of the rewards controller that will accrue rewards for accounts operating with the Market.
+  RewardsController public rewardsController;
 
   /// @notice Deposits amount of assets on behalf of the treasury address.
   /// @param fee amount of assets to be deposited.
@@ -197,6 +201,16 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   /// @dev Internal function to avoid code duplication.
   function floatingUtilization(uint256 assets, uint256 debt) internal pure returns (uint256) {
     return assets != 0 ? debt.divWadUp(assets) : 0;
+  }
+
+  /// @notice Triggers rewards' updates in rewards controller.
+  /// @dev Internal function to avoid code duplication.
+  function handleRewards(bool isBorrow, address account) internal virtual {
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) {
+      if (isBorrow) memRewardsController.handleBorrow(account);
+      else memRewardsController.handleDeposit(account);
+    }
   }
 
   /// @notice Emits MarketUpdate event.

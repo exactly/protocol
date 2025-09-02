@@ -28,9 +28,6 @@ contract Market is MarketBase {
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   MarketExtension public immutable extension;
 
-  /// @notice Address of the rewards controller that will accrue rewards for accounts operating with the Market.
-  RewardsController public rewardsController;
-
   /// @notice Flag to prevent new borrows and deposits.
   bool public isFrozen;
 
@@ -42,7 +39,7 @@ contract Market is MarketBase {
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
     auditor = auditor_;
-    extension = new MarketExtension(asset_);
+    extension = new MarketExtension(asset_, auditor_);
 
     _disableInitializers();
   }
@@ -753,11 +750,9 @@ contract Market is MarketBase {
   /// @dev Makes sure that the caller doesn't have shortfall after transferring.
   /// @param to address to which the assets will be transferred.
   /// @param shares amount of shares to be transferred.
-  function transfer(address to, uint256 shares) public virtual override whenNotPaused returns (bool) {
-    auditor.checkShortfall(this, msg.sender, previewRedeem(shares));
-    handleRewards(false, msg.sender);
-    handleRewards(false, to);
-    return super.transfer(to, shares);
+  // solhint-disable-next-line no-unused-vars
+  function transfer(address to, uint256 shares) public virtual override returns (bool) {
+    return abi.decode(delegateToExtension(), (bool));
   }
 
   /// @notice Moves amount of shares from `from` to `to` using the allowance mechanism.
@@ -765,11 +760,9 @@ contract Market is MarketBase {
   /// @param from address from which the assets will be transferred.
   /// @param to address to which the assets will be transferred.
   /// @param shares amount of shares to be transferred.
-  function transferFrom(address from, address to, uint256 shares) public virtual override whenNotPaused returns (bool) {
-    auditor.checkShortfall(this, from, previewRedeem(shares));
-    handleRewards(false, from);
-    handleRewards(false, to);
-    return super.transferFrom(from, to, shares);
+  // solhint-disable-next-line no-unused-vars
+  function transferFrom(address from, address to, uint256 shares) public virtual override returns (bool) {
+    return abi.decode(delegateToExtension(), (bool));
   }
 
   /// @notice Gets current snapshot for an account across all maturities.
@@ -885,16 +878,6 @@ contract Market is MarketBase {
   /// @dev Internal function to avoid code duplication.
   function fixedUtilization(uint256 supplied, uint256 borrowed, uint256 assets) internal pure returns (uint256) {
     return assets != 0 && borrowed > supplied ? (borrowed - supplied).divWadUp(assets) : 0;
-  }
-
-  /// @notice Triggers rewards' updates in rewards controller.
-  /// @dev Internal function to avoid code duplication.
-  function handleRewards(bool isBorrow, address account) internal virtual {
-    RewardsController memRewardsController = rewardsController;
-    if (address(memRewardsController) != address(0)) {
-      if (isBorrow) memRewardsController.handleBorrow(account);
-      else memRewardsController.handleDeposit(account);
-    }
   }
 
   /// @notice Emits FixedEarningsUpdate event.
