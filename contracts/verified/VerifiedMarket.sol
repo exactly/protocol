@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import { ERC20, FixedLib, Market, NotAuditor } from "../Market.sol";
+import { ERC20, FixedLib, Market, NotAuditor, RewardsController } from "../Market.sol";
 import { NotAllowed, VerifiedAuditor } from "./VerifiedAuditor.sol";
 
 contract VerifiedMarket is Market {
@@ -139,6 +139,10 @@ contract VerifiedMarket is Market {
     _requireAllowed(owner);
     return super.withdrawAtMaturity(maturity, positionAssets, minAssetsRequired, receiver, owner);
   }
+
+  function handleRewards(bool, address) internal override {} // solhint-disable-line no-empty-blocks
+
+  function setRewardsController(RewardsController) public override {} // solhint-disable-line no-empty-blocks
 
   function _requireAllowed(address account) internal view {
     if (!VerifiedAuditor(address(auditor)).firewall().isAllowed(account)) revert NotAllowed(account);

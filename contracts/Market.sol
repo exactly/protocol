@@ -1086,7 +1086,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Triggers rewards' updates in rewards controller.
   /// @dev Internal function to avoid code duplication.
-  function handleRewards(bool isBorrow, address account) internal {
+  function handleRewards(bool isBorrow, address account) internal virtual {
     RewardsController memRewardsController = rewardsController;
     if (address(memRewardsController) != address(0)) {
       if (isBorrow) memRewardsController.handleBorrow(account);
@@ -1154,7 +1154,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Sets the rewards controller to update account rewards when operating with the Market.
   /// @param rewardsController_ new rewards controller.
-  function setRewardsController(RewardsController rewardsController_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setRewardsController(RewardsController rewardsController_) public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
     rewardsController = rewardsController_;
     emit RewardsControllerSet(rewardsController_);
   }
