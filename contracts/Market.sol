@@ -6,6 +6,7 @@ import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable-v4/
 import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { RewardsController } from "./RewardsController.sol";
+import { MarketExtension } from "./MarketExtension.sol";
 import { MarketBase } from "./MarketBase.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Auditor } from "./Auditor.sol";
@@ -24,6 +25,8 @@ contract Market is MarketBase {
 
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  MarketExtension public immutable extension;
 
   /// @notice Address of the rewards controller that will accrue rewards for accounts operating with the Market.
   RewardsController public rewardsController;
@@ -39,6 +42,7 @@ contract Market is MarketBase {
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
     auditor = auditor_;
+    extension = new MarketExtension(asset_);
 
     _disableInitializers();
   }
@@ -972,6 +976,20 @@ contract Market is MarketBase {
     _;
   }
 
+  function delegateToExtension() internal returns (bytes memory) {
+    /// @custom:oz-upgrades-unsafe-allow delegatecall
+    // solhint-disable-next-line avoid-low-level-calls
+    (bool success, bytes memory data) = address(extension).delegatecall(msg.data);
+    if (!success) {
+      if (data.length == 0) revert ExtensionFailed();
+      // solhint-disable-next-line no-inline-assembly
+      assembly ("memory-safe") {
+        revert(add(32, data), mload(data))
+      }
+    }
+    return data;
+  }
+
   /// @notice Event emitted when an account borrows amount of assets from a floating pool.
   /// @param caller address which borrowed the asset.
   /// @param receiver address that received the borrowed assets.
@@ -1109,6 +1127,7 @@ contract Market is MarketBase {
 }
 
 error Disagreement();
+error ExtensionFailed();
 error InsufficientProtocolLiquidity();
 error MarketFrozen();
 error NotAuditor();
