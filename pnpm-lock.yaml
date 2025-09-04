@@ -138,6 +138,9 @@ importers:
       hardhat-gas-reporter:
         specifier: ^2.2.1
         version: 2.2.1(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2))(typescript@5.6.2)
+      hardhat-ignore-warnings:
+        specifier: ^0.2.12
+        version: 0.2.12
       hardhat-tracer:
         specifier: ^3.1.0
         version: 3.1.0(chai@4.5.0)(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2))
@@ -2125,6 +2128,9 @@ packages:
     peerDependencies:
       hardhat: ^2.16.0
 
+  hardhat-ignore-warnings@0.2.12:
+    resolution: {integrity: sha512-SaxCLKzYBMk3Rd1275TnanUmmxwgU+bu4Ekf2MKcqXxxt6xTGcPTtTaM+USrLgmejZHC4Itg/PaWITlOp4RL3g==}
+
   hardhat-tracer@3.1.0:
     resolution: {integrity: sha512-Ip16HQAuzbqbNJUIEVfqmbPmOY90bxZSpwu5Q73cwloy+LUYA04BATUM9Gui5H7zcgsgZ1IVy7pSYn6ZMjLmag==}
     peerDependencies:
@@ -2737,6 +2743,10 @@ packages:
     resolution: {integrity: sha512-IRUxE4BVsHWXkV/SFOut4qTlagw2aM8T5/vnTsmrHJvVoKueJHRc/JaFND7QDDc61kLYUJ6qlZM3sqTSyx2dTw==}
     hasBin: true
 
+  node-interval-tree@2.1.2:
+    resolution: {integrity: sha512-bJ9zMDuNGzVQg1xv0bCPzyEDxHgbrx7/xGj6CDokvizZZmastPsOh0JJLuY8wA5q2SfX1TLNMk7XNV8WxbGxzA==}
+    engines: {node: '>= 14.0.0'}
+
   nofilter@3.1.0:
     resolution: {integrity: sha512-l2NNj07e9afPnhAhvgVrCD/oy2Ai1yfLpuo3EpiO1jFTsB4sFz6oIfAfSZyQzVpkZQ9xS8ZS5g1jCBgq4Hwo0g==}
     engines: {node: '>=12.19'}
@@ -3190,6 +3200,9 @@ packages:
   sha1@1.1.1:
     resolution: {integrity: sha512-dZBS6OrMjtgVkopB1Gmo4RQCDKiZsqcpAQpkV/aaj+FCrCg8r4I4qMkDPQjBgLIxlmu9k4nUbWq6ohXahOneYA==}
 
+  shallowequal@1.1.0:
+    resolution: {integrity: sha512-y0m1JoUZSlPAjXVtPPW70aZWfIL/dSP7AFkRnniLCrK/8MDKog3TySTBmckD+RObVxH0v4Tox67+F14PdED2oQ==}
+
   shebang-command@2.0.0:
     resolution: {integrity: sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==}
     engines: {node: '>=8'}
@@ -3254,6 +3267,70 @@ packages:
 
   solidity-ast@0.4.59:
     resolution: {integrity: sha512-I+CX0wrYUN9jDfYtcgWSe+OAowaXy8/1YQy7NS4ni5IBDmIYBq7ZzaP/7QqouLjzZapmQtvGLqCaYgoUWqBo5g==}
+
+  solidity-comments-darwin-arm64@0.0.2:
+    resolution: {integrity: sha512-HidWkVLSh7v+Vu0CA7oI21GWP/ZY7ro8g8OmIxE8oTqyMwgMbE8F1yc58Sj682Hj199HCZsjmtn1BE4PCbLiGA==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+
+  solidity-comments-darwin-x64@0.0.2:
+    resolution: {integrity: sha512-Zjs0Ruz6faBTPT6fBecUt6qh4CdloT8Bwoc0+qxRoTn9UhYscmbPQkUgQEbS0FQPysYqVzzxJB4h1Ofbf4wwtA==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+
+  solidity-comments-freebsd-x64@0.0.2:
+    resolution: {integrity: sha512-8Qe4mpjuAxFSwZJVk7B8gAoLCdbtS412bQzBwk63L8dmlHogvE39iT70aAk3RHUddAppT5RMBunlPUCFYJ3ZTw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [freebsd]
+
+  solidity-comments-linux-arm64-gnu@0.0.2:
+    resolution: {integrity: sha512-spkb0MZZnmrP+Wtq4UxP+nyPAVRe82idOjqndolcNR0S9Xvu4ebwq+LvF4HiUgjTDmeiqYiFZQ8T9KGdLSIoIg==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+
+  solidity-comments-linux-arm64-musl@0.0.2:
+    resolution: {integrity: sha512-guCDbHArcjE+JDXYkxx5RZzY1YF6OnAKCo+sTC5fstyW/KGKaQJNPyBNWuwYsQiaEHpvhW1ha537IvlGek8GqA==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+
+  solidity-comments-linux-x64-gnu@0.0.2:
+    resolution: {integrity: sha512-zIqLehBK/g7tvrFmQljrfZXfkEeLt2v6wbe+uFu6kH/qAHZa7ybt8Vc0wYcmjo2U0PeBm15d79ee3AkwbIjFdQ==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+
+  solidity-comments-linux-x64-musl@0.0.2:
+    resolution: {integrity: sha512-R9FeDloVlFGTaVkOlELDVC7+1Tjx5WBPI5L8r0AGOPHK3+jOcRh6sKYpI+VskSPDc3vOO46INkpDgUXrKydlIw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+
+  solidity-comments-win32-arm64-msvc@0.0.2:
+    resolution: {integrity: sha512-QnWJoCQcJj+rnutULOihN9bixOtYWDdF5Rfz9fpHejL1BtNjdLW1om55XNVHGAHPqBxV4aeQQ6OirKnp9zKsug==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [win32]
+
+  solidity-comments-win32-ia32-msvc@0.0.2:
+    resolution: {integrity: sha512-vUg4nADtm/NcOtlIymG23NWJUSuMsvX15nU7ynhGBsdKtt8xhdP3C/zA6vjDk8Jg+FXGQL6IHVQ++g/7rSQi0w==}
+    engines: {node: '>= 10'}
+    cpu: [ia32]
+    os: [win32]
+
+  solidity-comments-win32-x64-msvc@0.0.2:
+    resolution: {integrity: sha512-36j+KUF4V/y0t3qatHm/LF5sCUCBx2UndxE1kq5bOzh/s+nQgatuyB+Pd5BfuPQHdWu2KaExYe20FlAa6NL7+Q==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
+
+  solidity-comments@0.0.2:
+    resolution: {integrity: sha512-G+aK6qtyUfkn1guS8uzqUeua1dURwPlcOjoTYW/TwmXAcE7z/1+oGCfZUdMSe4ZMKklNbVZNiG5ibnF8gkkFfw==}
+    engines: {node: '>= 12'}
 
   solidity-coverage@0.8.13:
     resolution: {integrity: sha512-RiBoI+kF94V3Rv0+iwOj3HQVSqNzA9qm/qDP1ZDXK5IX0Cvho1qiz8hAXTsAo6KOIUeP73jfscq0KlLqVxzGWA==}
@@ -6499,6 +6576,12 @@ snapshots:
       - utf-8-validate
       - zod
 
+  hardhat-ignore-warnings@0.2.12:
+    dependencies:
+      minimatch: 5.1.6
+      node-interval-tree: 2.1.2
+      solidity-comments: 0.0.2
+
   hardhat-tracer@3.1.0(chai@4.5.0)(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2)):
     dependencies:
       chai: 4.5.0
@@ -7141,6 +7224,10 @@ snapshots:
 
   node-gyp-build@4.8.2: {}
 
+  node-interval-tree@2.1.2:
+    dependencies:
+      shallowequal: 1.1.0
+
   nofilter@3.1.0: {}
 
   nopt@3.0.6:
@@ -7594,6 +7681,8 @@ snapshots:
       charenc: 0.0.2
       crypt: 0.0.2
 
+  shallowequal@1.1.0: {}
+
   shebang-command@2.0.0:
     dependencies:
       shebang-regex: 3.0.0
@@ -7687,6 +7776,49 @@ snapshots:
       - typescript
 
   solidity-ast@0.4.59: {}
+
+  solidity-comments-darwin-arm64@0.0.2:
+    optional: true
+
+  solidity-comments-darwin-x64@0.0.2:
+    optional: true
+
+  solidity-comments-freebsd-x64@0.0.2:
+    optional: true
+
+  solidity-comments-linux-arm64-gnu@0.0.2:
+    optional: true
+
+  solidity-comments-linux-arm64-musl@0.0.2:
+    optional: true
+
+  solidity-comments-linux-x64-gnu@0.0.2:
+    optional: true
+
+  solidity-comments-linux-x64-musl@0.0.2:
+    optional: true
+
+  solidity-comments-win32-arm64-msvc@0.0.2:
+    optional: true
+
+  solidity-comments-win32-ia32-msvc@0.0.2:
+    optional: true
+
+  solidity-comments-win32-x64-msvc@0.0.2:
+    optional: true
+
+  solidity-comments@0.0.2:
+    optionalDependencies:
+      solidity-comments-darwin-arm64: 0.0.2
+      solidity-comments-darwin-x64: 0.0.2
+      solidity-comments-freebsd-x64: 0.0.2
+      solidity-comments-linux-arm64-gnu: 0.0.2
+      solidity-comments-linux-arm64-musl: 0.0.2
+      solidity-comments-linux-x64-gnu: 0.0.2
+      solidity-comments-linux-x64-musl: 0.0.2
+      solidity-comments-win32-arm64-msvc: 0.0.2
+      solidity-comments-win32-ia32-msvc: 0.0.2
+      solidity-comments-win32-x64-msvc: 0.0.2
 
   solidity-coverage@0.8.13(hardhat@2.22.12(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2)):
     dependencies:
