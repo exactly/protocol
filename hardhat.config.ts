@@ -386,7 +386,7 @@ const hardhatConfig: Config = {
   paths: { artifacts: "artifacts/hardhat" },
   tenderly: { project: "exactly", username: "exactly", privateVerification: false },
   typechain: { outDir: "types", target: "ethers-v6" },
-  contractSizer: { runOnCompile: true, only: ["^contracts/"], except: ["mocks"] },
+  contractSizer: { runOnCompile: true, strict: true, only: ["^contracts/"], except: ["mocks"] },
   gasReporter: { currency: "USD", gasPrice: 100, enabled: !!JSON.parse(env.REPORT_GAS ?? "false") },
   warnings: {
     "*": { "code-size": "off" },
