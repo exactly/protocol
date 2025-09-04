@@ -1,5 +1,21 @@
 # @exactly/protocol
 
+## 0.2.21
+
+### Patch Changes
+
+- [`362a341`](https://github.com/exactly/protocol/commit/362a34171a9b03bbf93db0e551ebb21b72abf71c) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - ✨ preview repay position assets
+
+- [`d6bfede`](https://github.com/exactly/protocol/commit/d6bfededaa7d3831a31e3bd5f1e2d4fca36b148d) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - ✨ integration: preview health factor
+
+- [`29f0042`](https://github.com/exactly/protocol/commit/29f0042b4b0f3a171eed341a27d0005f78f63a35) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - ✨ integration: preview repay assets
+
+- [`6e0ba98`](https://github.com/exactly/protocol/commit/6e0ba9810a604db02050848ecfa7ad4a10292af2) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - ✨ integration: return data for offline fixed repay calculations
+
+- [`f82323c`](https://github.com/exactly/protocol/commit/f82323c737e6ce3afa36d5d1b877bcba5b176f09) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - ✨ integration: preview borrow limit
+
+- [`1b18da4`](https://github.com/exactly/protocol/commit/1b18da48e92dfc1c4526bd3a24f475c2e74f476e) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - 🚀 optimism: deploy integration previewer
+
 ## 0.2.20
 
 ### Patch Changes
