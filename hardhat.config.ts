@@ -411,6 +411,7 @@ const hardhatConfig: Config = {
   gasReporter: { currency: "USD", gasPrice: 100, enabled: !!JSON.parse(env.REPORT_GAS ?? "false") },
   warnings: {
     "*": { "code-size": "off" },
+    "contracts/Market.sol": { "unused-param": "off" },
   },
 };
 export default hardhatConfig;
