@@ -36,18 +36,22 @@ contract MarketTest is Test {
 
   address internal constant BOB = address(0x69);
   address internal constant ALICE = address(0x420);
+  address internal account = makeAddr("account");
+  address internal liquidator = makeAddr("liquidator");
+  address internal attacker = makeAddr("attacker");
 
   Market internal market;
   Market internal marketWETH;
   Auditor internal auditor;
   MockERC20 internal weth;
+  MockERC20 internal asset;
   MockPriceFeed internal daiPriceFeed;
   MockInterestRateModel internal irm;
 
-  function setUp() external {
+  function setUp() external virtual {
     vm.warp(0);
 
-    MockERC20 asset = new MockERC20("DAI", "DAI", 18);
+    asset = new MockERC20("DAI", "DAI", 18);
     weth = new MockERC20("WETH", "WETH", 18);
 
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
@@ -546,8 +550,6 @@ contract MarketTest is Test {
   }
 
   function testRoundingDownAssetsToValidateShortfallWhenTransferringFrom() external {
-    MockERC20 asset = new MockERC20("DAI", "DAI", 18);
-
     // deploy a harness market to be able to set different supply and floatingAssets
     MarketHarness marketHarness = new MarketHarness(
       asset,
@@ -581,8 +583,6 @@ contract MarketTest is Test {
   }
 
   function testRoundingDownAssetsToValidateShortfallWhenTransferring() external {
-    MockERC20 asset = new MockERC20("DAI", "DAI", 18);
-
     // deploy a harness market to be able to set different supply and floatingAssets
     MarketHarness marketHarness = new MarketHarness(
       asset,
@@ -837,7 +837,6 @@ contract MarketTest is Test {
   function testEarlyRepayLiquidationUnassignedEarnings() public {
     uint256 maturity = FixedLib.INTERVAL;
     uint256 assets = 10_000 ether;
-    ERC20 asset = market.asset();
     deal(address(asset), ALICE, assets);
 
     vm.startPrank(ALICE);
@@ -859,7 +858,6 @@ contract MarketTest is Test {
 
     // LIQUIDATOR liquidates ALICE, wiping ALICE'S maturity borrow
     // and ignores its unassigned rewards
-    address liquidator = makeAddr("liquidator");
     vm.startPrank(liquidator);
     deal(address(asset), liquidator, assets);
     asset.approve(address(market), assets);
@@ -867,7 +865,6 @@ contract MarketTest is Test {
     vm.stopPrank();
 
     // ATTACKER deposits to borrow at maturity
-    address attacker = makeAddr("attacker");
     deal(address(asset), attacker, 20);
     vm.startPrank(attacker);
     asset.approve(address(market), 20);
@@ -941,7 +938,6 @@ contract MarketTest is Test {
     market.deposit(assets, BOB);
 
     // ALICE deposits and borrows
-    ERC20 asset = market.asset();
     deal(address(asset), ALICE, assets);
     vm.startPrank(ALICE);
     market.deposit(assets, ALICE);
@@ -957,7 +953,6 @@ contract MarketTest is Test {
     assertEq(debt, 9290724716705852929432); // 9290e18
 
     // Liquidator liquidates
-    address liquidator = makeAddr("liquidator");
     deal(address(asset), liquidator, assets);
     vm.startPrank(liquidator);
     asset.approve(address(market), type(uint256).max);
@@ -1156,7 +1151,6 @@ contract MarketTest is Test {
     (, , uint256 unassignedEarningsAfter, ) = marketWETH.fixedPools(4 weeks);
     assertEq(unassignedEarningsAfter, 0);
 
-    address account = makeAddr("account");
     vm.startPrank(account);
     deal(address(weth), account, 10);
     weth.approve(address(marketWETH), 10);
@@ -1638,7 +1632,6 @@ contract MarketTest is Test {
 
     // ALICE deposits and borrows DAI
     uint256 assets = 10_000 ether;
-    ERC20 asset = market.asset();
     deal(address(asset), ALICE, assets);
     market.deposit(assets, ALICE);
     market.borrow((assets * 9 * 9) / 10 / 10, ALICE, ALICE);
@@ -1648,7 +1641,6 @@ contract MarketTest is Test {
     skip(10 days);
 
     // LIQUIDATION doesn't fail as transfer from is before withdrawing collateral
-    address liquidator = makeAddr("liquidator");
     deal(address(asset), liquidator, 100_000 ether);
     vm.startPrank(liquidator);
     asset.approve(address(market), type(uint256).max);
@@ -2105,7 +2097,6 @@ contract MarketTest is Test {
     vm.warp(0);
     market.deposit(100 ether, address(this));
     market.borrow(10 ether, address(this), address(this));
-
     vm.warp(365 days);
     market.withdraw(1, address(this), address(this));
 
@@ -2771,8 +2762,8 @@ contract MarketTest is Test {
     Market[4] memory markets;
     string[4] memory symbols = ["DAI", "USDC", "WETH", "WBTC"];
     for (uint256 i = 0; i < symbols.length; i++) {
-      MockERC20 asset = new MockERC20(symbols[i], symbols[i], 18);
-      markets[i] = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+      MockERC20 asset_ = new MockERC20(symbols[i], symbols[i], 18);
+      markets[i] = Market(address(new ERC1967Proxy(address(new Market(asset_, auditor)), "")));
       markets[i].initialize(
         "",
         3,
@@ -2786,11 +2777,11 @@ contract MarketTest is Test {
       );
 
       auditor.enableMarket(markets[i], daiPriceFeed, 0.8e18);
-      asset.mint(BOB, 50_000 ether);
-      asset.mint(address(this), 50_000 ether);
+      asset_.mint(BOB, 50_000 ether);
+      asset_.mint(address(this), 50_000 ether);
       vm.prank(BOB);
-      asset.approve(address(markets[i]), type(uint256).max);
-      asset.approve(address(markets[i]), type(uint256).max);
+      asset_.approve(address(markets[i]), type(uint256).max);
+      asset_.approve(address(markets[i]), type(uint256).max);
       markets[i].deposit(30_000 ether, address(this));
     }
 
