@@ -7,6 +7,7 @@ import "hardhat-deploy";
 import "hardhat-deploy-ethers";
 import "hardhat-contract-sizer";
 import "hardhat-gas-reporter";
+import "hardhat-ignore-warnings";
 import "solidity-coverage";
 import "hardhat-tracer";
 import { env } from "process";
@@ -387,6 +388,9 @@ const hardhatConfig: Config = {
   typechain: { outDir: "types", target: "ethers-v6" },
   contractSizer: { runOnCompile: true, only: ["^contracts/"], except: ["mocks"] },
   gasReporter: { currency: "USD", gasPrice: 100, enabled: !!JSON.parse(env.REPORT_GAS ?? "false") },
+  warnings: {
+    "*": { "code-size": "off" },
+  },
 };
 export default hardhatConfig;
 
