@@ -6,7 +6,7 @@
   "repository": "github:exactly/protocol",
   "scripts": {
     "lint": "pnpm run --aggregate-output /lint:/",
-    "lint:sol": "solhint '{contracts,scripts,test}/**/*.sol'",
+    "lint:sol": "solhint --max-warnings 0 '{contracts,scripts,test}/**/*.sol'",
     "lint:ts": "tsc",
     "lint:es": "eslint --ext .ts,.js,.cjs,.mjs .",
     "fix:sol": "prettier -w '{contracts,scripts,test}/**/*.sol'",
