@@ -50,6 +50,7 @@ contract Market is MarketBase {
   /// @notice Initializes the contract.
   /// @dev can only be called once.
   function initialize(
+    // solhint-disable no-unused-vars
     string calldata assetSymbol,
     uint8 maxFuturePools_,
     uint128 earningsAccumulatorSmoothFactor_,
@@ -59,25 +60,9 @@ contract Market is MarketBase {
     uint128 reserveFactor_,
     uint256 dampSpeedUp_,
     uint256 dampSpeedDown_
-  ) external initializer {
-    __AccessControl_init();
-    __Pausable_init();
-
-    name = string.concat("exactly ", assetSymbol);
-    symbol = string.concat("exa", assetSymbol);
-    lastAccumulatorAccrual = uint32(block.timestamp);
-    lastFloatingDebtUpdate = uint32(block.timestamp);
-    lastAverageUpdate = uint32(block.timestamp);
-
-    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-
-    setMaxFuturePools(maxFuturePools_);
-    setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
-    setInterestRateModel(interestRateModel_);
-    setPenaltyRate(penaltyRate_);
-    setBackupFeeRate(backupFeeRate_);
-    setReserveFactor(reserveFactor_);
-    setDampSpeed(dampSpeedUp_, dampSpeedDown_);
+  ) external {
+    // solhint-enable no-unused-vars
+    delegateToExtension();
   }
 
   /// @notice Borrows a certain amount from the floating pool.
