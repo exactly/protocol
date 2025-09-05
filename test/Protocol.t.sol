@@ -82,7 +82,10 @@ contract ProtocolTest is Test {
           maturityDurationSpeed: 0.5e18,
           durationThreshold: 0.2e18,
           durationGrowthLaw: 1e18,
-          penaltyDurationFactor: 1.333e18
+          penaltyDurationFactor: 1.333e18,
+          fixedBorrowThreshold: 1e18,
+          curveFactor: 0.1e18,
+          minThresholdFactor: 1e18
         }),
         market
       );
@@ -99,10 +102,7 @@ contract ProtocolTest is Test {
           floatingAssetsDampSpeedUp: 0.0046e18,
           floatingAssetsDampSpeedDown: 0.42e18,
           uDampSpeedUp: 0.23e18,
-          uDampSpeedDown: 0.000053e18,
-          fixedBorrowThreshold: 1e18,
-          curveFactor: 0.1e18,
-          minThresholdFactor: 1e18
+          uDampSpeedDown: 0.000053e18
         })
       );
       vm.label(address(market), string.concat("Market", i.toString()));
@@ -1110,8 +1110,10 @@ contract ProtocolTest is Test {
     uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
     return
       memFloatingAssetsAverage != 0
-        ? totalBorrows.divWadDown(memFloatingAssetsAverage) < market.maturityAllocation(maturity - block.timestamp) &&
-          floatingBackupBorrowed < memFloatingAssetsAverage.mulWadDown(uint256(market.fixedBorrowThreshold()))
+        ? totalBorrows.divWadDown(memFloatingAssetsAverage) <
+          market.interestRateModel().maturityAllocation(maturity - block.timestamp, market.maxFuturePools()) &&
+          floatingBackupBorrowed <
+          memFloatingAssetsAverage.mulWadDown(uint256(market.interestRateModel().fixedBorrowThreshold()))
         : true;
   }
 

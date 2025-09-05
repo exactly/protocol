@@ -31,6 +31,14 @@ contract MockBorrowRate {
     return borrowRate.mulDivUp(365 days, maturity - block.timestamp);
   }
 
+  function maturityAllocation(uint256, uint256) external pure returns (uint256) {
+    return 1e18;
+  }
+
+  function fixedBorrowThreshold() external pure returns (uint256) {
+    return 1e18;
+  }
+
   function setRate(uint256 newRate) public {
     borrowRate = newRate;
   }

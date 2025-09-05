@@ -41,6 +41,12 @@ contract InterestRateModel {
   uint256 public immutable durationThreshold;
   int256 public immutable durationGrowthLaw;
   int256 public immutable penaltyDurationFactor;
+  /// @notice Threshold to prevent fixed borrows when the utilization is too high.
+  int256 public immutable fixedBorrowThreshold;
+  /// @notice Convexity degree of the cap function.
+  int256 public immutable curveFactor;
+  /// @notice Minimum fraction of borrows that can be made at a fixed rate.
+  int256 public immutable minThresholdFactor;
 
   /// @dev maximum input value for expWad, ~ln((2^255 - 1) / 1e18), represented with 18 decimals.
   int256 internal constant EXP_THRESHOLD = 135305999368893231588;
@@ -76,6 +82,9 @@ contract InterestRateModel {
     durationThreshold = p.durationThreshold;
     durationGrowthLaw = p.durationGrowthLaw.toInt256();
     penaltyDurationFactor = p.penaltyDurationFactor.toInt256();
+    fixedBorrowThreshold = p.fixedBorrowThreshold;
+    curveFactor = p.curveFactor;
+    minThresholdFactor = p.minThresholdFactor;
 
     floatingCurveA =
       ((p.naturalRate.mulWadUp(
@@ -98,7 +107,7 @@ contract InterestRateModel {
     auxSigmoid = int256(naturalUtilization.divWadDown(1e18 - naturalUtilization)).lnWad();
 
     // reverts if it's an invalid curve (such as one yielding a negative interest rate).
-    // fixedRate(block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL), 2, 1, 1, 2, 2);
+    fixedRate(block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL), 2, 1, 1, 2, 2, 1e18);
     baseRate(1e18 - 1, 1e18 - 1);
   }
 
@@ -123,16 +132,13 @@ contract InterestRateModel {
     if (uFixed > uGlobal || uFloating > uGlobal) revert UtilizationExceeded();
     if (uGlobal == 0) return baseRate(0, 0);
 
-    uint256 maturityAllocation = market.maturityAllocation(maturity - block.timestamp);
-    uint256 maturityAllocationNext = market.maturityAllocation(maturity - block.timestamp + FixedLib.INTERVAL);
+    uint256 mAllocation = maturityAllocation(maturity - block.timestamp, maxPools);
+    uint256 mAllocationNext = maturityAllocation(maturity - block.timestamp + FixedLib.INTERVAL, maxPools);
     uint256 maturityNaturalUtilization = uGlobal.mulWadUp(
-      uint256(market.fixedBorrowThreshold()).mulWadDown(uint256(market.minThresholdFactor())) /
-        market.maxFuturePools() +
-        maturityAllocation -
-        maturityAllocationNext
+      uint256(fixedBorrowThreshold).mulWadDown(uint256(minThresholdFactor)) / maxPools + mAllocation - mAllocationNext
     );
     FixedVars memory v;
-    v.sqFNatPools = (maturityAllocation * 1e18) / maturityNaturalUtilization;
+    v.sqFNatPools = (mAllocation * 1e18) / maturityNaturalUtilization;
     v.fNatPools = (v.sqFNatPools * 1e18).sqrt();
     v.fixedFactor = (uFixed * 1e18) / maturityNaturalUtilization;
     v.natPools =
@@ -186,6 +192,22 @@ contract InterestRateModel {
     if (globalFactor > type(uint256).max / r) return type(uint256).max;
 
     return r.mulWadUp(globalFactor);
+  }
+
+  /// @notice Calculates the maturity allocation for a given time to maturity.
+  /// @param deltaTime time to maturity.
+  /// @param maxPools number of pools available in the time horizon.
+  /// @return maturity allocation.
+  function maturityAllocation(uint256 deltaTime, uint256 maxPools) public view returns (uint256) {
+    return
+      Math.min(
+        1e18,
+        uint256(
+          (fixedBorrowThreshold *
+            ((((curveFactor * int256(Math.min(1e18, deltaTime.divWadDown(maxPools * FixedLib.INTERVAL))).lnWad()) /
+              1e18).expWad() * minThresholdFactor.lnWad()) / 1e18).expWad()) / 1e18
+        )
+      );
   }
 
   /// @notice floating rate with given conditions, represented with 18 decimals.
@@ -329,6 +351,9 @@ struct Parameters {
   uint256 durationThreshold;
   uint256 durationGrowthLaw;
   uint256 penaltyDurationFactor;
+  int256 fixedBorrowThreshold;
+  int256 curveFactor;
+  int256 minThresholdFactor;
 }
 
 struct FixedVars {

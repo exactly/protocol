@@ -53,10 +53,7 @@ contract InstallmentsRouterTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     vm.label(address(market), "market");
@@ -75,10 +72,7 @@ contract InstallmentsRouterTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     vm.label(address(marketWETH), "marketWETH");

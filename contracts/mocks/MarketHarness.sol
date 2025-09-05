@@ -20,7 +20,6 @@ contract MarketHarness is Market {
     setBackupFeeRate(p.backupFeeRate);
     setReserveFactor(p.reserveFactor);
     setDampSpeed(p.floatingAssetsDampSpeedUp, p.floatingAssetsDampSpeedDown, p.uDampSpeedUp, p.uDampSpeedDown);
-    setFixedBorrowFactors(p.fixedBorrowThreshold, p.curveFactor, p.minThresholdFactor);
   }
 
   function borrowMaturityWithReturnValue(
