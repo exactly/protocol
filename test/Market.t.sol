@@ -1233,7 +1233,7 @@ contract MarketTest is Test {
             fixedAllocation: 0.6e18,
             maxRate: 18.25e18,
             maturityDurationSpeed: 0.5e18,
-            durationThreshold: 0.2e18,
+            durationThreshold: 1e18,
             durationGrowthLaw: 1e18,
             penaltyDurationFactor: 1.333e18
           }),

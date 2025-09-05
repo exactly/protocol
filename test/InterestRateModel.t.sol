@@ -25,7 +25,7 @@ contract InterestRateModelTest is Test {
 
   function testFixedBorrowRate() external {
     irm = deployDefault();
-    assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18, 0.75e18, 1e18), 66470614884441668);
+    assertEq(deployDefault().fixedRate(FixedLib.INTERVAL, 6, 0.75e18, 0, 0.75e18, 0.75e18, 1e18), 194236365590535802);
   }
 
   function testFuzzFixedRateTimeSensitivity(uint256 maxPools, uint256 maturity, uint256 intervals) external {
@@ -448,7 +448,7 @@ contract InterestRateModelTest is Test {
   function testMinTimeToMaturity() external {
     irm = deployDefault();
     vm.warp(FixedLib.INTERVAL - 1);
-    uint256 fixedRate = irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.3e18, 0.8e18, 0.8e18, 1e18);
+    uint256 fixedRate = irm.fixedRate(FixedLib.INTERVAL, 25, 0.5e18, 0.3e18, 0.8e18, 0.8e18, 0.1e18);
     uint256 floatingRate = irm.floatingRate(0.3e18, 0.8e18);
     assertApproxEqRel(fixedRate, floatingRate, 4e13);
   }
