@@ -158,7 +158,7 @@ contract InterestRateModel {
           1e18)) /
       1e18 +
       ((((((maturityDurationSpeed * (v.maturityFactor).toInt256().lnWad()) / 1e18).expWad() * penaltyDurationFactor) /
-        1e18) * (excessDuration < 0 && maturityDebtDuration >= durationThreshold ? excessDuration : int256(0))) / 1e18))
+        1e18) * (excessDuration > 0 && maturityDebtDuration >= durationThreshold ? excessDuration : int256(0))) / 1e18))
       .toUint256();
     uint256 base = baseRate(uFloating, uGlobalAverage);
 
