@@ -2,6 +2,7 @@
 pragma solidity ^0.8.17; // solhint-disable-line one-contract-per-file
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { SafeCast } from "@openzeppelin/contracts-v4/utils/math/SafeCast.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
 import { Test, stdError } from "forge-std/Test.sol";
@@ -44,6 +45,7 @@ contract MarketTest is Test {
   using FixedPointMathLib for int256;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
+  using SafeCast for uint256;
 
   address internal constant BOB = address(0x69);
   address internal constant ALICE = address(0x420);
@@ -85,10 +87,7 @@ contract MarketTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     vm.label(address(market), "MarketDAI");
@@ -108,10 +107,7 @@ contract MarketTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     vm.label(address(marketWETH), "MarketWETH");
@@ -593,10 +589,7 @@ contract MarketTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     uint256 maturity = FixedLib.INTERVAL * 2;
@@ -635,10 +628,7 @@ contract MarketTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     uint256 maturity = FixedLib.INTERVAL * 2;
@@ -802,10 +792,7 @@ contract MarketTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     vm.label(address(marketUSDC), "MarketUSDC");
@@ -1148,7 +1135,10 @@ contract MarketTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           newMarket
         ),
@@ -1158,10 +1148,7 @@ contract MarketTest is Test {
         floatingAssetsDampSpeedUp: 0.000053e18,
         floatingAssetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     auditor.enableMarket(newMarket, IPriceFeed(auditor.BASE_FEED()), 0.91e18);
@@ -1235,7 +1222,10 @@ contract MarketTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 1e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           newMarket
         ),
@@ -1245,10 +1235,7 @@ contract MarketTest is Test {
         floatingAssetsDampSpeedUp: 0.000053e18,
         floatingAssetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     auditor.enableMarket(newMarket, IPriceFeed(auditor.BASE_FEED()), 0.91e18);
@@ -1335,7 +1322,10 @@ contract MarketTest is Test {
           maturityDurationSpeed: 0.5e18,
           durationThreshold: 0.2e18,
           durationGrowthLaw: 1e18,
-          penaltyDurationFactor: 1.333e18
+          penaltyDurationFactor: 1.333e18,
+          fixedBorrowThreshold: 1e18,
+          curveFactor: 0.1e18,
+          minThresholdFactor: 1e18
         }),
         Market(address(0))
       )
@@ -1371,7 +1361,10 @@ contract MarketTest is Test {
           maturityDurationSpeed: 0.5e18,
           durationThreshold: 0.2e18,
           durationGrowthLaw: 1e18,
-          penaltyDurationFactor: 1.333e18
+          penaltyDurationFactor: 1.333e18,
+          fixedBorrowThreshold: 1e18,
+          curveFactor: 0.1e18,
+          minThresholdFactor: 1e18
         }),
         Market(address(0))
       )
@@ -2905,7 +2898,10 @@ contract MarketTest is Test {
           maturityDurationSpeed: 0.5e18,
           durationThreshold: 0.2e18,
           durationGrowthLaw: 1e18,
-          penaltyDurationFactor: 1.333e18
+          penaltyDurationFactor: 1.333e18,
+          fixedBorrowThreshold: 1e18,
+          curveFactor: 0.1e18,
+          minThresholdFactor: 1e18
         }),
         market
       )
@@ -2969,10 +2965,7 @@ contract MarketTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     PriceFeedWrapper priceFeedWrapper = new PriceFeedWrapper(
@@ -3011,10 +3004,7 @@ contract MarketTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     PriceFeedDouble priceFeedDouble = new PriceFeedDouble(
@@ -3056,10 +3046,7 @@ contract MarketTest is Test {
           floatingAssetsDampSpeedUp: 0.0046e18,
           floatingAssetsDampSpeedDown: 0.42e18,
           uDampSpeedUp: 0.23e18,
-          uDampSpeedDown: 0.000053e18,
-          fixedBorrowThreshold: 1e18,
-          curveFactor: 0.1e18,
-          minThresholdFactor: 1e18
+          uDampSpeedDown: 0.000053e18
         })
       );
 
@@ -3257,13 +3244,39 @@ contract MarketTest is Test {
   }
 
   function testCanBorrowAtMaturity() external {
-    market.setFixedBorrowFactors(0.4e18, 0.5e18, 0.25e18);
+    market.setInterestRateModel(
+      new InterestRateModel(
+        Parameters({
+          minRate: 50000000000000000,
+          naturalRate: 110000000000000000,
+          maxUtilization: 1300000000000000000,
+          naturalUtilization: 880000000000000000,
+          growthSpeed: 1.3e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.3e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.2e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 18.25e18,
+          maturityDurationSpeed: 0.5e18,
+          durationThreshold: 0.2e18,
+          durationGrowthLaw: 1e18,
+          penaltyDurationFactor: 1.333e18,
+          fixedBorrowThreshold: 0.4e18,
+          curveFactor: 0.5e18,
+          minThresholdFactor: 0.25e18
+        }),
+        market
+      )
+    );
+
     market.deposit(1_000 ether, address(this));
 
     vm.warp(1 days);
-    uint256 maxAmount = market.maturityAllocation(FixedLib.INTERVAL - block.timestamp).mulWadDown(
-      market.previewFloatingAssetsAverage()
-    );
+    uint256 maxAmount = market
+      .interestRateModel()
+      .maturityAllocation(FixedLib.INTERVAL - block.timestamp, market.maxFuturePools())
+      .mulWadDown(market.previewFloatingAssetsAverage());
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL, maxAmount, type(uint256).max, address(this), address(this));
 
@@ -3271,38 +3284,57 @@ contract MarketTest is Test {
   }
 
   function testCanBorrowAtMaturityWithMaxFixedBorrowThreshold() external {
-    market.setFixedBorrowFactors(0.4e18, 0.5e18, 0.25e18);
+    market.setInterestRateModel(
+      new InterestRateModel(
+        Parameters({
+          minRate: 50000000000000000,
+          naturalRate: 110000000000000000,
+          maxUtilization: 1300000000000000000,
+          naturalUtilization: 880000000000000000,
+          growthSpeed: 1.3e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.3e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.2e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 18.25e18,
+          maturityDurationSpeed: 0.5e18,
+          durationThreshold: 0.2e18,
+          durationGrowthLaw: 1e18,
+          penaltyDurationFactor: 1.333e18,
+          fixedBorrowThreshold: 0.4e18,
+          curveFactor: 0.5e18,
+          minThresholdFactor: 0.25e18
+        }),
+        market
+      )
+    );
+
     market.deposit(1_000 ether, address(this));
 
     vm.warp(1 days);
     uint256 floatingAssetsAverage = market.previewFloatingAssetsAverage();
-    uint256 maxMaturity1 = market.maturityAllocation(FixedLib.INTERVAL - block.timestamp).mulWadDown(
-      floatingAssetsAverage
-    );
-    uint256 maxMaturity2 = market.maturityAllocation(FixedLib.INTERVAL * 2 - block.timestamp).mulWadDown(
-      floatingAssetsAverage
-    );
-    uint256 maxMaturity3 = market.maturityAllocation(FixedLib.INTERVAL * 3 - block.timestamp).mulWadDown(
-      floatingAssetsAverage
-    );
+    uint256 maxMaturity1 = market
+      .interestRateModel()
+      .maturityAllocation(FixedLib.INTERVAL - block.timestamp, market.maxFuturePools())
+      .mulWadDown(floatingAssetsAverage);
+    uint256 maxMaturity2 = market
+      .interestRateModel()
+      .maturityAllocation(FixedLib.INTERVAL * 2 - block.timestamp, market.maxFuturePools())
+      .mulWadDown(floatingAssetsAverage);
+    uint256 maxMaturity3 = market
+      .interestRateModel()
+      .maturityAllocation(FixedLib.INTERVAL * 3 - block.timestamp, market.maxFuturePools())
+      .mulWadDown(floatingAssetsAverage);
     market.borrowAtMaturity(FixedLib.INTERVAL, maxMaturity1 - 1, type(uint256).max, address(this), address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL * 2, maxMaturity2 - 1, type(uint256).max, address(this), address(this));
     assertGt(
       maxMaturity1 + maxMaturity2 + maxMaturity3,
-      floatingAssetsAverage.mulWadDown(uint256(market.fixedBorrowThreshold()))
+      floatingAssetsAverage.mulWadDown(uint256(market.interestRateModel().fixedBorrowThreshold()))
     );
 
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL * 3, maxMaturity3 - 1, type(uint256).max, address(this), address(this));
-  }
-
-  function testFixedBorrowThresholdZeroValue() external {
-    market.setFixedBorrowFactors(0, 0.5e18, 0.25e18);
-    market.deposit(1_000 ether, address(this));
-
-    vm.warp(1 days);
-    vm.expectRevert(InsufficientProtocolLiquidity.selector);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, type(uint256).max, address(this), address(this));
   }
 
   function testMaturityAllocationDeposit() external {
@@ -3331,7 +3363,10 @@ contract MarketTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 0.6e18,
+            curveFactor: 0.5e18,
+            minThresholdFactor: 0.25e18
           }),
           newMarket
         ),
@@ -3341,10 +3376,7 @@ contract MarketTest is Test {
         floatingAssetsDampSpeedUp: 0.00000555e18,
         floatingAssetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.00000555e18,
-        fixedBorrowThreshold: 0.6e18,
-        curveFactor: 0.5e18,
-        minThresholdFactor: 0.25e18
+        uDampSpeedDown: 0.00000555e18
       })
     );
 
@@ -3361,7 +3393,10 @@ contract MarketTest is Test {
 
     for (uint256 i = 0; i < 4; i++) {
       assertApproxEqRel(
-        newMarket.maturityAllocation(FixedLib.INTERVAL - block.timestamp),
+        newMarket.interestRateModel().maturityAllocation(
+          FixedLib.INTERVAL - block.timestamp,
+          newMarket.maxFuturePools()
+        ),
         0.415611057246590445 ether + 0.001396 ether * i,
         2e14
       );
@@ -3395,7 +3430,10 @@ contract MarketTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 0.6e18,
+            curveFactor: 0.5e18,
+            minThresholdFactor: 0.25e18
           }),
           newMarket
         ),
@@ -3405,10 +3443,7 @@ contract MarketTest is Test {
         floatingAssetsDampSpeedUp: 0.00000555e18,
         floatingAssetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.00000555e18,
-        fixedBorrowThreshold: 0.6e18,
-        curveFactor: 0.5e18,
-        minThresholdFactor: 0.25e18
+        uDampSpeedDown: 0.00000555e18
       })
     );
 
@@ -3425,7 +3460,10 @@ contract MarketTest is Test {
 
     for (uint256 i = 0; i < 4; i++) {
       assertApproxEqRel(
-        newMarket.maturityAllocation(FixedLib.INTERVAL * 2 - block.timestamp),
+        newMarket.interestRateModel().maturityAllocation(
+          FixedLib.INTERVAL * 2 - block.timestamp,
+          newMarket.maxFuturePools()
+        ),
         0.315828754884289982 ether + 0.00000003 ether * i,
         2e10
       );
@@ -3460,7 +3498,10 @@ contract MarketTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 0.6e18,
+            curveFactor: 0.5e18,
+            minThresholdFactor: 0.25e18
           }),
           newMarket
         ),
@@ -3470,10 +3511,7 @@ contract MarketTest is Test {
         floatingAssetsDampSpeedUp: 0.00000555e18,
         floatingAssetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.00000555e18,
-        fixedBorrowThreshold: 0.6e18,
-        curveFactor: 0.5e18,
-        minThresholdFactor: 0.25e18
+        uDampSpeedDown: 0.00000555e18
       })
     );
 
@@ -3493,7 +3531,10 @@ contract MarketTest is Test {
 
     for (uint256 i = 0; i < 4; i++) {
       assertApproxEqRel(
-        newMarket.maturityAllocation(FixedLib.INTERVAL * 3 - block.timestamp),
+        newMarket.interestRateModel().maturityAllocation(
+          FixedLib.INTERVAL * 3 - block.timestamp,
+          newMarket.maxFuturePools()
+        ),
         0.262032138869254774 ether + 0.00000018 ether * i,
         1e10
       );
@@ -3511,62 +3552,125 @@ contract MarketTest is Test {
     uint24[12] calldata times
   ) external {
     uint8 maxFuturePools = 12;
-    fixedBorrowThreshold = _bound(fixedBorrowThreshold, 1, 1e18);
-    curveFactor = _bound(curveFactor, 1, 1e18);
-    minThresholdFactor = _bound(minThresholdFactor, 1, 1e18);
-    market.setFixedBorrowFactors(fixedBorrowThreshold, curveFactor, minThresholdFactor);
-    market.setMaxFuturePools(maxFuturePools);
+    fixedBorrowThreshold = _bound(fixedBorrowThreshold, 1e10, 1e18);
+    curveFactor = _bound(curveFactor, 1e10, 1e18);
+    minThresholdFactor = _bound(minThresholdFactor, 1e10, 1e18);
 
-    market.deposit(1_000 ether, address(this));
+    bool canDeploy = canDeployIrm(fixedBorrowThreshold, curveFactor, minThresholdFactor);
+    if (canDeploy) {
+      market.setInterestRateModel(
+        new InterestRateModel(
+          Parameters({
+            minRate: 0.05e18,
+            naturalRate: 0.11e18,
+            maxUtilization: 1.3e18,
+            naturalUtilization: 0.88e18,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: fixedBorrowThreshold,
+            curveFactor: curveFactor,
+            minThresholdFactor: minThresholdFactor
+          }),
+          market
+        )
+      );
+      market.setMaxFuturePools(maxFuturePools);
 
-    for (uint256 i = 0; i < maxFuturePools; i++) {
-      vm.warp(block.timestamp + times[i]);
+      market.deposit(1_000 ether, address(this));
 
-      uint256 maturity = _bound(pools[i], 1, maxFuturePools) * FixedLib.INTERVAL;
-      uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
-      if (block.timestamp >= maturity || memFloatingAssetsAverage == 0) continue;
+      for (uint256 i = 0; i < maxFuturePools; i++) {
+        vm.warp(block.timestamp + times[i]);
 
-      uint256 totalBorrows = 0;
-      {
-        uint256 maxTime = block.timestamp -
-          (block.timestamp % FixedLib.INTERVAL) +
-          (maxFuturePools) *
-          FixedLib.INTERVAL;
-        for (uint256 m = maturity; m <= maxTime; m += FixedLib.INTERVAL) {
-          (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(m);
-          if (m == maturity) borrowed += amounts[i];
-          totalBorrows += borrowed > supplied ? borrowed - supplied : 0;
+        uint256 maturity = _bound(pools[i], 1, maxFuturePools) * FixedLib.INTERVAL;
+        uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
+        if (block.timestamp >= maturity || memFloatingAssetsAverage == 0) continue;
+
+        uint256 totalBorrows = 0;
+        {
+          uint256 maxTime = block.timestamp -
+            (block.timestamp % FixedLib.INTERVAL) +
+            (maxFuturePools) *
+            FixedLib.INTERVAL;
+          for (uint256 m = maturity; m <= maxTime; m += FixedLib.INTERVAL) {
+            (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(m);
+            if (m == maturity) borrowed += amounts[i];
+            totalBorrows += borrowed > supplied ? borrowed - supplied : 0;
+          }
+        }
+        bool canBorrow = memFloatingAssetsAverage > 0
+          ? totalBorrows.divWadDown(memFloatingAssetsAverage) <
+            uint256(
+              (market.interestRateModel().fixedBorrowThreshold() *
+                ((((market.interestRateModel().curveFactor() *
+                  int256(
+                    Math.min(1e18, (maturity - block.timestamp).divWadDown(market.maxFuturePools() * FixedLib.INTERVAL))
+                  ).lnWad()) / 1e18).expWad() * market.interestRateModel().minThresholdFactor().lnWad()) / 1e18)
+                  .expWad()) / 1e18
+            ) &&
+            market.floatingBackupBorrowed() + amounts[i] <
+            memFloatingAssetsAverage.mulWadDown(uint256(market.interestRateModel().fixedBorrowThreshold()))
+          : true;
+        if (amounts[i] == 0) {
+          vm.expectRevert(ZeroBorrow.selector);
+        } else if (!canBorrow) vm.expectRevert(InsufficientProtocolLiquidity.selector);
+        uint256 assetsOwed = market.borrowAtMaturity(
+          maturity,
+          amounts[i],
+          type(uint256).max,
+          address(this),
+          address(this)
+        );
+        if (assetsOwed > 0) {
+          assertLt(
+            market.floatingBackupBorrowed(),
+            memFloatingAssetsAverage.mulWadDown(uint256(market.interestRateModel().fixedBorrowThreshold()))
+          );
         }
       }
-      bool canBorrow = memFloatingAssetsAverage > 0
-        ? totalBorrows.divWadDown(memFloatingAssetsAverage) <
-          uint256(
-            (market.fixedBorrowThreshold() *
-              ((((market.curveFactor() *
-                int256(
-                  Math.min(1e18, (maturity - block.timestamp).divWadDown(market.maxFuturePools() * FixedLib.INTERVAL))
-                ).lnWad()) / 1e18).expWad() * market.minThresholdFactor().lnWad()) / 1e18).expWad()) / 1e18
-          ) &&
-          market.floatingBackupBorrowed() + amounts[i] <
-          memFloatingAssetsAverage.mulWadDown(uint256(market.fixedBorrowThreshold()))
-        : true;
-      if (amounts[i] == 0) {
-        vm.expectRevert(ZeroBorrow.selector);
-      } else if (!canBorrow) vm.expectRevert(InsufficientProtocolLiquidity.selector);
-      uint256 assetsOwed = market.borrowAtMaturity(
-        maturity,
-        amounts[i],
-        type(uint256).max,
-        address(this),
-        address(this)
-      );
-      if (assetsOwed > 0) {
-        assertLt(
-          market.floatingBackupBorrowed(),
-          memFloatingAssetsAverage.mulWadDown(uint256(market.fixedBorrowThreshold()))
-        );
-      }
     }
+  }
+
+  function canDeployIrm(
+    int256 fixedBorrowThreshold,
+    int256 curveFactor,
+    int256 minThresholdFactor
+  ) internal view returns (bool) {
+    uint256 deltaTime = block.timestamp + FixedLib.INTERVAL - (block.timestamp % FixedLib.INTERVAL);
+    // maxPools = 2
+    uint256 mAllocation = Math.min(
+      1e18,
+      uint256(
+        (fixedBorrowThreshold *
+          ((((curveFactor * int256(Math.min(1e18, deltaTime.divWadDown(2 * FixedLib.INTERVAL))).lnWad()) / 1e18)
+            .expWad() * minThresholdFactor.lnWad()) / 1e18).expWad()) / 1e18
+      )
+    );
+    deltaTime += FixedLib.INTERVAL;
+    uint256 mAllocationNext = Math.min(
+      1e18,
+      uint256(
+        (fixedBorrowThreshold *
+          ((((curveFactor * int256(Math.min(1e18, deltaTime.divWadDown(2 * FixedLib.INTERVAL))).lnWad()) / 1e18)
+            .expWad() * minThresholdFactor.lnWad()) / 1e18).expWad()) / 1e18
+      )
+    );
+    // uGlobal = 2
+    uint256 maturityNaturalUtilization = uint256(2).mulWadUp(
+      uint256(fixedBorrowThreshold).mulWadDown(uint256(minThresholdFactor)) / 2 + mAllocation - mAllocationNext
+    );
+    if (maturityNaturalUtilization == 0) return false;
+
+    uint256 fNatPools = (((mAllocation * 1e18) / maturityNaturalUtilization) * 1e18).sqrt();
+    return (fNatPools.toInt256() * (1e18 - fNatPools.toInt256())) != 0;
   }
 
   function testPausable() external {
@@ -3947,7 +4051,6 @@ contract MarketHarness is Market {
     setBackupFeeRate(p.backupFeeRate);
     setReserveFactor(p.reserveFactor);
     setDampSpeed(p.floatingAssetsDampSpeedUp, p.floatingAssetsDampSpeedDown, p.uDampSpeedUp, p.uDampSpeedDown);
-    setFixedBorrowFactors(p.fixedBorrowThreshold, p.curveFactor, p.minThresholdFactor);
   }
 
   function setSupply(uint256 supply) external {

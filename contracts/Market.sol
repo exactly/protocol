@@ -890,8 +890,9 @@ contract Market is MarketBase {
     }
     if (memFloatingAssetsAverage != 0) {
       if (
-        borrows.divWadDown(memFloatingAssetsAverage) >= maturityAllocation(maturity - block.timestamp) ||
-        floatingBackupBorrowed >= memFloatingAssetsAverage.mulWadDown(uint256(fixedBorrowThreshold))
+        borrows.divWadDown(memFloatingAssetsAverage) >=
+        interestRateModel.maturityAllocation(maturity - block.timestamp, maxFuturePools) ||
+        floatingBackupBorrowed >= memFloatingAssetsAverage.mulWadDown(uint256(interestRateModel.fixedBorrowThreshold()))
       ) {
         revert InsufficientProtocolLiquidity();
       }
@@ -899,22 +900,6 @@ contract Market is MarketBase {
     } else {
       duration = 0;
     }
-  }
-
-  /// @notice Calculates the maturity allocation for a given time to maturity.
-  /// @param deltaTime time to maturity.
-  /// @return maturity allocation.
-  function maturityAllocation(uint256 deltaTime) public view returns (uint256) {
-    return
-      Math.min(
-        1e18,
-        uint256(
-          (fixedBorrowThreshold *
-            ((((curveFactor *
-              int256(Math.min(1e18, deltaTime.divWadDown(maxFuturePools * FixedLib.INTERVAL))).lnWad()) / 1e18)
-              .expWad() * minThresholdFactor.lnWad()) / 1e18).expWad()) / 1e18
-        )
-      );
   }
 
   /// @notice Emits FixedEarningsUpdate event.

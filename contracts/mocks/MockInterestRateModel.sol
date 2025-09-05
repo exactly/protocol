@@ -24,6 +24,14 @@ contract MockInterestRateModel {
     return (rate * (maturity - block.timestamp)) / 365 days;
   }
 
+  function maturityAllocation(uint256, uint256) external pure returns (uint256) {
+    return 1e18;
+  }
+
+  function fixedBorrowThreshold() external pure returns (uint256) {
+    return 1e18;
+  }
+
   function setRate(uint256 newRate) public {
     rate = newRate;
   }
