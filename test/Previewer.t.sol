@@ -62,7 +62,10 @@ contract PreviewerTest is Test {
         maturityDurationSpeed: 0.5e18,
         durationThreshold: 0.2e18,
         durationGrowthLaw: 1e18,
-        penaltyDurationFactor: 1.333e18
+        penaltyDurationFactor: 1.333e18,
+        fixedBorrowThreshold: 1e18,
+        curveFactor: 0.1e18,
+        minThresholdFactor: 1e18
       }),
       market
     );
@@ -78,10 +81,7 @@ contract PreviewerTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     vm.label(address(market), "MarketDAI");
@@ -515,7 +515,10 @@ contract PreviewerTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           marketWETH
         ),
@@ -525,10 +528,7 @@ contract PreviewerTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
@@ -639,7 +639,10 @@ contract PreviewerTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           marketWETH
         ),
@@ -649,10 +652,7 @@ contract PreviewerTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
@@ -801,7 +801,10 @@ contract PreviewerTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           marketWETH
         ),
@@ -811,10 +814,7 @@ contract PreviewerTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
@@ -1036,7 +1036,10 @@ contract PreviewerTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           marketWETH
         ),
@@ -1046,10 +1049,7 @@ contract PreviewerTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     ethPriceFeed = new MockPriceFeed(18, 1_000e18);
@@ -1382,7 +1382,10 @@ contract PreviewerTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           marketWETH
         ),
@@ -1392,10 +1395,7 @@ contract PreviewerTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
@@ -1474,7 +1474,10 @@ contract PreviewerTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           marketWETH
         ),
@@ -1484,10 +1487,7 @@ contract PreviewerTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
@@ -1538,7 +1538,10 @@ contract PreviewerTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           marketWETH
         ),
@@ -1548,10 +1551,7 @@ contract PreviewerTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
@@ -1614,7 +1614,10 @@ contract PreviewerTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           marketWETH
         ),
@@ -1624,10 +1627,7 @@ contract PreviewerTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
@@ -1745,7 +1745,10 @@ contract PreviewerTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           marketWETH
         ),
@@ -1755,10 +1758,7 @@ contract PreviewerTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
@@ -1806,7 +1806,10 @@ contract PreviewerTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           marketWETH
         ),
@@ -1816,10 +1819,7 @@ contract PreviewerTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
@@ -2164,7 +2164,10 @@ contract PreviewerTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           marketWETH
         ),
@@ -2174,10 +2177,7 @@ contract PreviewerTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
@@ -2214,7 +2214,10 @@ contract PreviewerTest is Test {
             maturityDurationSpeed: 0.5e18,
             durationThreshold: 0.2e18,
             durationGrowthLaw: 1e18,
-            penaltyDurationFactor: 1.333e18
+            penaltyDurationFactor: 1.333e18,
+            fixedBorrowThreshold: 1e18,
+            curveFactor: 0.1e18,
+            minThresholdFactor: 1e18
           }),
           marketWETH
         ),
@@ -2224,10 +2227,7 @@ contract PreviewerTest is Test {
         floatingAssetsDampSpeedUp: 0.0046e18,
         floatingAssetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
-        uDampSpeedDown: 0.000053e18,
-        fixedBorrowThreshold: 1e18,
-        curveFactor: 0.1e18,
-        minThresholdFactor: 1e18
+        uDampSpeedDown: 0.000053e18
       })
     );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
