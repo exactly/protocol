@@ -601,6 +601,116 @@ contract InterestRateModelTest is Test {
     );
   }
 
+  function testFixedRateWithDifferentMaturityTimes() external {
+    MockERC20 asset = new MockERC20("USDC", "USDC", 18);
+
+    Market marketUSDC = Market(address(new ERC1967Proxy(address(new Market(asset, Auditor(address(0)))), "")));
+    marketUSDC.initialize(
+      MarketParams({
+        assetSymbol: "",
+        maxFuturePools: 7,
+        maxTotalAssets: type(uint256).max,
+        earningsAccumulatorSmoothFactor: 2e18,
+        interestRateModel: new InterestRateModel(
+          Parameters({
+            minRate: 50000000000000000,
+            naturalRate: 110000000000000000,
+            maxUtilization: 1300000000000000000,
+            naturalUtilization: 880000000000000000,
+            growthSpeed: 1.3e18,
+            sigmoidSpeed: 2.5e18,
+            spreadFactor: 0.3e18,
+            maturitySpeed: 0.5e18,
+            timePreference: 0.2e18,
+            fixedAllocation: 0.6e18,
+            maxRate: 18.25e18,
+            maturityDurationSpeed: 0.5e18,
+            durationThreshold: 0.2e18,
+            durationGrowthLaw: 1e18,
+            penaltyDurationFactor: 0.8333e18,
+            fixedBorrowThreshold: 0.6e18,
+            curveFactor: 0.5e18,
+            minThresholdFactor: 0.25e18
+          }),
+          marketUSDC
+        ),
+        penaltyRate: 0.0045e18 / uint256(1 days),
+        backupFeeRate: 0.1e18,
+        reserveFactor: 0.05e18,
+        floatingAssetsDampSpeedUp: 0.00000555e18,
+        floatingAssetsDampSpeedDown: 0.23e18,
+        uDampSpeedUp: 0.23e18,
+        uDampSpeedDown: 0.00000555e18
+      })
+    );
+    irm = InterestRateModelHarness(address(marketUSDC.interestRateModel()));
+    uint256 lastMaturity = FixedLib.INTERVAL * marketUSDC.maxFuturePools();
+    uint256 maturityAllocation = irm.maturityAllocation(lastMaturity, marketUSDC.maxFuturePools());
+    uint256 maturityAllocationNext = irm.maturityAllocation(
+      lastMaturity + FixedLib.INTERVAL,
+      marketUSDC.maxFuturePools()
+    );
+
+    // uFixed = 0
+    assertEq(
+      irm.fixedRate(lastMaturity, marketUSDC.maxFuturePools(), 0, 0.5e18, 0.5e18, 0.5e18, 0.6e18),
+      0.130258500172699740 ether
+    );
+    // uFixed = uFixedAverage (natural utilization)
+    assertEq(
+      irm.fixedRate(
+        lastMaturity,
+        marketUSDC.maxFuturePools(),
+        uint256(0.5e18).mulWadDown(
+          uint256(irm.fixedBorrowThreshold()).mulWadDown(uint256(irm.minThresholdFactor())) /
+            marketUSDC.maxFuturePools() +
+            maturityAllocation -
+            maturityAllocationNext
+        ),
+        0.5e18,
+        0.5e18,
+        0.5e18,
+        0.6e18
+      ),
+      0.145483913152712961 ether
+    );
+    // uFixed = f(T)
+    assertEq(
+      irm.fixedRate(lastMaturity, marketUSDC.maxFuturePools(), maturityAllocation, 0.5e18, 0.5e18, 0.5e18, 0.6e18),
+      0.160709329871902503 ether
+    );
+
+    vm.warp(lastMaturity - lastMaturity / 9);
+    // uFixed = 0
+    assertEq(
+      irm.fixedRate(lastMaturity, marketUSDC.maxFuturePools(), 0, 0.5e18, 0.5e18, 0.5e18, 0.6e18),
+      0.077253756929888981 ether
+    );
+    // uFixed = uFixedAverage (natural utilization)
+    assertEq(
+      irm.fixedRate(
+        lastMaturity,
+        marketUSDC.maxFuturePools(),
+        uint256(0.5e18).mulWadDown(
+          uint256(irm.fixedBorrowThreshold()).mulWadDown(uint256(irm.minThresholdFactor())) /
+            marketUSDC.maxFuturePools() +
+            maturityAllocation -
+            maturityAllocationNext
+        ),
+        0.5e18,
+        0.5e18,
+        0.5e18,
+        0.6e18
+      ),
+      0.079786235457063107 ether
+    );
+    // uFixed = f(T)
+    assertEq(
+      irm.fixedRate(lastMaturity, marketUSDC.maxFuturePools(), maturityAllocation, 0.5e18, 0.5e18, 0.5e18, 0.6e18),
+      0.085019107888920955 ether
+    );
+  }
+
   function boundCurve(
     uint256 minRate,
     uint256 naturalRate,
