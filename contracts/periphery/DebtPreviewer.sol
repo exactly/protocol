@@ -503,7 +503,7 @@ contract DebtPreviewer {
         r.maturities = new uint256[]((r.maxMaturity - r.firstMaturity) / FixedLib.INTERVAL + 1);
         r.start = 0;
         for (r.maturity = r.firstMaturity; r.maturity <= r.maxMaturity; ) {
-          (uint256 borrowed, ) = market.fixedPoolBalance(r.maturity);
+          (uint256 borrowed, , , ) = market.fixedPools(r.maturity);
           r.fixedDebt += borrowed;
           r.maturities[r.start] = r.maturity;
           unchecked {
