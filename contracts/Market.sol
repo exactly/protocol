@@ -222,22 +222,7 @@ contract Market is MarketBase {
         floatingBackupBorrowed = newFloatingBackupBorrowed;
       }
     }
-    uint256 fee;
-    {
-      uint256 memFloatingAssets = floatingAssets;
-      uint256 memFloatingDebt = floatingDebt;
-      uint256 memMaturityDebtDuration = maturityDebtDuration(maturity);
-      uint256 fixedRate = interestRateModel.fixedRate(
-        maturity,
-        maxFuturePools,
-        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssets),
-        floatingUtilization(memFloatingAssets, memFloatingDebt),
-        globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed),
-        previewGlobalUtilizationAverage(),
-        memMaturityDebtDuration
-      );
-      fee = assets.mulWadUp(fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
-    }
+    uint256 fee = assets.mulWadUp(_getFixedRate(maturity, pool).mulDivDown(maturity - block.timestamp, 365 days));
     assetsOwed = assets + fee;
 
     // validate that the account is not taking arbitrary fees
@@ -346,20 +331,9 @@ contract Market is MarketBase {
 
     // verify if there are any penalties/fee for the account because of early withdrawal, if so discount
     if (block.timestamp < maturity) {
-      uint256 memFloatingAssets = floatingAssets;
-      uint256 memFloatingDebt = floatingDebt;
-      uint256 memMaturityDebtDuration = maturityDebtDuration(maturity);
-
-      uint256 fixedRate = interestRateModel.fixedRate(
-        maturity,
-        maxFuturePools,
-        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssets),
-        floatingUtilization(memFloatingAssets, memFloatingDebt),
-        globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed),
-        previewGlobalUtilizationAverage(),
-        memMaturityDebtDuration
+      assetsDiscounted = effectiveAssets.divWadDown(
+        1e18 + _getFixedRate(maturity, pool).mulDivDown(maturity - block.timestamp, 365 days)
       );
-      assetsDiscounted = effectiveAssets.divWadDown(1e18 + fixedRate.mulDivDown(maturity - block.timestamp, 365 days));
     } else {
       assetsDiscounted = effectiveAssets;
     }
@@ -854,6 +828,24 @@ contract Market is MarketBase {
   /// @dev Internal function to avoid code duplication.
   function fixedUtilization(uint256 supplied, uint256 borrowed, uint256 assets) internal pure returns (uint256) {
     return assets != 0 && borrowed > supplied ? (borrowed - supplied).divWadUp(assets) : 0;
+  }
+
+  /// @notice Returns the fixed rate of a given maturity and fixed pool supply and borrow demand.
+  /// @dev Internal function to avoid code duplication.
+  function _getFixedRate(uint256 maturity, FixedLib.Pool storage pool) internal view returns (uint256) {
+    uint256 memFloatingAssets = floatingAssets;
+    uint256 memFloatingDebt = floatingDebt;
+
+    return
+      interestRateModel.fixedRate(
+        maturity,
+        maxFuturePools,
+        fixedUtilization(pool.supplied, pool.borrowed, memFloatingAssets),
+        floatingUtilization(memFloatingAssets, memFloatingDebt),
+        globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed),
+        previewGlobalUtilizationAverage(),
+        maturityDebtDuration(maturity)
+      );
   }
 
   /// @notice Returns the duration of the debt of a given fixed pool.
