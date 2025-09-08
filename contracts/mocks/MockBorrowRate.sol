@@ -39,6 +39,10 @@ contract MockBorrowRate {
     return 1e18;
   }
 
+  function canBorrowAtMaturity(uint256, uint256, uint256, uint256, uint256) external pure returns (bool) {
+    return true;
+  }
+
   function setRate(uint256 newRate) public {
     borrowRate = newRate;
   }
