@@ -288,7 +288,7 @@ contract Previewer {
         r.maturities = new uint256[]((r.maxMaturity - r.firstMaturity) / FixedLib.INTERVAL + 1);
         r.maturity = r.firstMaturity;
         for (uint256 i = 0; r.maturity <= r.maxMaturity; ++i) {
-          (uint256 borrowed, ) = market.fixedPoolBalance(r.maturity);
+          (uint256 borrowed, , , ) = market.fixedPools(r.maturity);
           r.fixedDebt += borrowed;
           r.maturities[i] = r.maturity;
           unchecked {

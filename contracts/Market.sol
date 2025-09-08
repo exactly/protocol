@@ -850,20 +850,6 @@ contract Market is MarketBase {
     }
   }
 
-  /// @notice Retrieves a fixed pool's borrowed amount.
-  /// @param maturity maturity date of the fixed pool.
-  /// @return borrowed amount of the fixed pool.
-  function fixedPoolBorrowed(uint256 maturity) external view returns (uint256) {
-    return fixedPools[maturity].borrowed;
-  }
-
-  /// @notice Retrieves a fixed pool's borrowed and supplied amount.
-  /// @param maturity maturity date of the fixed pool.
-  /// @return borrowed and supplied amount of the fixed pool.
-  function fixedPoolBalance(uint256 maturity) external view returns (uint256, uint256) {
-    return (fixedPools[maturity].borrowed, fixedPools[maturity].supplied);
-  }
-
   /// @notice Retrieves fixed utilization of the floating pool.
   /// @dev Internal function to avoid code duplication.
   function fixedUtilization(uint256 supplied, uint256 borrowed, uint256 assets) internal pure returns (uint256) {
