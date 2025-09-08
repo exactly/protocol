@@ -883,9 +883,7 @@ contract Market is MarketBase {
         FixedLib.Pool memory pool = fixedPools[i];
         uint256 backupBorrowed = pool.borrowed > pool.supplied ? pool.borrowed - pool.supplied : 0;
         duration += backupBorrowed.mulDivDown(i - block.timestamp, 365 days);
-        if (i >= maturity) {
-          borrows += backupBorrowed;
-        }
+        if (i >= maturity) borrows += backupBorrowed;
       }
     }
     if (memFloatingAssetsAverage != 0) {
@@ -896,10 +894,9 @@ contract Market is MarketBase {
       ) {
         revert InsufficientProtocolLiquidity();
       }
-      duration = duration.divWadDown(memFloatingAssetsAverage);
-    } else {
-      duration = 0;
+      return duration.divWadDown(memFloatingAssetsAverage);
     }
+    return 0;
   }
 
   /// @notice Emits FixedEarningsUpdate event.
