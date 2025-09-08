@@ -219,6 +219,25 @@ contract InterestRateModel {
     return Math.min(baseRate(uFloating, uGlobal), maxRate);
   }
 
+  /// @notice Checks if a fixed borrow at a certain pool is valid given current liquidity conditions.
+  /// @param maturity the maturity timestamp of the fixed pool.
+  /// @param borrows the total amount borrowed from this and all later fixed pools.
+  /// @param floatingAssetsAverage average of the floating assets variable.
+  /// @param floatingBackupBorrowed amount of assets lent by the floating pool to the fixed pools.
+  /// @param maxFuturePools number of active fixed pools.
+  /// @return true if the borrow at the maturity is possible, false otherwise.
+  function canBorrowAtMaturity(
+    uint256 maturity,
+    uint256 borrows,
+    uint256 floatingAssetsAverage,
+    uint256 floatingBackupBorrowed,
+    uint256 maxFuturePools
+  ) external view returns (bool) {
+    return
+      borrows.divWadDown(floatingAssetsAverage) < maturityAllocation(maturity - block.timestamp, maxFuturePools) &&
+      floatingBackupBorrowed < floatingAssetsAverage.mulWadDown(uint256(fixedBorrowThreshold));
+  }
+
   function parameters() external view returns (Parameters memory) {
     return _parameters;
   }

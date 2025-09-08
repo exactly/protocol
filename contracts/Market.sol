@@ -856,7 +856,8 @@ contract Market is MarketBase {
     return assets != 0 && borrowed > supplied ? (borrowed - supplied).divWadUp(assets) : 0;
   }
 
-  /// @notice Checks if the account can borrow at a certain fixed pool.
+  /// @notice Returns the duration of the debt of a given fixed pool.
+  /// @dev Checks if a fixed borrow at a certain pool is valid given current liquidity conditions.
   /// @param maturity maturity date of the fixed pool.
   /// @return duration modified duration debt metric.
   function maturityDebtDuration(uint256 maturity) internal view returns (uint256 duration) {
@@ -874,9 +875,13 @@ contract Market is MarketBase {
     }
     if (memFloatingAssetsAverage != 0) {
       if (
-        borrows.divWadDown(memFloatingAssetsAverage) >=
-        interestRateModel.maturityAllocation(maturity - block.timestamp, maxFuturePools) ||
-        floatingBackupBorrowed >= memFloatingAssetsAverage.mulWadDown(uint256(interestRateModel.fixedBorrowThreshold()))
+        !interestRateModel.canBorrowAtMaturity(
+          maturity,
+          borrows,
+          memFloatingAssetsAverage,
+          floatingBackupBorrowed,
+          maxFuturePools
+        )
       ) {
         revert InsufficientProtocolLiquidity();
       }
