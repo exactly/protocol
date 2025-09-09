@@ -335,6 +335,10 @@ contract InterestRateModel {
     return floatingAssets != 0 && borrowed > supplied ? (borrowed - supplied).divWadUp(floatingAssets) : 0;
   }
 
+  /// @notice Returns the duration of the debt of a given fixed pool.
+  /// @param maturity maturity date of the fixed pool.
+  /// @param assets new assets to be borrowed.
+  /// @return duration modified duration debt metric.
   function maturityDuration(uint256 maturity, uint256 assets) internal view returns (uint256 duration) {
     uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
     if (memFloatingAssetsAverage == 0) return 0;
