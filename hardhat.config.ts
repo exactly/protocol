@@ -46,8 +46,16 @@ const hardhatConfig: Config = {
       timelockDelay: 24 * 3_600,
       finance: { treasuryFeeRate: 0, futurePools: 3 },
       url: env.ETHEREUM_NODE ?? "",
+      sequencerFeed: "0x0000000000000000000000000000000000000000",
+      gracePeriod: 0,
     },
-    optimism: { priceDecimals: 8, timelockDelay: 24 * 3_600, url: env.OPTIMISM_NODE ?? "" },
+    optimism: {
+      priceDecimals: 8,
+      timelockDelay: 24 * 3_600,
+      url: env.OPTIMISM_NODE ?? "",
+      sequencerFeed: "0x371EAD81c9102C9BF4874A9075FFFf170F2Ee389",
+      gracePeriod: 86_400,
+    },
     "op-sepolia": {
       priceDecimals: 8,
       finance: {
@@ -55,8 +63,16 @@ const hardhatConfig: Config = {
         staking: { minTime: 3_600, refTime: 86_400 },
       },
       url: env.OP_SEPOLIA_NODE ?? "",
+      sequencerFeed: "0x0000000000000000000000000000000000000000",
+      gracePeriod: 0,
     },
-    "base-sepolia": { priceDecimals: 8, verified: true, url: env.BASE_SEPOLIA_NODE ?? "" },
+    "base-sepolia": {
+      priceDecimals: 8,
+      verified: true,
+      url: env.BASE_SEPOLIA_NODE ?? "",
+      sequencerFeed: "0x0000000000000000000000000000000000000000",
+      gracePeriod: 0,
+    },
   },
   namedAccounts: {
     deployer: {
@@ -93,7 +109,7 @@ const hardhatConfig: Config = {
     penaltyRatePerDay: 0.0045,
     backupFeeRate: 0.1,
     reserveFactor: 0.05,
-    dampSpeed: { up: 0.000053, down: 0.4 },
+    dampSpeed: { assetsUp: 0.000053, assetsDown: 0.4, uUp: 0.23, uDown: 0.00000555 },
     futurePools: 9,
     earningsAccumulatorSmoothFactor: 2,
     interestRateModel: {
@@ -108,6 +124,13 @@ const hardhatConfig: Config = {
       timePreference: 0.2,
       fixedAllocation: 0.6,
       maxRate: 18.25,
+      maturityDurationSpeed: 0.5,
+      durationThreshold: 0.2,
+      durationGrowthLaw: 1,
+      penaltyDurationFactor: 0.8333,
+      fixedBorrowThreshold: 0.6,
+      curveFactor: 0.5,
+      minThresholdFactor: 0.25,
     },
     rewards: {
       undistributedFactor: 0.5,
@@ -435,7 +458,13 @@ extendConfig((extendedConfig, { finance }) => {
     if (live) {
       if (env.MNEMONIC) networkConfig.accounts = { ...defaultHdAccountsConfigParams, mnemonic: env.MNEMONIC };
     } else {
-      Object.assign(networkConfig, { priceDecimals: 8, allowUnlimitedContractSize: true, initialDate: "2024-01-01" });
+      Object.assign(networkConfig, {
+        priceDecimals: 8,
+        allowUnlimitedContractSize: true,
+        initialDate: "2024-01-01",
+        sequencerFeed: "0x0000000000000000000000000000000000000000",
+        gracePeriod: 0,
+      });
     }
     networkConfig.finance = {
       ...finance,
@@ -471,7 +500,7 @@ declare module "hardhat/types/config" {
     treasuryFeeRate?: number;
     backupFeeRate: number;
     reserveFactor: number;
-    dampSpeed: { up: number; down: number };
+    dampSpeed: { assetsUp: number; assetsDown: number; uUp: number; uDown: number };
     futurePools: number;
     earningsAccumulatorSmoothFactor: number;
     rewards: RewardsParameters;
@@ -548,6 +577,13 @@ declare module "hardhat/types/config" {
     timePreference: number;
     fixedAllocation: number;
     maxRate: number;
+    maturityDurationSpeed: number;
+    durationThreshold: number;
+    durationGrowthLaw: number;
+    penaltyDurationFactor: number;
+    fixedBorrowThreshold: number;
+    curveFactor: number;
+    minThresholdFactor: number;
   }
 
   export interface PeripheryConfig {
@@ -565,6 +601,8 @@ declare module "hardhat/types/config" {
     finance?: Omit<Partial<FinanceConfig>, "staking"> & { staking?: Partial<StakingParameters> };
     verified?: boolean;
     sunset?: boolean;
+    sequencerFeed?: string;
+    gracePeriod?: number;
   }
 
   export interface HardhatNetworkConfig {
@@ -573,6 +611,8 @@ declare module "hardhat/types/config" {
     finance: FinanceConfig;
     verified: undefined;
     sunset: undefined;
+    sequencerFeed: string;
+    gracePeriod: number;
   }
 
   export interface HttpNetworkConfig {
@@ -581,5 +621,7 @@ declare module "hardhat/types/config" {
     finance: FinanceConfig;
     verified?: boolean;
     sunset?: boolean;
+    sequencerFeed: string;
+    gracePeriod: number;
   }
 }

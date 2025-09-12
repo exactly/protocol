@@ -11,6 +11,7 @@ const func: DeployFunction = async ({
         liquidationIncentive: { liquidator: liquidatorIncentive, lenders: lendersIncentive },
       },
       verified,
+      gracePeriod,
     },
   },
   ethers: { parseUnits, getContract, getSigner },
@@ -27,7 +28,14 @@ const func: DeployFunction = async ({
     lenders: parseUnits(String(lendersIncentive)),
   };
 
-  await validateUpgrade("Auditor", { args: [priceDecimals], envKey: "AUDITOR" }, async (name, opts) =>
+  const { address: sequencerFeed } = await deploy(`SequencerFeed`, {
+    skipIfAlreadyDeployed: true,
+    contract: "MockSequencerFeed",
+    args: [],
+    from: deployer,
+    log: true,
+  });
+  await validateUpgrade("Auditor", { args: [priceDecimals, gracePeriod], envKey: "AUDITOR" }, async (name, opts) =>
     deploy(name, {
       ...opts,
       contract: verified ? "VerifiedAuditor" : "Auditor",
@@ -38,7 +46,7 @@ const func: DeployFunction = async ({
         execute: {
           init: {
             methodName: verified ? "initializeVerified" : "initialize",
-            args: [liquidationIncentive, ...(verified ? [firewall!.address] : [])],
+            args: [liquidationIncentive, sequencerFeed, ...(verified ? [firewall!.address] : [])],
           },
         },
       },
