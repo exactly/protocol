@@ -11,6 +11,7 @@ import {
   type MockBorrowRate,
   type MockPriceFeed__factory,
   MockBorrowRate__factory,
+  MockSequencerFeed__factory,
 } from "../../types";
 
 const { parseUnits, getContractFactory, getNamedSigner, Contract, provider, MaxUint256 } = ethers;
@@ -58,13 +59,16 @@ export class MarketEnv {
     const MockBorrowRateFactory = (await getContractFactory("MockBorrowRate")) as MockBorrowRate__factory;
     const mockInterestRateModel = await MockBorrowRateFactory.deploy(0);
     await mockInterestRateModel.waitForDeployment();
+    const MockSequencerFeedFactory = (await getContractFactory("MockSequencerFeed")) as MockSequencerFeed__factory;
+    const mockSequencerFeed = await MockSequencerFeedFactory.deploy();
+    await mockSequencerFeed.waitForDeployment();
 
     const MockERC20 = (await getContractFactory("MockERC20")) as MockERC20__factory;
     const asset = await MockERC20.deploy("Fake", "F", 18);
     await asset.waitForDeployment();
 
     const Auditor = (await getContractFactory("Auditor")) as Auditor__factory;
-    const auditorImpl = await Auditor.deploy(8);
+    const auditorImpl = await Auditor.deploy(8, 0);
     await auditorImpl.waitForDeployment();
     const auditorProxy = await ((await getContractFactory("ERC1967Proxy")) as ERC1967Proxy__factory).deploy(
       auditorImpl.target,
@@ -72,22 +76,23 @@ export class MarketEnv {
     );
     await auditorProxy.waitForDeployment();
     const auditor = new Contract(auditorProxy.target as string, Auditor.interface, owner) as unknown as Auditor;
-    await auditor.initialize({ liquidator: parseUnits("0.1"), lenders: 0 });
+    await auditor.initialize({ liquidator: parseUnits("0.1"), lenders: 0 }, mockSequencerFeed.target);
 
     const MarketHarness = (await getContractFactory("MarketHarness")) as MarketHarness__factory;
-    const marketHarness = await MarketHarness.deploy(
-      asset.target,
-      4,
-      MaxUint256,
-      parseUnits("1"),
-      auditor.target,
-      mockInterestRateModel.target,
-      parseUnits("0.02") / 86_400n,
-      0, // SP rate if 0 then no fees charged for the mp depositors' yield
-      0,
-      parseUnits("0.0046"),
-      parseUnits("0.42"),
-    );
+    const marketHarness = await MarketHarness.deploy(asset.target, auditor.target, {
+      assetSymbol: "Fake",
+      maxFuturePools: 4,
+      maxSupply: MaxUint256,
+      earningsAccumulatorSmoothFactor: parseUnits("1"),
+      interestRateModel: mockInterestRateModel.target,
+      penaltyRate: parseUnits("0.02") / 86_400n,
+      backupFeeRate: 0,
+      reserveFactor: 0,
+      floatingAssetsDampSpeedUp: parseUnits("0.0046"),
+      floatingAssetsDampSpeedDown: parseUnits("0.42"),
+      uDampSpeedUp: parseUnits("0.23"),
+      uDampSpeedDown: parseUnits("0.000053"),
+    });
     await marketHarness.waitForDeployment();
     const MockPriceFeed = (await getContractFactory("MockPriceFeed")) as MockPriceFeed__factory;
     const mockPriceFeed = await MockPriceFeed.deploy(8, parseUnits("1", 8));

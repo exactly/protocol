@@ -121,6 +121,13 @@ describe("Fixed Rate Operations", () => {
           timePreference: parseUnits("0.01"),
           fixedAllocation: parseUnits("0.6"),
           maxRate: parseUnits("10"),
+          maturityDurationSpeed: parseUnits("0.5"),
+          durationThreshold: parseUnits("0.2"),
+          durationGrowthLaw: parseUnits("1"),
+          penaltyDurationFactor: parseUnits("1.333"),
+          fixedBorrowThreshold: parseUnits("0.6"),
+          curveFactor: parseUnits("0.5"),
+          minThresholdFactor: parseUnits("0.25"),
         },
         ZeroAddress,
       );

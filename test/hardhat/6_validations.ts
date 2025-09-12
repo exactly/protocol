@@ -146,7 +146,7 @@ describe("Validations", function () {
 
   it("Previewer is deployed", async () => {
     const factory = (await getContractFactory("Previewer")) as Previewer__factory;
-    await factory.deploy(auditor.target, ZeroAddress);
+    await factory.deploy(auditor.target, ZeroAddress, ZeroAddress);
   });
 });
 
