@@ -13,7 +13,7 @@ import type {
 } from "../../types";
 import timelockExecute from "./utils/timelockExecute";
 
-const { parseUnits, getContractFactory, getNamedSigner, getContractAt, getContract, ZeroHash } = ethers;
+const { parseUnits, getContractFactory, getNamedSigner, getContractAt, getContract, ZeroHash, ZeroAddress } = ethers;
 
 const { fixture, get } = deployments;
 
@@ -79,7 +79,7 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to set a new market with a different auditor, THEN the transaction should revert with AuditorMismatch", async () => {
-      const newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy(8);
+      const newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy(8, 0);
       const market = await ((await getContractFactory("Market")) as Market__factory).deploy(
         dai.target,
         newAuditor.target,
@@ -126,11 +126,11 @@ describe("Auditor Admin", function () {
     beforeEach(async () => {
       proxy = (await getContractAt("ITransparentUpgradeableProxy", auditor.target)) as ITransparentUpgradeableProxy;
       proxyAdmin = await getContract<ProxyAdmin>("ProxyAdmin", deployer);
-      newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy(8);
+      newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy(8, 0);
     });
 
     it("WHEN trying to initialize implementation, THEN the transaction should revert with Initializable", async () => {
-      await expect(newAuditor.initialize({ liquidator: 0, lenders: 0 })).to.be.revertedWithoutReason();
+      await expect(newAuditor.initialize({ liquidator: 0, lenders: 0 }, ZeroAddress)).to.be.revertedWithoutReason();
     });
 
     it("WHEN regular user tries to upgrade, THEN the transaction should revert with not found", async () => {

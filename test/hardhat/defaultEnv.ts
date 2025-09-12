@@ -15,6 +15,7 @@ import type {
   MockBorrowRate__factory,
   MockPriceFeed,
   MockPriceFeed__factory,
+  MockSequencerFeed__factory,
   WETH,
   WETH__factory,
 } from "../../types";
@@ -89,6 +90,8 @@ export class DefaultEnv {
 
     const MockBorrowRateFactory = (await getContractFactory("MockBorrowRate")) as MockBorrowRate__factory;
 
+    const MockSequencerFeedFactory = (await getContractFactory("MockSequencerFeed")) as MockSequencerFeed__factory;
+
     const InterestRateModelFactory = (await getContractFactory("InterestRateModel")) as InterestRateModel__factory;
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
@@ -104,6 +107,13 @@ export class DefaultEnv {
         timePreference: parseUnits("0.01"),
         fixedAllocation: parseUnits("0.6"),
         maxRate: parseUnits("10"),
+        maturityDurationSpeed: parseUnits("0.5"),
+        durationThreshold: parseUnits("0.2"),
+        durationGrowthLaw: parseUnits("1"),
+        penaltyDurationFactor: parseUnits("1.333"),
+        fixedBorrowThreshold: parseUnits("0.6"),
+        curveFactor: parseUnits("0.5"),
+        minThresholdFactor: parseUnits("0.25"),
       },
       ZeroAddress,
     );
@@ -112,9 +122,11 @@ export class DefaultEnv {
       ? realInterestRateModel
       : await MockBorrowRateFactory.deploy(0);
     await interestRateModel.waitForDeployment();
+    const mockSequencerFeed = await MockSequencerFeedFactory.deploy();
+    await mockSequencerFeed.waitForDeployment();
 
     const Auditor = (await getContractFactory("Auditor")) as Auditor__factory;
-    const auditorImpl = await Auditor.deploy(8);
+    const auditorImpl = await Auditor.deploy(8, 0);
     await auditorImpl.waitForDeployment();
     const auditorProxy = await ((await getContractFactory("ERC1967Proxy")) as ERC1967Proxy__factory).deploy(
       auditorImpl.target,
@@ -122,7 +134,7 @@ export class DefaultEnv {
     );
     await auditorProxy.waitForDeployment();
     const auditor = new Contract(auditorProxy.target as string, Auditor.interface, owner) as unknown as Auditor;
-    await auditor.initialize({ liquidator: parseUnits("0.1"), lenders: 0 });
+    await auditor.initialize({ liquidator: parseUnits("0.1"), lenders: 0 }, mockSequencerFeed.target);
 
     // enable all the Markets in the auditor
     await Promise.all(
@@ -149,18 +161,20 @@ export class DefaultEnv {
         );
         await marketProxy.waitForDeployment();
         const market = new Contract(marketProxy.target as string, Market.interface, owner) as unknown as Market;
-        await market.initialize(
-          symbol,
-          12,
-          MaxUint256,
-          parseUnits("1"),
-          interestRateModel.target,
-          parseUnits("0.02") / 86_400n,
-          0, // SP rate if 0 then no fees charged for the mp depositors' yield
-          0,
-          parseUnits("0.0046"),
-          parseUnits("0.42"),
-        );
+        await market.initialize({
+          assetSymbol: symbol,
+          maxFuturePools: 12,
+          maxTotalAssets: MaxUint256,
+          earningsAccumulatorSmoothFactor: parseUnits("1"),
+          interestRateModel: interestRateModel.target,
+          penaltyRate: parseUnits("0.02") / 86_400n,
+          backupFeeRate: 0, // SP rate if 0 then no fees charged for the mp depositors' yield
+          reserveFactor: 0,
+          floatingAssetsDampSpeedUp: parseUnits("0.0046"),
+          floatingAssetsDampSpeedDown: parseUnits("0.42"),
+          uDampSpeedUp: parseUnits("0.42"),
+          uDampSpeedDown: parseUnits("0.0046"),
+        });
 
         // deploy a MockPriceFeed setting dummy price
         const MockPriceFeed = (await getContractFactory("MockPriceFeed")) as MockPriceFeed__factory;
