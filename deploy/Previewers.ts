@@ -1,5 +1,7 @@
+import { env } from "process";
 import type { DeployFunction } from "hardhat-deploy/types";
 import validateUpgrade from "./.utils/validateUpgrade";
+import tenderlify from "./.utils/tenderlify";
 
 const func: DeployFunction = async ({
   network: {
@@ -34,8 +36,21 @@ const func: DeployFunction = async ({
     getOrNull("ExtraLending").then((d) => d ?? { address: ZeroAddress }),
     getNamedAccounts(),
   ]);
-  await validateUpgrade("Previewer", { args: [auditor, priceFeedETH], envKey: "PREVIEWER" }, async (name, opts) =>
-    deploy(name, { ...opts, proxy: { proxyContract: "TransparentUpgradeableProxy" }, from: deployer, log: true }),
+  const { address: fixedPreviewer } = await tenderlify(
+    "FixedPreviewer",
+    await deploy(`FixedPreviewer`, {
+      skipIfAlreadyDeployed: !JSON.parse(env[`DEPLOY_FIXED_PREVIEWER`] ?? "false"),
+      contract: "FixedPreviewer",
+      args: [],
+      from: deployer,
+      log: true,
+    }),
+  );
+  await validateUpgrade(
+    "Previewer",
+    { args: [auditor, priceFeedETH, fixedPreviewer], envKey: "PREVIEWER" },
+    async (name, opts) =>
+      deploy(name, { ...opts, proxy: { proxyContract: "TransparentUpgradeableProxy" }, from: deployer, log: true }),
   );
   await validateUpgrade("DebtPreviewer", { args: [debtManager], envKey: "DEBT_PREVIEWER" }, async (name, opts) =>
     deploy(name, {

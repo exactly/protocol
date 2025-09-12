@@ -36,8 +36,10 @@ const func: DeployFunction = async ({
   const penaltyRate = parseUnits(String(finance.penaltyRatePerDay)) / 86_400n;
   const backupFeeRate = parseUnits(String(finance.backupFeeRate));
   const reserveFactor = parseUnits(String(finance.reserveFactor));
-  const dampSpeedUp = parseUnits(String(finance.dampSpeed.up));
-  const dampSpeedDown = parseUnits(String(finance.dampSpeed.down));
+  const dampSpeedAssetsUp = parseUnits(String(finance.dampSpeed.assetsUp));
+  const dampSpeedAssetsDown = parseUnits(String(finance.dampSpeed.assetsDown));
+  const dampSpeedUUp = parseUnits(String(finance.dampSpeed.uUp));
+  const dampSpeedUDown = parseUnits(String(finance.dampSpeed.uDown));
   const treasuryFeeRate = parseUnits(String(finance.treasuryFeeRate ?? 0));
 
   for (const [assetSymbol, config] of Object.entries(finance.markets)) {
@@ -63,6 +65,7 @@ const func: DeployFunction = async ({
                 methodName: "initialize",
                 args: [
                   {
+                    assetSymbol: assetSymbol,
                     maxFuturePools: finance.futurePools,
                     maxTotalAssets: config.maxAssets,
                     earningsAccumulatorSmoothFactor: earningsAccumulatorSmoothFactor,
@@ -70,13 +73,10 @@ const func: DeployFunction = async ({
                     penaltyRate: penaltyRate,
                     backupFeeRate: backupFeeRate,
                     reserveFactor: reserveFactor,
-                    floatingAssetsDampSpeedUp: dampSpeedUp,
-                    floatingAssetsDampSpeedDown: dampSpeedDown,
-                    uDampSpeedUp: 0,
-                    uDampSpeedDown: 0,
-                    fixedBorrowThreshold: 1e18,
-                    curveFactor: 0.1e18,
-                    minThresholdFactor: 1e18,
+                    floatingAssetsDampSpeedUp: dampSpeedAssetsUp,
+                    floatingAssetsDampSpeedDown: dampSpeedAssetsDown,
+                    uDampSpeedUp: dampSpeedUUp,
+                    uDampSpeedDown: dampSpeedUDown,
                   },
                 ],
               },
@@ -127,6 +127,13 @@ const func: DeployFunction = async ({
             timePreference: parseUnits(String(config.interestRateModel.timePreference)),
             fixedAllocation: parseUnits(String(config.interestRateModel.fixedAllocation)),
             maxRate: parseUnits(String(config.interestRateModel.maxRate)),
+            maturityDurationSpeed: parseUnits(String(config.interestRateModel.maturityDurationSpeed)),
+            durationThreshold: parseUnits(String(config.interestRateModel.durationThreshold)),
+            durationGrowthLaw: parseUnits(String(config.interestRateModel.durationGrowthLaw)),
+            penaltyDurationFactor: parseUnits(String(config.interestRateModel.penaltyDurationFactor)),
+            fixedBorrowThreshold: parseUnits(String(config.interestRateModel.fixedBorrowThreshold)),
+            curveFactor: parseUnits(String(config.interestRateModel.curveFactor)),
+            minThresholdFactor: parseUnits(String(config.interestRateModel.minThresholdFactor)),
           },
           market.target,
         ],
@@ -159,14 +166,18 @@ const func: DeployFunction = async ({
     if ((await market.interestRateModel()).toLowerCase() !== interestRateModel.toLowerCase()) {
       await executeOrPropose(market, "setInterestRateModel", [interestRateModel]);
     }
-    if ((await market.dampSpeedUp()) !== dampSpeedUp || (await market.dampSpeedDown()) !== dampSpeedDown) {
-      await executeOrPropose(market, "setDampSpeed", [dampSpeedUp, dampSpeedDown]);
-    }
     if (
-      (await market.floatingAssetsDampSpeedUp()) !== dampSpeedUp ||
-      (await market.floatingAssetsDampSpeedDown()) !== dampSpeedDown
+      (await market.floatingAssetsDampSpeedUp()) !== dampSpeedAssetsUp ||
+      (await market.floatingAssetsDampSpeedDown()) !== dampSpeedAssetsDown ||
+      (await market.uDampSpeedUp()) !== dampSpeedUUp ||
+      (await market.uDampSpeedDown()) !== dampSpeedUDown
     ) {
-      await executeOrPropose(market, "setDampSpeed", [dampSpeedUp, dampSpeedDown, 0, 0]);
+      await executeOrPropose(market, "setDampSpeed", [
+        dampSpeedAssetsUp,
+        dampSpeedAssetsDown,
+        dampSpeedUUp,
+        dampSpeedUDown,
+      ]);
     }
     if (
       (await market.treasury()).toLowerCase() !== treasury.toLowerCase() ||
