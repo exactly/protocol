@@ -41,6 +41,13 @@ describe("InterestRateModel", () => {
       const timePreference = parseUnits("0.01");
       const fixedAllocation = parseUnits("0");
       const maxRate = parseUnits("0.1");
+      const maturityDurationSpeed = parseUnits("0.5");
+      const durationThreshold = parseUnits("0.2");
+      const durationGrowthLaw = parseUnits("1");
+      const penaltyDurationFactor = parseUnits("0.8333");
+      const fixedBorrowThreshold = parseUnits("0.6");
+      const curveFactor = parseUnits("0.5");
+      const minThresholdFactor = parseUnits("0.25");
 
       await expect(
         irmFactory.deploy(
@@ -56,6 +63,13 @@ describe("InterestRateModel", () => {
             timePreference,
             fixedAllocation,
             maxRate,
+            maturityDurationSpeed,
+            durationThreshold,
+            durationGrowthLaw,
+            penaltyDurationFactor,
+            fixedBorrowThreshold,
+            curveFactor,
+            minThresholdFactor,
           },
           ZeroAddress,
         ),
@@ -74,6 +88,13 @@ describe("InterestRateModel", () => {
       const timePreference = parseUnits("0");
       const maturitySpeed = parseUnits("0.5");
       const fixedAllocation = parseUnits("0.6");
+      const maturityDurationSpeed = parseUnits("0.5");
+      const durationThreshold = parseUnits("0.2");
+      const durationGrowthLaw = parseUnits("1");
+      const penaltyDurationFactor = parseUnits("0.8333");
+      const fixedBorrowThreshold = parseUnits("0.6");
+      const curveFactor = parseUnits("0.5");
+      const minThresholdFactor = parseUnits("0.25");
 
       await expect(
         irmFactory.deploy(
@@ -89,6 +110,13 @@ describe("InterestRateModel", () => {
             timePreference,
             fixedAllocation,
             maxRate,
+            maturityDurationSpeed,
+            durationThreshold,
+            durationGrowthLaw,
+            penaltyDurationFactor,
+            fixedBorrowThreshold,
+            curveFactor,
+            minThresholdFactor,
           },
           ZeroAddress,
         ),
