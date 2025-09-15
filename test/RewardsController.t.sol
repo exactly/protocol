@@ -53,6 +53,7 @@ contract RewardsControllerTest is Test {
     marketUSDC.initialize(
       "USDC.e",
       3,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
@@ -68,6 +69,7 @@ contract RewardsControllerTest is Test {
     marketWETH.initialize(
       "WETH",
       3,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
@@ -83,6 +85,7 @@ contract RewardsControllerTest is Test {
     marketWBTC.initialize(
       "WBTC",
       3,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
@@ -1786,6 +1789,7 @@ contract RewardsControllerTest is Test {
     market.initialize(
       "AST",
       3,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),

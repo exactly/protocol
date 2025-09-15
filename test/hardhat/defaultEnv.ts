@@ -19,7 +19,7 @@ import type {
   WETH__factory,
 } from "../../types";
 
-const { ZeroAddress, parseUnits, getContractFactory, getNamedSigner, Contract, provider } = ethers;
+const { ZeroAddress, parseUnits, getContractFactory, getNamedSigner, Contract, provider, MaxUint256 } = ethers;
 
 /** @deprecated use deploy fixture */
 export class DefaultEnv {
@@ -152,6 +152,7 @@ export class DefaultEnv {
         await market.initialize(
           symbol,
           12,
+          MaxUint256,
           parseUnits("1"),
           interestRateModel.target,
           parseUnits("0.02") / 86_400n,

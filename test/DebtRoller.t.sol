@@ -37,6 +37,7 @@ contract DebtRollerTest is Test {
     exaUSDC.initialize(
       "USDC",
       3,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(new MockInterestRateModel(0.1e18))),
       0.02e18 / uint256(1 days),

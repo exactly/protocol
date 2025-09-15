@@ -13,7 +13,7 @@ import {
   MockBorrowRate__factory,
 } from "../../types";
 
-const { parseUnits, getContractFactory, getNamedSigner, Contract, provider } = ethers;
+const { parseUnits, getContractFactory, getNamedSigner, Contract, provider, MaxUint256 } = ethers;
 
 /** @deprecated use deploy fixture */
 export class MarketEnv {
@@ -78,6 +78,7 @@ export class MarketEnv {
     const marketHarness = await MarketHarness.deploy(
       asset.target,
       4,
+      MaxUint256,
       parseUnits("1"),
       auditor.target,
       mockInterestRateModel.target,
