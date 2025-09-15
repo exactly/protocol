@@ -84,8 +84,8 @@ contract MarketTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0,
-        floatingAssetsDampSpeedUp: 0.0046e18,
-        floatingAssetsDampSpeedDown: 0.42e18,
+        assetsDampSpeedUp: 0.0046e18,
+        assetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })
@@ -104,8 +104,8 @@ contract MarketTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0,
-        floatingAssetsDampSpeedUp: 0.0046e18,
-        floatingAssetsDampSpeedDown: 0.42e18,
+        assetsDampSpeedUp: 0.0046e18,
+        assetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })
@@ -586,8 +586,8 @@ contract MarketTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0,
-        floatingAssetsDampSpeedUp: 0.0046e18,
-        floatingAssetsDampSpeedDown: 0.42e18,
+        assetsDampSpeedUp: 0.0046e18,
+        assetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })
@@ -625,8 +625,8 @@ contract MarketTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0,
-        floatingAssetsDampSpeedUp: 0.0046e18,
-        floatingAssetsDampSpeedDown: 0.42e18,
+        assetsDampSpeedUp: 0.0046e18,
+        assetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })
@@ -789,8 +789,8 @@ contract MarketTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0,
-        floatingAssetsDampSpeedUp: 0.0046e18,
-        floatingAssetsDampSpeedDown: 0.42e18,
+        assetsDampSpeedUp: 0.0046e18,
+        assetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })
@@ -1145,8 +1145,8 @@ contract MarketTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0.05e18,
-        floatingAssetsDampSpeedUp: 0.000053e18,
-        floatingAssetsDampSpeedDown: 0.23e18,
+        assetsDampSpeedUp: 0.000053e18,
+        assetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })
@@ -1232,8 +1232,8 @@ contract MarketTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0.05e18,
-        floatingAssetsDampSpeedUp: 0.000053e18,
-        floatingAssetsDampSpeedDown: 0.23e18,
+        assetsDampSpeedUp: 0.000053e18,
+        assetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })
@@ -2206,7 +2206,7 @@ contract MarketTest is Test {
     vm.warp(250);
     market.borrowAtMaturity(FixedLib.INTERVAL, 1, 2, address(this), address(this));
     uint256 supplyAverageFactor = uint256(
-      1e18 - FixedPointMathLib.expWad(-int256(market.floatingAssetsDampSpeedUp() * (250 - 218)))
+      1e18 - FixedPointMathLib.expWad(-int256(market.assetsDampSpeedUp() * (250 - 218)))
     );
     assertEq(
       market.previewFloatingAssetsAverage(),
@@ -2276,7 +2276,7 @@ contract MarketTest is Test {
 
     vm.warp(219);
     uint256 supplyAverageFactor = uint256(
-      1e18 - FixedPointMathLib.expWad(-int256(market.floatingAssetsDampSpeedDown() * (block.timestamp - 218)))
+      1e18 - FixedPointMathLib.expWad(-int256(market.assetsDampSpeedDown() * (block.timestamp - 218)))
     );
     assertEq(
       market.previewFloatingAssetsAverage(),
@@ -2287,7 +2287,7 @@ contract MarketTest is Test {
 
     vm.warp(221);
     supplyAverageFactor = uint256(
-      1e18 - FixedPointMathLib.expWad(-int256(market.floatingAssetsDampSpeedDown() * (block.timestamp - 218)))
+      1e18 - FixedPointMathLib.expWad(-int256(market.assetsDampSpeedDown() * (block.timestamp - 218)))
     );
     assertEq(
       market.previewFloatingAssetsAverage(),
@@ -2962,8 +2962,8 @@ contract MarketTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0,
-        floatingAssetsDampSpeedUp: 0.0046e18,
-        floatingAssetsDampSpeedDown: 0.42e18,
+        assetsDampSpeedUp: 0.0046e18,
+        assetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })
@@ -3001,8 +3001,8 @@ contract MarketTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0,
-        floatingAssetsDampSpeedUp: 0.0046e18,
-        floatingAssetsDampSpeedDown: 0.42e18,
+        assetsDampSpeedUp: 0.0046e18,
+        assetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })
@@ -3043,8 +3043,8 @@ contract MarketTest is Test {
           penaltyRate: 0.02e18 / uint256(1 days),
           backupFeeRate: 1e17,
           reserveFactor: 0,
-          floatingAssetsDampSpeedUp: 0.0046e18,
-          floatingAssetsDampSpeedDown: 0.42e18,
+          assetsDampSpeedUp: 0.0046e18,
+          assetsDampSpeedDown: 0.42e18,
           uDampSpeedUp: 0.23e18,
           uDampSpeedDown: 0.000053e18
         })
@@ -3373,8 +3373,8 @@ contract MarketTest is Test {
         penaltyRate: 0.0045e18 / uint256(1 days),
         backupFeeRate: 0.1e18,
         reserveFactor: 0.05e18,
-        floatingAssetsDampSpeedUp: 0.00000555e18,
-        floatingAssetsDampSpeedDown: 0.23e18,
+        assetsDampSpeedUp: 0.00000555e18,
+        assetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.00000555e18
       })
@@ -3440,8 +3440,8 @@ contract MarketTest is Test {
         penaltyRate: 0.0045e18 / uint256(1 days),
         backupFeeRate: 0.1e18,
         reserveFactor: 0.05e18,
-        floatingAssetsDampSpeedUp: 0.00000555e18,
-        floatingAssetsDampSpeedDown: 0.23e18,
+        assetsDampSpeedUp: 0.00000555e18,
+        assetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.00000555e18
       })
@@ -3508,8 +3508,8 @@ contract MarketTest is Test {
         penaltyRate: 0.0045e18 / uint256(1 days),
         backupFeeRate: 0.1e18,
         reserveFactor: 0.05e18,
-        floatingAssetsDampSpeedUp: 0.00000555e18,
-        floatingAssetsDampSpeedDown: 0.23e18,
+        assetsDampSpeedUp: 0.00000555e18,
+        assetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.00000555e18
       })
@@ -4050,7 +4050,7 @@ contract MarketHarness is Market {
     setPenaltyRate(p.penaltyRate);
     setBackupFeeRate(p.backupFeeRate);
     setReserveFactor(p.reserveFactor);
-    setDampSpeed(p.floatingAssetsDampSpeedUp, p.floatingAssetsDampSpeedDown, p.uDampSpeedUp, p.uDampSpeedDown);
+    setDampSpeed(p.assetsDampSpeedUp, p.assetsDampSpeedDown, p.uDampSpeedUp, p.uDampSpeedDown);
   }
 
   function setSupply(uint256 supply) external {

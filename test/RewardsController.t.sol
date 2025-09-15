@@ -61,8 +61,8 @@ contract RewardsControllerTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0,
-        floatingAssetsDampSpeedUp: 0.0046e18,
-        floatingAssetsDampSpeedDown: 0.42e18,
+        assetsDampSpeedUp: 0.0046e18,
+        assetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })
@@ -81,8 +81,8 @@ contract RewardsControllerTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0,
-        floatingAssetsDampSpeedUp: 0.0046e18,
-        floatingAssetsDampSpeedDown: 0.42e18,
+        assetsDampSpeedUp: 0.0046e18,
+        assetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })
@@ -101,8 +101,8 @@ contract RewardsControllerTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0,
-        floatingAssetsDampSpeedUp: 0.0046e18,
-        floatingAssetsDampSpeedDown: 0.42e18,
+        assetsDampSpeedUp: 0.0046e18,
+        assetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })
@@ -1809,8 +1809,8 @@ contract RewardsControllerTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0,
-        floatingAssetsDampSpeedUp: 0.0046e18,
-        floatingAssetsDampSpeedDown: 0.42e18,
+        assetsDampSpeedUp: 0.0046e18,
+        assetsDampSpeedDown: 0.42e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })

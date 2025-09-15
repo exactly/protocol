@@ -88,8 +88,8 @@ export class MarketEnv {
       penaltyRate: parseUnits("0.02") / 86_400n,
       backupFeeRate: 0,
       reserveFactor: 0,
-      floatingAssetsDampSpeedUp: parseUnits("0.0046"),
-      floatingAssetsDampSpeedDown: parseUnits("0.42"),
+      assetsDampSpeedUp: parseUnits("0.0046"),
+      assetsDampSpeedDown: parseUnits("0.42"),
       uDampSpeedUp: parseUnits("0.23"),
       uDampSpeedDown: parseUnits("0.000053"),
     });

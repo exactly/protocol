@@ -38,9 +38,9 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   /// @notice Rate charged to the fixed pool to be retained by the floating pool for initially providing liquidity.
   uint256 public backupFeeRate;
   /// @notice Damp speed factor to update `floatingAssetsAverage` when `floatingAssets` is higher.
-  uint256 public floatingAssetsDampSpeedUp;
+  uint256 public assetsDampSpeedUp;
   /// @notice Damp speed factor to update `floatingAssetsAverage` when `floatingAssets` is lower.
-  uint256 public floatingAssetsDampSpeedDown;
+  uint256 public assetsDampSpeedDown;
 
   /// @notice Number of fixed pools to be active at the same time.
   uint8 public maxFuturePools;
@@ -140,9 +140,7 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   function previewFloatingAssetsAverage() public view returns (uint256) {
     uint256 memFloatingAssets = floatingAssets;
     uint256 memFloatingAssetsAverage = floatingAssetsAverage;
-    uint256 dampSpeedFactor = memFloatingAssets < memFloatingAssetsAverage
-      ? floatingAssetsDampSpeedDown
-      : floatingAssetsDampSpeedUp;
+    uint256 dampSpeedFactor = memFloatingAssets < memFloatingAssetsAverage ? assetsDampSpeedDown : assetsDampSpeedUp;
     uint256 averageFactor = uint256(1e18 - (-int256(dampSpeedFactor * (block.timestamp - lastAverageUpdate))).expWad());
     return memFloatingAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(memFloatingAssets);
   }
@@ -278,8 +276,8 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
     uint256 uDown
   ) public onlyRole(DEFAULT_ADMIN_ROLE) {
     updateAverages();
-    floatingAssetsDampSpeedUp = assetsUp;
-    floatingAssetsDampSpeedDown = assetsDown;
+    assetsDampSpeedUp = assetsUp;
+    assetsDampSpeedDown = assetsDown;
     uDampSpeedUp = uUp;
     uDampSpeedDown = uDown;
     emit DampSpeedSet(assetsUp, assetsDown, uUp, uDown);
@@ -340,13 +338,13 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   event BackupFeeRateSet(uint256 backupFeeRate);
 
   /// @notice Emitted when the damp speeds are changed by admin.
-  /// @param floatingAssetsDampSpeedUp represented with 18 decimals.
-  /// @param floatingAssetsDampSpeedDown represented with 18 decimals.
+  /// @param assetsDampSpeedUp represented with 18 decimals.
+  /// @param assetsDampSpeedDown represented with 18 decimals.
   /// @param uDampSpeedUp represented with 18 decimals.
   /// @param uDampSpeedDown represented with 18 decimals.
   event DampSpeedSet(
-    uint256 floatingAssetsDampSpeedUp,
-    uint256 floatingAssetsDampSpeedDown,
+    uint256 assetsDampSpeedUp,
+    uint256 assetsDampSpeedDown,
     uint256 uDampSpeedUp,
     uint256 uDampSpeedDown
   );
