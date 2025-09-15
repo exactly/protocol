@@ -76,7 +76,7 @@ contract FirewallTest is Test {
     firewall.allow(bob, false);
   }
 
-  function test_allow_disallowed_allows_evenWhenNotOriginalAllower() external {
+  function test_allow_allows_whenDisallowedAndNotOriginalAllower() external {
     address allower2 = makeAddr("allower2");
     firewall.grantRole(firewall.ALLOWER_ROLE(), allower2);
 
@@ -88,6 +88,33 @@ contract FirewallTest is Test {
     (address allower, bool allowed) = firewall.allowlist(bob);
     assertEq(allower, allower2);
     assertTrue(allowed);
+  }
+
+  function test_disallow_disallows_whenAllowedAndOriginalAllower() external {
+    firewall.allow(bob, true);
+    assertTrue(firewall.isAllowed(bob));
+    firewall.allow(bob, false);
+    assertFalse(firewall.isAllowed(bob));
+  }
+
+  function test_disallow_reverts_whenAllowedAndNotOriginalAllower() external {
+    firewall.allow(bob, true);
+    address allower2 = makeAddr("allower2");
+    firewall.grantRole(firewall.ALLOWER_ROLE(), allower2);
+    vm.startPrank(allower2);
+    vm.expectRevert(abi.encodeWithSelector(NotAllower.selector, bob, allower2));
+    firewall.allow(bob, false);
+  }
+
+  function test_disallow_disallows_whenAllowedAndOriginalAllowerRoleIsRevoked() external {
+    firewall.allow(bob, true);
+    address allower2 = makeAddr("allower2");
+    firewall.grantRole(firewall.ALLOWER_ROLE(), allower2);
+    firewall.revokeRole(firewall.ALLOWER_ROLE(), address(this));
+
+    vm.startPrank(allower2);
+    firewall.allow(bob, false);
+    assertFalse(firewall.isAllowed(bob));
   }
 
   // solhint-enable func-name-mixedcase
