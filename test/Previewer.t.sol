@@ -60,7 +60,7 @@ contract PreviewerTest is Test {
       }),
       market
     );
-    market.initialize("", 12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    market.initialize("", 12, type(uint256).max, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
     vm.label(address(market), "MarketDAI");
     auditor.enableMarket(market, daiPriceFeed, 0.8e18);
 
@@ -447,6 +447,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       "",
       12,
+      type(uint256).max,
       1e18,
       new InterestRateModel(
         Parameters({
@@ -561,6 +562,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       "WETH",
       12,
+      type(uint256).max,
       1e18,
       new InterestRateModel(
         Parameters({
@@ -712,6 +714,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       "WETH",
       12,
+      type(uint256).max,
       1e18,
       new InterestRateModel(
         Parameters({
@@ -936,6 +939,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       "WETH",
       12,
+      type(uint256).max,
       1e18,
       new InterestRateModel(
         Parameters({
@@ -1271,6 +1275,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       "WETH",
       12,
+      type(uint256).max,
       1e18,
       new InterestRateModel(
         Parameters({
@@ -1352,6 +1357,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       "WETH",
       12,
+      type(uint256).max,
       1e18,
       new InterestRateModel(
         Parameters({
@@ -1405,6 +1411,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       "WETH",
       12,
+      type(uint256).max,
       1e18,
       new InterestRateModel(
         Parameters({
@@ -1470,6 +1477,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       "WETH",
       12,
+      type(uint256).max,
       1e18,
       new InterestRateModel(
         Parameters({
@@ -1590,6 +1598,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       "WETH",
       12,
+      type(uint256).max,
       1e18,
       new InterestRateModel(
         Parameters({
@@ -1640,6 +1649,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       "WETH",
       12,
+      type(uint256).max,
       1e18,
       new InterestRateModel(
         Parameters({
@@ -1962,6 +1972,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       "WETH",
       12,
+      type(uint256).max,
       1e18,
       new InterestRateModel(
         Parameters({
@@ -2001,6 +2012,7 @@ contract PreviewerTest is Test {
     marketWETH.initialize(
       "WETH",
       12,
+      type(uint256).max,
       1e18,
       new InterestRateModel(
         Parameters({

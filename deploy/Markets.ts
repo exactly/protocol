@@ -64,6 +64,7 @@ const func: DeployFunction = async ({
                 args: [
                   assetSymbol,
                   finance.futurePools,
+                  config.maxSupply,
                   earningsAccumulatorSmoothFactor,
                   ZeroAddress, // irm
                   penaltyRate,
@@ -133,6 +134,9 @@ const func: DeployFunction = async ({
     }
     if ((await market.maxFuturePools()) !== BigInt(finance.futurePools)) {
       await executeOrPropose(market, "setMaxFuturePools", [finance.futurePools]);
+    }
+    if ((await market.maxSupply()) !== config.maxSupply) {
+      await executeOrPropose(market, "setMaxSupply", [config.maxSupply]);
     }
     if ((await market.earningsAccumulatorSmoothFactor()) !== earningsAccumulatorSmoothFactor) {
       await executeOrPropose(market, "setEarningsAccumulatorSmoothFactor", [earningsAccumulatorSmoothFactor]);

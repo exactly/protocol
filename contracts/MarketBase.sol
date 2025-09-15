@@ -87,6 +87,9 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   /// @notice Tracks the total amount of fixed deposits and borrows.
   FixedOps public fixedOps;
 
+  /// @notice Maximum supply of shares for the market.
+  uint256 public maxSupply;
+
   /// @notice Deposits amount of assets on behalf of the treasury address.
   /// @param fee amount of assets to be deposited.
   function depositToTreasury(uint256 fee) internal {
@@ -281,6 +284,13 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
     emit MaxFuturePoolsSet(futurePools);
   }
 
+  /// @notice Sets the maximum supply of shares for the market.
+  /// @param maxSupply_ maximum supply of shares for the market.
+  function setMaxSupply(uint256 maxSupply_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    maxSupply = maxSupply_;
+    emit MaxSupplySet(maxSupply_);
+  }
+
   /// @notice Sets the penalty rate per second.
   /// @param penaltyRate_ percentage represented with 18 decimals.
   function setPenaltyRate(uint256 penaltyRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -315,6 +325,10 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   /// @notice Emitted when the maxFuturePools is changed by admin.
   /// @param maxFuturePools represented with 0 decimals.
   event MaxFuturePoolsSet(uint256 maxFuturePools);
+
+  /// @notice Emitted when the maxSupply is changed by admin.
+  /// @param maxSupply maximum supply of shares for the market.
+  event MaxSupplySet(uint256 maxSupply);
 
   /// @notice Emitted when the penaltyRate is changed by admin.
   /// @param penaltyRate penaltyRate percentage per second represented with 18 decimals.

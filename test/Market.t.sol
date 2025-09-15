@@ -27,6 +27,7 @@ import {
   MarketFrozen,
   NotPausingRole,
   ExtensionFailed,
+  MaxSupplyExceeded,
   InsufficientProtocolLiquidity
 } from "../contracts/Market.sol";
 
@@ -64,6 +65,7 @@ contract MarketTest is Test {
     market.initialize(
       "DAI",
       3,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
@@ -79,6 +81,7 @@ contract MarketTest is Test {
     marketWETH.initialize(
       "WETH",
       12,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
@@ -554,6 +557,7 @@ contract MarketTest is Test {
     MarketHarness marketHarness = new MarketHarness(
       asset,
       12,
+      type(uint256).max,
       1e18,
       auditor,
       InterestRateModel(address(irm)),
@@ -587,6 +591,7 @@ contract MarketTest is Test {
     MarketHarness marketHarness = new MarketHarness(
       asset,
       12,
+      type(uint256).max,
       1e18,
       auditor,
       InterestRateModel(address(irm)),
@@ -747,6 +752,7 @@ contract MarketTest is Test {
     marketUSDC.initialize(
       "USDC.e",
       3,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
@@ -2696,6 +2702,7 @@ contract MarketTest is Test {
     marketStETH.initialize(
       "",
       3,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
@@ -2730,6 +2737,7 @@ contract MarketTest is Test {
     marketWBTC.initialize(
       "WBTC",
       3,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
@@ -2767,6 +2775,7 @@ contract MarketTest is Test {
       markets[i].initialize(
         "",
         3,
+        type(uint256).max,
         1e18,
         InterestRateModel(address(irm)),
         0.02e18 / uint256(1 days),
@@ -3216,6 +3225,40 @@ contract MarketTest is Test {
     assertFalse(market.paused());
   }
 
+  // solhint-disable func-name-mixedcase
+
+  function test_setMaxSupply_sets_whenAdmin() external {
+    assertEq(market.maxSupply(), type(uint256).max);
+    market.setMaxSupply(10 ether);
+    assertEq(market.maxSupply(), 10 ether, "max assets not set");
+  }
+
+  function test_setMaxSupply_reverts_whenNotAdmin() external {
+    vm.startPrank(BOB);
+    vm.expectRevert(bytes(""));
+    market.setMaxSupply(10 ether);
+  }
+
+  function test_setMaxSupply_emits_maxSupplySet() external {
+    vm.expectEmit(true, true, true, true, address(market));
+    emit MaxSupplySet(10 ether);
+    market.setMaxSupply(10 ether);
+  }
+
+  function test_deposit_deposits_whenTotalSupplyLowerThanMaxSupply() external {
+    market.setMaxSupply(10 ether);
+    market.deposit(1 ether, address(this));
+    assertEq(market.totalSupply(), 1 ether);
+  }
+
+  function test_deposit_reverts_whenTotalSupplyHigherThanMaxSupply() external {
+    market.setMaxSupply(1 ether);
+    vm.expectRevert(MaxSupplyExceeded.selector);
+    market.deposit(2 ether, address(this));
+  }
+
+  // solhint-enable func-name-mixedcase
+
   event MarketUpdate(
     uint256 timestamp,
     uint256 floatingDepositShares,
@@ -3275,12 +3318,14 @@ contract MarketTest is Test {
   );
   event SpreadBadDebt(address indexed borrower, uint256 assets);
   event Frozen(address indexed account, bool isFrozen);
+  event MaxSupplySet(uint256 maxSupply);
 }
 
 contract MarketHarness is Market {
   constructor(
     ERC20 asset_,
     uint8 maxFuturePools_,
+    uint256 maxSupply_,
     uint128 earningsAccumulatorSmoothFactor_,
     Auditor auditor_,
     InterestRateModel interestRateModel_,
@@ -3296,6 +3341,7 @@ contract MarketHarness is Market {
     }
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     setMaxFuturePools(maxFuturePools_);
+    setMaxSupply(maxSupply_);
     setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
     setInterestRateModel(interestRateModel_);
     setPenaltyRate(penaltyRate_);
