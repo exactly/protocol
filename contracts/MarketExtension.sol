@@ -20,6 +20,7 @@ contract MarketExtension is MarketBase {
   function initialize(
     string calldata assetSymbol,
     uint8 maxFuturePools_,
+    uint256 maxSupply_,
     uint128 earningsAccumulatorSmoothFactor_,
     InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
@@ -40,6 +41,7 @@ contract MarketExtension is MarketBase {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     setMaxFuturePools(maxFuturePools_);
+    setMaxSupply(maxSupply_);
     setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
     setInterestRateModel(interestRateModel_);
     setPenaltyRate(penaltyRate_);

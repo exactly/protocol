@@ -50,6 +50,7 @@ contract Market is MarketBase {
     // solhint-disable no-unused-vars
     string calldata assetSymbol,
     uint8 maxFuturePools_,
+    uint256 maxSupply_,
     uint128 earningsAccumulatorSmoothFactor_,
     InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
@@ -706,7 +707,9 @@ contract Market is MarketBase {
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be deposited to the floating pool.
-  function afterDeposit(uint256 assets, uint256) internal override whenNotPaused whenNotFrozen {
+  function afterDeposit(uint256 assets, uint256 shares) internal override whenNotPaused whenNotFrozen {
+    if (shares + totalSupply > maxSupply) revert MaxSupplyExceeded();
+
     updateFloatingAssetsAverage();
     uint256 treasuryFee = updateFloatingDebt();
     uint256 earnings = accrueAccumulatedEarnings();
@@ -1098,6 +1101,7 @@ error Disagreement();
 error ExtensionFailed();
 error InsufficientProtocolLiquidity();
 error MarketFrozen();
+error MaxSupplyExceeded();
 error NotAuditor();
 error NotPausingRole();
 error SelfLiquidation();

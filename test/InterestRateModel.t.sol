@@ -229,7 +229,18 @@ contract InterestRateModelTest is Test {
       }),
       market
     );
-    market.initialize("", 2, 2e18, irm, 2e16 / uint256(1 days), 1e17, 0, type(uint128).max, type(uint128).max);
+    market.initialize(
+      "",
+      2,
+      type(uint256).max,
+      2e18,
+      irm,
+      2e16 / uint256(1 days),
+      1e17,
+      0,
+      type(uint128).max,
+      type(uint128).max
+    );
     asset.mint(address(this), type(uint128).max);
     asset.approve(address(market), type(uint128).max);
     if (floatingAssets != 0) market.deposit(floatingAssets, address(this));

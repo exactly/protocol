@@ -31,6 +31,7 @@ contract PauserTest is Test {
     marketA.initialize(
       "A",
       3,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
@@ -48,6 +49,7 @@ contract PauserTest is Test {
     marketB.initialize(
       "B",
       3,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),

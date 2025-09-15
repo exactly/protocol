@@ -12,6 +12,7 @@ import "solidity-coverage";
 import "hardhat-tracer";
 import { env } from "process";
 import { setup } from "@tenderly/hardhat-tenderly";
+import { MaxUint256 } from "ethers";
 import { boolean, string } from "hardhat/internal/core/params/argumentTypes";
 import { task, extendConfig } from "hardhat/config";
 import { defaultHdAccountsConfigParams } from "hardhat/internal/core/config/default-config";
@@ -95,6 +96,7 @@ const hardhatConfig: Config = {
     reserveFactor: 0.05,
     dampSpeed: { up: 0.000053, down: 0.4 },
     futurePools: 9,
+    maxSupply: MaxUint256,
     earningsAccumulatorSmoothFactor: 2,
     interestRateModel: {
       minRate: 1.95e-2,
@@ -449,6 +451,7 @@ extendConfig((extendedConfig, { finance }) => {
               ...market,
               ...overrides?.[live ? networkName : "optimism"],
               interestRateModel: { ...finance.interestRateModel, ...interestRateModel },
+              maxSupply: market.maxSupply ?? finance.maxSupply,
               frozen: live && market.frozen,
             };
             if (config.rewards) {
@@ -473,6 +476,7 @@ declare module "hardhat/types/config" {
     reserveFactor: number;
     dampSpeed: { up: number; down: number };
     futurePools: number;
+    maxSupply: bigint;
     earningsAccumulatorSmoothFactor: number;
     rewards: RewardsParameters;
     escrow: EscrowParameters;
@@ -520,6 +524,7 @@ declare module "hardhat/types/config" {
     adjustFactor: number;
     priceFeed?: "double" | { wrapper: string; fn: string; baseUnit: bigint };
     interestRateModel: IRMParameters;
+    maxSupply?: bigint;
     rewards?: {
       [asset: string]: {
         total: number;
