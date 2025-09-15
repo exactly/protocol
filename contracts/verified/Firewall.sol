@@ -26,7 +26,10 @@ contract Firewall is Initializable, AccessControlUpgradeable {
   }
 
   function allow(address account, bool allowed) external onlyRole(ALLOWER_ROLE) {
-    if (!allowed && allowlist[account].allower != msg.sender) revert NotAllower(account, msg.sender);
+    address prevAllower = allowlist[account].allower;
+    if (!allowed && prevAllower != msg.sender && hasRole(ALLOWER_ROLE, prevAllower)) {
+      revert NotAllower(account, msg.sender);
+    }
     if (allowed && allowlist[account].allowed) revert AlreadyAllowed(account);
 
     allowlist[account] = Allowed({ allower: msg.sender, allowed: allowed });
