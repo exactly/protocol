@@ -376,8 +376,8 @@ contract Previewer {
         (
           -int256(
             memFloatingAssets < memFloatingAssetsAverage
-              ? market.floatingAssetsDampSpeedDown()
-              : market.floatingAssetsDampSpeedUp() * (block.timestamp - market.lastAverageUpdate())
+              ? market.assetsDampSpeedDown()
+              : market.assetsDampSpeedUp() * (block.timestamp - market.lastAverageUpdate())
           )
         ).expWad()
     );

@@ -73,8 +73,8 @@ const func: DeployFunction = async ({
                     penaltyRate: penaltyRate,
                     backupFeeRate: backupFeeRate,
                     reserveFactor: reserveFactor,
-                    floatingAssetsDampSpeedUp: dampSpeedAssetsUp,
-                    floatingAssetsDampSpeedDown: dampSpeedAssetsDown,
+                    assetsDampSpeedUp: dampSpeedAssetsUp,
+                    assetsDampSpeedDown: dampSpeedAssetsDown,
                     uDampSpeedUp: dampSpeedUUp,
                     uDampSpeedDown: dampSpeedUDown,
                   },
@@ -167,8 +167,8 @@ const func: DeployFunction = async ({
       await executeOrPropose(market, "setInterestRateModel", [interestRateModel]);
     }
     if (
-      (await market.floatingAssetsDampSpeedUp()) !== dampSpeedAssetsUp ||
-      (await market.floatingAssetsDampSpeedDown()) !== dampSpeedAssetsDown ||
+      (await market.assetsDampSpeedUp()) !== dampSpeedAssetsUp ||
+      (await market.assetsDampSpeedDown()) !== dampSpeedAssetsDown ||
       (await market.uDampSpeedUp()) !== dampSpeedUUp ||
       (await market.uDampSpeedDown()) !== dampSpeedUDown
     ) {

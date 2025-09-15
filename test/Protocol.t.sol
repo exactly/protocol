@@ -99,8 +99,8 @@ contract ProtocolTest is Test {
           penaltyRate: PENALTY_RATE,
           backupFeeRate: 1e17,
           reserveFactor: RESERVE_FACTOR,
-          floatingAssetsDampSpeedUp: 0.0046e18,
-          floatingAssetsDampSpeedDown: 0.42e18,
+          assetsDampSpeedUp: 0.0046e18,
+          assetsDampSpeedDown: 0.42e18,
           uDampSpeedUp: 0.23e18,
           uDampSpeedDown: 0.000053e18
         })
@@ -1049,8 +1049,8 @@ contract ProtocolTest is Test {
       unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual);
     uint256 floatingAssetsAverage = market.floatingAssetsAverage();
     uint256 dampSpeedFactor = floatingDepositAssets < floatingAssetsAverage
-      ? market.floatingAssetsDampSpeedDown()
-      : market.floatingAssetsDampSpeedUp();
+      ? market.assetsDampSpeedDown()
+      : market.assetsDampSpeedUp();
     uint256 averageFactor = uint256(
       1e18 - (-int256(dampSpeedFactor * (block.timestamp - market.lastAverageUpdate()))).expWad()
     );

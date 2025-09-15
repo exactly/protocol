@@ -177,8 +177,8 @@ contract InterestRateModelTest is Test {
           penaltyRate: 0.0045e18 / uint256(1 days),
           backupFeeRate: 0.1e18,
           reserveFactor: 0.05e18,
-          floatingAssetsDampSpeedUp: 0.00000555e18,
-          floatingAssetsDampSpeedDown: 0.23e18,
+          assetsDampSpeedUp: 0.00000555e18,
+          assetsDampSpeedDown: 0.23e18,
           uDampSpeedUp: 0.23e18,
           uDampSpeedDown: 0.00000555e18
         })
@@ -301,8 +301,8 @@ contract InterestRateModelTest is Test {
         penaltyRate: 0.02e18 / uint256(1 days),
         backupFeeRate: 1e17,
         reserveFactor: 0,
-        floatingAssetsDampSpeedUp: type(uint128).max,
-        floatingAssetsDampSpeedDown: type(uint128).max,
+        assetsDampSpeedUp: type(uint128).max,
+        assetsDampSpeedDown: type(uint128).max,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.000053e18
       })
@@ -398,8 +398,8 @@ contract InterestRateModelTest is Test {
         penaltyRate: 0.0045e18 / uint256(1 days),
         backupFeeRate: 0.1e18,
         reserveFactor: 0.05e18,
-        floatingAssetsDampSpeedUp: 0.00000555e18,
-        floatingAssetsDampSpeedDown: 0.23e18,
+        assetsDampSpeedUp: 0.00000555e18,
+        assetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.00000555e18
       })
@@ -495,8 +495,8 @@ contract InterestRateModelTest is Test {
         penaltyRate: 0.0045e18 / uint256(1 days),
         backupFeeRate: 0.1e18,
         reserveFactor: 0.05e18,
-        floatingAssetsDampSpeedUp: 0.00000555e18,
-        floatingAssetsDampSpeedDown: 0.23e18,
+        assetsDampSpeedUp: 0.00000555e18,
+        assetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.00000555e18
       })
@@ -637,8 +637,8 @@ contract InterestRateModelTest is Test {
         penaltyRate: 0.0045e18 / uint256(1 days),
         backupFeeRate: 0.1e18,
         reserveFactor: 0.05e18,
-        floatingAssetsDampSpeedUp: 0.00000555e18,
-        floatingAssetsDampSpeedDown: 0.23e18,
+        assetsDampSpeedUp: 0.00000555e18,
+        assetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.00000555e18
       })
@@ -774,8 +774,8 @@ contract InterestRateModelTest is Test {
         penaltyRate: 0.0045e18 / uint256(1 days),
         backupFeeRate: 0.1e18,
         reserveFactor: 0.05e18,
-        floatingAssetsDampSpeedUp: 0.00000555e18,
-        floatingAssetsDampSpeedDown: 0.23e18,
+        assetsDampSpeedUp: 0.00000555e18,
+        assetsDampSpeedDown: 0.23e18,
         uDampSpeedUp: 0.23e18,
         uDampSpeedDown: 0.00000555e18
       })
