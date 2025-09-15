@@ -9,6 +9,7 @@ contract MarketHarness is Market {
   constructor(
     ERC20 asset_,
     uint8 maxFuturePools_,
+    uint256 maxTotalAssets_,
     uint128 earningsAccumulatorSmoothFactor_,
     Auditor auditor_,
     InterestRateModel interestRateModel_,
@@ -24,6 +25,7 @@ contract MarketHarness is Market {
     }
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     setMaxFuturePools(maxFuturePools_);
+    setMaxTotalAssets(maxTotalAssets_);
     setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
     setInterestRateModel(interestRateModel_);
     setPenaltyRate(penaltyRate_);

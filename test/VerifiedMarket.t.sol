@@ -51,6 +51,7 @@ contract VerifiedMarketTest is MarketTest {
     marketWETH.initialize(
       "WETH",
       3,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(new MockInterestRateModel(0.1e18))),
       0.02e18 / uint256(1 days),
@@ -67,6 +68,7 @@ contract VerifiedMarketTest is MarketTest {
     market.initialize(
       "DAI",
       3,
+      type(uint256).max,
       1e18,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),

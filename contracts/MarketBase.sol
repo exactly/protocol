@@ -79,6 +79,9 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   /// @notice Address of the rewards controller that will accrue rewards for accounts operating with the Market.
   RewardsController public rewardsController;
 
+  /// @notice Maximum total assets that the market can hold.
+  uint256 public maxTotalAssets;
+
   /// @notice Deposits amount of assets on behalf of the treasury address.
   /// @param fee amount of assets to be deposited.
   function depositToTreasury(uint256 fee) internal {
@@ -273,6 +276,13 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
     emit MaxFuturePoolsSet(futurePools);
   }
 
+  /// @notice Sets the maximum total assets that the market can hold.
+  /// @param maxTotalAssets_ maximum total assets.
+  function setMaxTotalAssets(uint256 maxTotalAssets_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    maxTotalAssets = maxTotalAssets_;
+    emit MaxTotalAssetsSet(maxTotalAssets_);
+  }
+
   /// @notice Sets the penalty rate per second.
   /// @param penaltyRate_ percentage represented with 18 decimals.
   function setPenaltyRate(uint256 penaltyRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -307,6 +317,10 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   /// @notice Emitted when the maxFuturePools is changed by admin.
   /// @param maxFuturePools represented with 0 decimals.
   event MaxFuturePoolsSet(uint256 maxFuturePools);
+
+  /// @notice Emitted when the maxTotalAssets is changed by admin.
+  /// @param maxTotalAssets maximum total assets.
+  event MaxTotalAssetsSet(uint256 maxTotalAssets);
 
   /// @notice Emitted when the penaltyRate is changed by admin.
   /// @param penaltyRate penaltyRate percentage per second represented with 18 decimals.
