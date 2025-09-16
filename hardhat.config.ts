@@ -86,7 +86,7 @@ const hardhatConfig: Config = {
     backupFeeRate: 0.1,
     reserveFactor: 0.05,
     dampSpeed: { up: 0.000053, down: 0.4 },
-    futurePools: 9,
+    futurePools: 10,
     earningsAccumulatorSmoothFactor: 2,
     interestRateModel: {
       minRate: 1.95e-2,
