@@ -659,8 +659,7 @@ contract Market is MarketBase {
   function beforeWithdraw(uint256 assets, uint256) internal override whenNotPaused {
     updateAverages();
     depositToTreasury(updateFloatingDebt());
-    uint256 earnings = accrueAccumulatedEarnings();
-    uint256 newFloatingAssets = floatingAssets + earnings - assets;
+    uint256 newFloatingAssets = floatingAssets + accrueAccumulatedEarnings() - assets;
     // check if the underlying liquidity that the account wants to withdraw is borrowed
     if (floatingBackupBorrowed + floatingDebt > newFloatingAssets) revert InsufficientProtocolLiquidity();
     floatingAssets = newFloatingAssets;
@@ -673,8 +672,7 @@ contract Market is MarketBase {
 
     updateAverages();
     uint256 treasuryFee = updateFloatingDebt();
-    uint256 earnings = accrueAccumulatedEarnings();
-    floatingAssets += earnings + assets;
+    floatingAssets += accrueAccumulatedEarnings() + assets;
     depositToTreasury(treasuryFee);
     emitMarketUpdate();
   }
