@@ -9,6 +9,7 @@ import { FixedLib } from "../utils/FixedLib.sol";
 
 contract IntegrationPreviewer {
   using FixedPointMathLib for uint256;
+  using FixedPointMathLib for uint128;
   using FixedLib for FixedLib.Position;
   using FixedLib for FixedLib.Pool;
 
@@ -165,6 +166,102 @@ contract IntegrationPreviewer {
     });
   }
 
+  function rates() public view returns (MarketRates[] memory rates_) {
+    uint256 projection = 1 hours;
+    RatesSnapshot[] memory snapshot = ratesSnapshot();
+    rates_ = new MarketRates[](snapshot.length);
+    for (uint256 i = 0; i < snapshot.length; ++i) {
+      rates_[i] = MarketRates({
+        market: snapshot[i].market,
+        floatingDeposit: (projectTotalAssets(snapshot[i], block.timestamp + projection) - snapshot[i].totalAssets)
+          .mulDivDown(365 days * 1e18, projection * snapshot[i].totalAssets),
+        floatingBorrow: snapshot[i].floatingBorrowRate,
+        fixedRates: fixedRates(snapshot[i])
+      });
+    }
+  }
+
+  function ratesSnapshot() public view returns (RatesSnapshot[] memory snapshot) {
+    Market[] memory markets = auditor.allMarkets();
+    snapshot = new RatesSnapshot[](markets.length);
+    for (uint256 i = 0; i < markets.length; ++i) {
+      Market market = markets[i];
+      uint256 floatingAssets = market.floatingAssets();
+      uint256 floatingBackupBorrowed = market.floatingBackupBorrowed();
+      uint256 floatingDebt = market.floatingDebt();
+      snapshot[i] = RatesSnapshot({
+        market: market,
+        earningsAccumulator: market.earningsAccumulator(),
+        earningsAccumulatorSmoothFactor: market.earningsAccumulatorSmoothFactor(),
+        floatingAssets: floatingAssets,
+        floatingBackupBorrowed: floatingBackupBorrowed,
+        floatingBorrowRate: market.interestRateModel().floatingRate(
+          floatingAssets != 0 ? floatingDebt.divWadUp(floatingAssets) : 0,
+          floatingAssets != 0 ? (floatingDebt + floatingBackupBorrowed).divWadUp(floatingAssets) : 0
+        ),
+        floatingDebt: floatingDebt,
+        lastAccumulatorAccrual: market.lastAccumulatorAccrual(),
+        lastFloatingDebtUpdate: market.lastFloatingDebtUpdate(),
+        maxFuturePools: market.maxFuturePools(),
+        totalAssets: market.totalAssets(),
+        treasuryFeeRate: market.treasuryFeeRate(),
+        fixedPools: fixedPools(market)
+      });
+    }
+  }
+
+  function fixedRates(RatesSnapshot memory snapshot) internal view returns (FixedRates[] memory rates_) {
+    rates_ = new FixedRates[](snapshot.maxFuturePools);
+    for (uint256 i = 0; i < snapshot.maxFuturePools; ++i) {
+      uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1);
+      rates_[i] = FixedRates({ maturity: maturity, maxDeposit: 0, minBorrow: 0 });
+    }
+  }
+
+  function projectTotalAssets(
+    RatesSnapshot memory snapshot,
+    uint256 timestamp
+  ) internal pure returns (uint256 totalAssets) {
+    uint256 elapsedAccumulator = timestamp - snapshot.lastAccumulatorAccrual;
+    totalAssets =
+      snapshot.floatingAssets +
+      fixedPoolEarnings(snapshot.fixedPools, timestamp) +
+      snapshot.earningsAccumulator.mulDivDown(
+        elapsedAccumulator,
+        elapsedAccumulator +
+          snapshot.earningsAccumulatorSmoothFactor.mulWadDown(snapshot.maxFuturePools * FixedLib.INTERVAL)
+      ) +
+      snapshot
+        .floatingDebt
+        .mulDivDown(snapshot.floatingBorrowRate * (timestamp - snapshot.lastFloatingDebtUpdate), 365 days * 1e18)
+        .mulWadDown(1e18 - snapshot.treasuryFeeRate);
+  }
+
+  function fixedPoolEarnings(
+    FixedPool[] memory pools,
+    uint256 timestamp
+  ) internal pure returns (uint256 backupEarnings) {
+    for (uint256 i = 0; i < pools.length; ++i) {
+      FixedPool memory pool = pools[i];
+      uint256 lastAccrual = pool.lastAccrual;
+      if (pool.maturity > lastAccrual) {
+        backupEarnings += timestamp < pool.maturity
+          ? pool.unassignedEarnings.mulDivDown(timestamp - lastAccrual, pool.maturity - lastAccrual)
+          : pool.unassignedEarnings;
+      }
+    }
+  }
+
+  function fixedPools(Market market) internal view returns (FixedPool[] memory pools) {
+    uint256 firstMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
+    pools = new FixedPool[](market.maxFuturePools() + 1);
+    for (uint256 i = 0; i < pools.length; ++i) {
+      uint256 maturity = firstMaturity + FixedLib.INTERVAL * i;
+      (, , uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(maturity);
+      pools[i] = FixedPool({ maturity: maturity, lastAccrual: lastAccrual, unassignedEarnings: unassignedEarnings });
+    }
+  }
+
   /// @notice Aggregated pool and position data used to preview fixed-position repayments.
   struct FixedRepaySnapshot {
     /// @notice Late repayment penalty rate applied after maturity (WAD per second).
@@ -183,5 +280,39 @@ contract IntegrationPreviewer {
     uint256 principal;
     /// @notice Borrower's fee outstanding for the fixed position (underlying asset units).
     uint256 fee;
+  }
+
+  struct MarketRates {
+    Market market;
+    uint256 floatingDeposit;
+    uint256 floatingBorrow;
+    FixedRates[] fixedRates;
+  }
+
+  struct FixedRates {
+    uint256 maturity;
+    uint256 maxDeposit;
+    uint256 minBorrow;
+  }
+  struct RatesSnapshot {
+    Market market;
+    uint128 earningsAccumulatorSmoothFactor;
+    uint256 earningsAccumulator;
+    uint256 floatingAssets;
+    uint256 floatingBackupBorrowed;
+    uint256 floatingBorrowRate;
+    uint256 floatingDebt;
+    uint32 lastAccumulatorAccrual;
+    uint32 lastFloatingDebtUpdate;
+    uint8 maxFuturePools;
+    uint256 totalAssets;
+    uint256 treasuryFeeRate;
+    FixedPool[] fixedPools;
+  }
+
+  struct FixedPool {
+    uint256 maturity;
+    uint256 lastAccrual;
+    uint256 unassignedEarnings;
   }
 }

@@ -6,6 +6,7 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 
 import { Auditor, Market, InsufficientAccountLiquidity } from "../contracts/Auditor.sol";
 import { IntegrationPreviewer } from "../contracts/periphery/IntegrationPreviewer.sol";
+import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { ForkTest } from "./Fork.t.sol";
 
 contract IntegrationPreviewerTest is ForkTest {
@@ -13,6 +14,7 @@ contract IntegrationPreviewerTest is ForkTest {
 
   address internal constant USER = 0x291019ecdA53f4E841f6722fEf239C9Dd120e6d5;
 
+  address internal timelock;
   Auditor internal auditor;
   Market internal exaUSDC;
   IntegrationPreviewer internal previewer;
@@ -20,6 +22,7 @@ contract IntegrationPreviewerTest is ForkTest {
   function setUp() external {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 122_565_907);
 
+    timelock = deployment("TimelockController");
     auditor = Auditor(deployment("Auditor"));
     exaUSDC = Market(deployment("MarketUSDC"));
     exaUSDC = Market(deployment("MarketUSDC"));
@@ -41,6 +44,11 @@ contract IntegrationPreviewerTest is ForkTest {
     vm.label(address(Market(deployment("MarketUSDC.e")).interestRateModel()), "InterestRateModelUSDC.e");
     vm.label(address(Market(deployment("MarketWBTC")).interestRateModel()), "InterestRateModelWBTC");
     vm.label(address(Market(deployment("MarketWETH")).interestRateModel()), "InterestRateModelWETH");
+
+    Market[] memory markets = auditor.allMarkets();
+    for (uint256 i = 0; i < markets.length; ++i) {
+      upgrade(address(markets[i]), address(new Market(markets[i].asset(), auditor)));
+    }
   }
 
   // solhint-disable func-name-mixedcase
@@ -169,6 +177,38 @@ contract IntegrationPreviewerTest is ForkTest {
     (uint256 principal, uint256 fee) = exaUSDC.fixedBorrowPositions(maturity, USER);
 
     assertEq(previewer.fixedRepayPosition(USER, exaUSDC, maturity, repayAssets), principal + fee);
+  }
+
+  function test_rates() external {
+    Market[] memory markets = auditor.allMarkets();
+    uint256[] memory totalAssets = new uint256[](markets.length);
+    uint256[] memory totalFloatingBorrowAssets = new uint256[](markets.length);
+    vm.startPrank(timelock);
+    for (uint256 i = 0; i < markets.length; ++i) {
+      markets[i].setInterestRateModel(markets[i].interestRateModel());
+      totalAssets[i] = markets[i].totalAssets();
+      totalFloatingBorrowAssets[i] = markets[i].totalFloatingBorrowAssets();
+    }
+    vm.stopPrank();
+    IntegrationPreviewer.MarketRates[] memory rates = previewer.rates();
+    uint256 elapsed = 1 hours;
+    skip(elapsed);
+    for (uint256 i = 0; i < rates.length; ++i) {
+      assertEq(
+        rates[i].floatingDeposit,
+        (rates[i].market.totalAssets() - totalAssets[i]).mulDivDown(365 days * 1e18, elapsed * totalAssets[i]),
+        "floating deposit rate mismatch"
+      );
+      assertEq(
+        totalFloatingBorrowAssets[i].mulDivDown(rates[i].floatingBorrow * elapsed, 365 days * 1e18),
+        rates[i].market.totalFloatingBorrowAssets() - totalFloatingBorrowAssets[i],
+        "floating borrow rate mismatch"
+      );
+      for (uint256 j = 0; j < rates[i].fixedRates.length; ++j) {
+        vm.prank(USER);
+        rates[i].market.borrowAtMaturity(rates[i].fixedRates[j].maturity, 100, type(uint256).max, USER, USER);
+      }
+    }
   }
 
   // solhint-enable func-name-mixedcase

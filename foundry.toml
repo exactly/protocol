@@ -8,7 +8,7 @@ isolate = true
 deny_warnings = true
 
 ffi = true
-src = "test"
+src = "contracts"
 out = "artifacts/foundry"
 script = "scripts"
 cache_path = "cache/foundry"
@@ -24,6 +24,16 @@ show_solidity = true
 tab_width = 2
 bracket_spacing = true
 number_underscore = "thousands"
+
+[lint]
+exclude_lints = [
+  "asm-keccak256",
+  "incorrect-shift",
+  "mixed-case-function",
+  "mixed-case-variable",
+  "screaming-snake-case-immutable",
+]
+ignore = ["**/*.t.sol", "**/mocks/**/*.sol"]
 
 [profile.snapshot]
 bytecode_hash = "none"
