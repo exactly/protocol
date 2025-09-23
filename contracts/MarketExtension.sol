@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
-import { ERC4626, ERC20 } from "solmate/src/mixins/ERC4626.sol";
+import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
 
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { Market } from "./Market.sol";
-import { MarketBase } from "./MarketBase.sol";
+import { MarketBase, IFlashLoanRecipient } from "./MarketBase.sol";
 import { Auditor } from "./Auditor.sol";
 
 contract MarketExtension is MarketBase {
+  using SafeTransferLib for ERC20;
+
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
 
@@ -50,6 +52,15 @@ contract MarketExtension is MarketBase {
     setDampSpeed(dampSpeedUp_, dampSpeedDown_);
   }
 
+  function flashLoan(IFlashLoanRecipient recipient, uint256 amount, bytes memory data) external {
+    uint256 preLoanBalances = asset.balanceOf(address(this));
+    asset.safeTransfer(address(recipient), amount);
+
+    recipient.receiveFlashLoan(amount, data);
+
+    if (asset.balanceOf(address(this)) < preLoanBalances) revert InsufficientFlashLoanBalance();
+  }
+
   function transfer(address to, uint256 shares) public virtual override whenNotPaused returns (bool) {
     auditor.checkShortfall(Market(address(this)), msg.sender, previewRedeem(shares));
     handleRewards(false, msg.sender);
@@ -64,3 +75,5 @@ contract MarketExtension is MarketBase {
     return super.transferFrom(from, to, shares);
   }
 }
+
+error InsufficientFlashLoanBalance();

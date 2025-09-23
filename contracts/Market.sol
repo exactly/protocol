@@ -4,14 +4,15 @@ pragma solidity ^0.8.17;
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable-v4/utils/math/MathUpgradeable.sol";
 import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
+import { ReentrancyGuard } from "solmate/src/utils/ReentrancyGuard.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { RewardsController } from "./RewardsController.sol";
 import { MarketExtension } from "./MarketExtension.sol";
-import { MarketBase } from "./MarketBase.sol";
+import { MarketBase, IFlashLoanRecipient } from "./MarketBase.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Auditor } from "./Auditor.sol";
 
-contract Market is MarketBase {
+contract Market is MarketBase, ReentrancyGuard {
   using FixedPointMathLib for int256;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
@@ -666,6 +667,14 @@ contract Market is MarketBase {
   /// @param assets amount to be removed from borrower's possession.
   function seize(address liquidator, address borrower, uint256 assets) external whenNotPaused {
     internalSeize(Market(msg.sender), liquidator, borrower, assets);
+  }
+
+  function flashLoan(
+    IFlashLoanRecipient recipient,
+    uint256 amount,
+    bytes memory data
+  ) external whenNotPaused nonReentrant {
+    delegateToExtension();
   }
 
   /// @notice Internal function to seize a certain amount of assets.

@@ -5,7 +5,7 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable-v4/proxy/util
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/security/PausableUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { ERC4626 } from "solmate/src/mixins/ERC4626.sol";
+import { ERC4626, ERC20 } from "solmate/src/mixins/ERC4626.sol";
 
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { RewardsController } from "./RewardsController.sol";
@@ -364,4 +364,8 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
     uint256 fixedBorrows;
     uint256 floatingBorrowShares;
   }
+}
+
+interface IFlashLoanRecipient {
+  function receiveFlashLoan(uint256 amount, bytes memory data) external;
 }
