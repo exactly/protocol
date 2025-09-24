@@ -920,10 +920,13 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 memFloatingDebt = floatingDebt;
     uint256 memFloatingAssets = floatingAssets;
     uint256 utilization = floatingUtilization(memFloatingAssets, memFloatingDebt);
-    uint256 newDebt = memFloatingDebt.mulWadDown(
-      interestRateModel
-        .floatingRate(utilization, globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed))
-        .mulDivDown(block.timestamp - lastFloatingDebtUpdate, 365 days)
+    uint256 newDebt = floatingDebtDelta(
+      memFloatingDebt,
+      interestRateModel.floatingRate(
+        utilization,
+        globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed)
+      ),
+      block.timestamp - lastFloatingDebtUpdate
     );
 
     memFloatingDebt += newDebt;
@@ -939,13 +942,13 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function totalFloatingBorrowAssets() public view returns (uint256) {
     uint256 memFloatingDebt = floatingDebt;
     uint256 memFloatingAssets = floatingAssets;
-    uint256 newDebt = memFloatingDebt.mulWadDown(
-      interestRateModel
-        .floatingRate(
-          floatingUtilization(memFloatingAssets, memFloatingDebt),
-          globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed)
-        )
-        .mulDivDown(block.timestamp - lastFloatingDebtUpdate, 365 days)
+    uint256 newDebt = floatingDebtDelta(
+      memFloatingDebt,
+      interestRateModel.floatingRate(
+        floatingUtilization(memFloatingAssets, memFloatingDebt),
+        globalUtilization(memFloatingAssets, memFloatingDebt, floatingBackupBorrowed)
+      ),
+      block.timestamp - lastFloatingDebtUpdate
     );
     return memFloatingDebt + newDebt;
   }
@@ -1047,6 +1050,12 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @dev Internal function to avoid code duplication.
   function floatingUtilization(uint256 assets, uint256 debt) internal pure returns (uint256) {
     return assets != 0 ? debt.divWadUp(assets) : 0;
+  }
+
+  /// @notice Calculates the new floating debt, considering elapsed time since last update and current interest rate.
+  /// @dev Internal function to avoid code duplication.
+  function floatingDebtDelta(uint256 debt, uint256 rate, uint256 elapsed) internal pure returns (uint256) {
+    return debt.mulDivDown(rate * elapsed, 365 days * 1e18);
   }
 
   /// @notice Triggers rewards' updates in rewards controller.

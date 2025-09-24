@@ -1394,6 +1394,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].floatingAvailableAssets, 40 ether);
 
     vm.warp(5 days);
+    market.setInterestRateModel(market.interestRateModel());
     data = previewer.exactly(address(this));
     // borrowing the available from the floating pool shouldn't fail
     market.borrow(data[0].floatingAvailableAssets, address(this), address(this));
