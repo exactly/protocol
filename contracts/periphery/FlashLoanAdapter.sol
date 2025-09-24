@@ -4,10 +4,9 @@ pragma solidity ^0.8.17;
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol";
 import { Auditor, MarketNotListed } from "../Auditor.sol";
 import { IFlashLoanRecipient, Market } from "../Market.sol";
-import { ReentrancyGuard } from "solmate/src/utils/ReentrancyGuard.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 
-contract FlashLoanAdapter is AccessControlUpgradeable, IFlashLoanRecipient, ReentrancyGuard {
+contract FlashLoanAdapter is AccessControlUpgradeable, IFlashLoanRecipient {
   Auditor public immutable auditor;
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(Auditor auditor_) {
@@ -29,8 +28,7 @@ contract FlashLoanAdapter is AccessControlUpgradeable, IFlashLoanRecipient, Reen
     ERC20[] memory tokens,
     uint256[] memory amounts,
     bytes calldata userData
-  ) external nonReentrant {
-    // TODO check nonReentrant needed
+  ) external {
     assert(tokens.length == 1 && amounts.length == 1);
 
     Market market = _getMarket(tokens[0]);
@@ -47,7 +45,7 @@ contract FlashLoanAdapter is AccessControlUpgradeable, IFlashLoanRecipient, Reen
     _checkMarket(market);
 
     // TODO compare gas using recipient2 and userData2
-    // address recipient2 = data[0:20]; // check usage on plugin 
+    // address recipient2 = data[0:20]; // check usage on plugin
     // bytes memory userData2 = data[20:];
 
     (IFlashLoanAdapterRecipient recipient, bytes memory userData) = abi.decode(

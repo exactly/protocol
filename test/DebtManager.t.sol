@@ -19,6 +19,7 @@ import { Auditor, InsufficientAccountLiquidity, MarketNotListed, IPriceFeed } fr
 import { FixedLib, UnmatchedPoolState } from "../contracts/utils/FixedLib.sol";
 import { MockBalancerVault } from "../contracts/mocks/MockBalancerVault.sol";
 import { Market, Disagreement, ZeroRepay } from "../contracts/Market.sol";
+import { FlashLoanAdapter } from "../contracts/periphery/FlashLoanAdapter.sol";
 
 contract DebtManagerTest is ForkTest {
   using FixedPointMathLib for uint256;
@@ -43,6 +44,7 @@ contract DebtManagerTest is ForkTest {
   ERC20 internal wstETH;
   uint256 internal maturity;
   uint256 internal targetMaturity;
+  FlashLoanAdapter internal flashLoanAdapter;
 
   function setUp() external {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 99_811_375);
@@ -51,15 +53,38 @@ contract DebtManagerTest is ForkTest {
     weth = ERC20(deployment("WETH"));
     usdc = ERC20(deployment("USDC.e"));
     wstETH = ERC20(deployment("wstETH"));
+
     marketOP = Market(deployment("MarketOP"));
+    // upgrade(
+    //   deployment("MarketOP"),
+    //   address(new Market(Market(deployment("MarketOP")).asset(), Auditor(deployment("Auditor"))))
+    // );
     marketUSDC = Market(deployment("MarketUSDC.e"));
+    // upgrade(
+    //   deployment("MarketUSDC.e"),
+    //   address(new Market(Market(deployment("MarketUSDC.e")).asset(), Auditor(deployment("Auditor"))))
+    // );
     marketWETH = Market(deployment("MarketWETH"));
+    // upgrade(
+    //   deployment("MarketWETH"),
+    //   address(new Market(Market(deployment("MarketWETH")).asset(), Auditor(deployment("Auditor"))))
+    // );
     marketwstETH = Market(deployment("MarketwstETH"));
+    // upgrade(
+    //   deployment("MarketwstETH"),
+    //   address(new Market(Market(deployment("MarketwstETH")).asset(), Auditor(deployment("Auditor"))))
+    // );
+
     auditor = Auditor(deployment("Auditor"));
     permit2 = IPermit2(deployment("Permit2"));
+
+    // flashLoanAdapter = new FlashLoanAdapter(auditor);
+    // vm.label(address(flashLoanAdapter), "FlashLoanAdapter");
+
     debtManager = DebtManager(
       address(
         new ERC1967Proxy(
+          // address(new DebtManager(auditor, permit2, IBalancerVault(address(flashLoanAdapter)))),
           address(new DebtManager(auditor, permit2, IBalancerVault(deployment("BalancerVault")))),
           abi.encodeCall(DebtManager.initialize, ())
         )
