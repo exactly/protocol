@@ -2,13 +2,14 @@
 pragma solidity ^0.8.0;
 
 import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
+import { ReentrancyGuard } from "solmate/src/utils/ReentrancyGuard.sol";
 
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { Market } from "./Market.sol";
 import { MarketBase, IFlashLoanRecipient } from "./MarketBase.sol";
 import { Auditor } from "./Auditor.sol";
 
-contract MarketExtension is MarketBase {
+contract MarketExtension is MarketBase, ReentrancyGuard {
   using SafeTransferLib for ERC20;
 
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
@@ -52,13 +53,17 @@ contract MarketExtension is MarketBase {
     setDampSpeed(dampSpeedUp_, dampSpeedDown_);
   }
 
-  function flashLoan(IFlashLoanRecipient recipient, uint256 amount, bytes memory data) external {
-    uint256 preLoanBalances = asset.balanceOf(address(this));
+  function flashLoan(
+    IFlashLoanRecipient recipient,
+    uint256 amount,
+    bytes calldata data
+  ) external whenNotPaused nonReentrant {
+    uint256 preLoanBalance = asset.balanceOf(address(this));
     asset.safeTransfer(address(recipient), amount);
 
     recipient.receiveFlashLoan(amount, data);
 
-    if (asset.balanceOf(address(this)) < preLoanBalances) revert InsufficientFlashLoanBalance();
+    if (asset.balanceOf(address(this)) < preLoanBalance) revert InsufficientFlashLoanBalance();
   }
 
   function transfer(address to, uint256 shares) public virtual override whenNotPaused returns (bool) {

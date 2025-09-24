@@ -28,6 +28,7 @@ import {
   NotPausingRole,
   ExtensionFailed,
   MaxSupplyExceeded,
+  IFlashLoanRecipient,
   InsufficientProtocolLiquidity
 } from "../contracts/Market.sol";
 
@@ -3257,6 +3258,16 @@ contract MarketTest is Test {
     market.deposit(2 ether, address(this));
   }
 
+  function test_flashLoan() external {
+    market.deposit(1 ether, address(this));
+
+    bytes memory data = bytes("1234");
+    FlashLoanConsumer consumer = new FlashLoanConsumer(market, data);
+    emit log_named_decimal_uint("market balance", market.asset().balanceOf(address(market)), 18);
+
+    market.flashLoan(IFlashLoanRecipient(address(consumer)), 1 ether, data);
+  }
+
   // solhint-enable func-name-mixedcase
 
   event MarketUpdate(
@@ -3356,5 +3367,22 @@ contract MarketHarness is Market {
 
   function setFloatingAssets(uint256 balance) external {
     floatingAssets = balance;
+  }
+}
+
+contract FlashLoanConsumer is IFlashLoanRecipient {
+  Market market;
+  bytes data;
+
+  constructor(Market market_, bytes memory data_) {
+    market = market_;
+    data = data_;
+  }
+
+  function receiveFlashLoan(uint256 amount, bytes calldata data_) external {
+    ERC20 asset = market.asset();
+    assert(asset.balanceOf(address(this)) == amount);
+    assert(keccak256(data_) == keccak256(data));
+    asset.transfer(address(market), amount);
   }
 }

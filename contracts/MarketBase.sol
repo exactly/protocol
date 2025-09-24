@@ -367,5 +367,5 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
 }
 
 interface IFlashLoanRecipient {
-  function receiveFlashLoan(uint256 amount, bytes memory data) external;
+  function receiveFlashLoan(uint256 amount, bytes calldata data) external;
 }

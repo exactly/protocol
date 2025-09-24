@@ -25,22 +25,35 @@ contract FlashLoanAdapter is AccessControlUpgradeable, IFlashLoanRecipient, Reen
   }
 
   function flashLoan(
-    IFlashLoanRecipientRename recipient,
+    IFlashLoanAdapterRecipient recipient,
     ERC20[] memory tokens,
     uint256[] memory amounts,
-    bytes memory userData
+    bytes calldata userData
   ) external nonReentrant {
+    // TODO check nonReentrant needed
     assert(tokens.length == 1 && amounts.length == 1);
 
     Market market = _getMarket(tokens[0]);
     bytes memory data = abi.encode(recipient, userData);
+
+    // TODO compare gas using data and data2
+    // bytes memory data2 = bytes.concat(abi.encodePacked(recipient), userData);
+
     market.flashLoan(IFlashLoanRecipient(address(this)), amounts[0], data);
   }
 
-  function receiveFlashLoan(uint256 amount, bytes memory data) external {
+  function receiveFlashLoan(uint256 amount, bytes calldata data) external {
     Market market = Market(msg.sender);
     _checkMarket(market);
-    (IFlashLoanRecipientRename recipient, bytes memory userData) = abi.decode(data, (IFlashLoanRecipientRename, bytes));
+
+    // TODO compare gas using recipient2 and userData2
+    // address recipient2 = data[0:20]; // check usage on plugin 
+    // bytes memory userData2 = data[20:];
+
+    (IFlashLoanAdapterRecipient recipient, bytes memory userData) = abi.decode(
+      data,
+      (IFlashLoanAdapterRecipient, bytes)
+    );
 
     ERC20[] memory tokens = new ERC20[](1);
     tokens[0] = market.asset();
@@ -63,6 +76,11 @@ contract FlashLoanAdapter is AccessControlUpgradeable, IFlashLoanRecipient, Reen
   }
 }
 
-interface IFlashLoanRecipientRename {
-  function receiveFlashLoan(ERC20[] memory tokens, uint256[] memory amounts, uint256[] memory feesAmounts, bytes memory data) external;
+interface IFlashLoanAdapterRecipient {
+  function receiveFlashLoan(
+    ERC20[] memory tokens,
+    uint256[] memory amounts,
+    uint256[] memory feesAmounts,
+    bytes memory data
+  ) external;
 }
