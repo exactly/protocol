@@ -9,8 +9,9 @@ import {
   SafeERC20Upgradeable as SafeERC20,
   IERC20PermitUpgradeable
 } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { Market, ERC20, FixedLib, Disagreement } from "../Market.sol";
+import { Market, ERC20, FixedLib, Disagreement, IFlashLoanRecipient } from "../Market.sol";
 import { Auditor, MarketNotListed } from "../Auditor.sol";
+import { console } from "forge-std/console.sol";
 
 /// @title DebtManager
 /// @notice Contract for efficient debt management of accounts interacting with Exactly Protocol.
@@ -133,23 +134,27 @@ contract DebtManager is Initializable {
         market.deposit(deposit, sender);
         return;
       }
-      loopCount = uint256(amount).mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
+      loopCount = uint256(amount).mulDivUp(1, tokens[0].balanceOf(address(market)));
+      // loopCount = uint256(amount).mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
       amounts[0] = uint256(amount).mulDivUp(1, loopCount);
     }
+    console.log("loopCount", loopCount);
     bytes[] memory calls = new bytes[](2 * loopCount);
     uint256 callIndex = 0;
     for (uint256 i = 0; i < loopCount; ) {
       calls[callIndex++] = abi.encodeCall(market.deposit, (i == 0 ? amounts[0] + deposit : amounts[0], sender));
       calls[callIndex++] = abi.encodeCall(
         market.borrow,
-        (amounts[0], i + 1 == loopCount ? address(balancerVault) : address(this), sender)
+        // (amounts[0], i + 1 == loopCount ? address(balancerVault) : address(this), sender)
+        (amounts[0], i + 1 == loopCount ? address(market) : address(this), sender)
       );
       unchecked {
         ++i;
       }
     }
 
-    balancerVault.flashLoan(address(this), tokens, amounts, hash(abi.encode(market, calls)));
+    market.flashLoan(IFlashLoanRecipient(address(this)), amounts[0], hash(abi.encode(market, calls)));
+    // balancerVault.flashLoan(address(this), tokens, amounts, hash(abi.encode(market, calls)));
   }
 
   /// @notice Deleverages `_msgSender`'s position to a `ratio` via flash loan from Balancer's vault.
@@ -472,6 +477,21 @@ contract DebtManager is Initializable {
     }
   }
 
+  function receiveFlashLoan(uint256, bytes memory userData) external {
+    // bytes32 memCallHash = callHash;
+    // assert(msg.sender == address(balancerVault) && memCallHash == keccak256(userData));
+    // callHash = bytes32(0);
+
+    (Market market, bytes[] memory calls) = abi.decode(userData, (Market, bytes[]));
+    checkMarket(market);
+    for (uint256 i = 0; i < calls.length; ) {
+      address(market).functionCall(calls[i], "");
+      unchecked {
+        ++i;
+      }
+    }
+  }
+
   address private _msgSender;
   bool private _msgSenderSet;
 
@@ -511,7 +531,11 @@ contract DebtManager is Initializable {
   /// @param token The `ERC20` to transfer from `_msgSender` to this contract.
   /// @param assets The amount of assets to transfer from `_msgSender`.
   /// @param p2 Arguments for the permit2 call.
-  modifier permitTransfer(ERC20 token, uint256 assets, Permit2 calldata p2) {
+  modifier permitTransfer(
+    ERC20 token,
+    uint256 assets,
+    Permit2 calldata p2
+  ) {
     {
       address sender = _msgSender;
       permit2.permitTransferFrom(

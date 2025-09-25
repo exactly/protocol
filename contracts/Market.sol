@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable-v4/utils/math/MathUpgradeable.sol";
 import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
+import { ReentrancyGuard } from "solmate/src/utils/ReentrancyGuard.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { RewardsController } from "./RewardsController.sol";
 import { MarketExtension } from "./MarketExtension.sol";
@@ -11,7 +12,9 @@ import { MarketBase, IFlashLoanRecipient } from "./MarketBase.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Auditor } from "./Auditor.sol";
 
-contract Market is MarketBase {
+import { console } from "forge-std/console.sol";
+
+contract Market is MarketBase, ReentrancyGuard {
   using FixedPointMathLib for int256;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
@@ -668,8 +671,21 @@ contract Market is MarketBase {
     internalSeize(Market(msg.sender), liquidator, borrower, assets);
   }
 
-  function flashLoan(IFlashLoanRecipient recipient, uint256 amount, bytes calldata data) external {
-    delegateToExtension();
+  error InsufficientFlashLoanBalance();
+  // TODO keep error and modifiers only in extension
+  function flashLoan(
+    IFlashLoanRecipient recipient,
+    uint256 amount,
+    bytes calldata data
+  ) external whenNotPaused nonReentrant {
+    console.log("on flashloan");
+    uint256 preLoanBalance = asset.balanceOf(address(this));
+    asset.safeTransfer(address(recipient), amount);
+
+    recipient.receiveFlashLoan(amount, data);
+
+    if (asset.balanceOf(address(this)) < preLoanBalance) revert InsufficientFlashLoanBalance();
+    // delegateToExtension();
   }
 
   /// @notice Internal function to seize a certain amount of assets.
@@ -712,6 +728,8 @@ contract Market is MarketBase {
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be deposited to the floating pool.
   function afterDeposit(uint256 assets, uint256 shares) internal override whenNotPaused whenNotFrozen {
+    console.log("maxSupply", maxSupply);
+
     if (shares + totalSupply > maxSupply) revert MaxSupplyExceeded();
 
     updateFloatingAssetsAverage();

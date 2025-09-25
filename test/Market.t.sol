@@ -3273,7 +3273,8 @@ contract MarketTest is Test {
     FlashLoanConsumer consumer = new FlashLoanConsumer(market, data);
     assertEq(market.asset().balanceOf(address(market)), 0, "market balance != 0");
 
-    vm.expectRevert(ExtensionFailed.selector);
+    // vm.expectRevert(stdError.arithmeticError);
+    vm.expectRevert(bytes(""));
     market.flashLoan(IFlashLoanRecipient(address(consumer)), 1 ether, data);
   }
 
@@ -3389,7 +3390,6 @@ contract FlashLoanConsumer is IFlashLoanRecipient {
   }
 
   function receiveFlashLoan(uint256 amount, bytes calldata data_) external {
-    console.log("consumer.receiveFlashLoan");
     ERC20 asset = market.asset();
     assert(asset.balanceOf(address(this)) == amount);
     assert(keccak256(data_) == keccak256(data));

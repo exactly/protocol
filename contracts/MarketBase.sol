@@ -11,6 +11,8 @@ import { InterestRateModel } from "./InterestRateModel.sol";
 import { RewardsController } from "./RewardsController.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 
+import { console } from "forge-std/console.sol";
+
 abstract contract MarketBase is Initializable, AccessControlUpgradeable, PausableUpgradeable, ERC4626 {
   using FixedPointMathLib for int256;
   using FixedPointMathLib for uint256;
@@ -169,11 +171,14 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   /// from maturities and accumulator.
   /// @return actual floatingAssets plus earnings to be accrued at current timestamp.
   function totalAssets() public view override returns (uint256) {
+    console.log("on totalAssets");
     unchecked {
       uint256 backupEarnings = 0;
 
       uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
       uint256 maxMaturity = latestMaturity + maxFuturePools * FixedLib.INTERVAL;
+
+      console.log("maxMaturity", maxMaturity);
 
       for (uint256 maturity = latestMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
         FixedLib.Pool storage pool = fixedPools[maturity];
@@ -186,11 +191,16 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
         }
       }
 
-      return
-        floatingAssets +
-        backupEarnings +
-        accumulatedEarnings() +
-        (totalFloatingBorrowAssets() - floatingDebt).mulWadDown(1e18 - treasuryFeeRate);
+      uint256 aux = floatingAssets + backupEarnings + accumulatedEarnings();
+
+      console.log("before return1");
+      totalFloatingBorrowAssets();
+      console.log("before return2");
+      totalFloatingBorrowAssets() - floatingDebt;
+
+      console.log("before return");
+
+      return aux + (totalFloatingBorrowAssets() - floatingDebt).mulWadDown(1e18 - treasuryFeeRate);
     }
   }
 
@@ -263,8 +273,11 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   function setInterestRateModel(InterestRateModel interestRateModel_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (address(interestRateModel) != address(0)) depositToTreasury(updateFloatingDebt());
 
+    console.log("interestRateModel", address(interestRateModel_));
+
     interestRateModel = interestRateModel_;
     emitMarketUpdate();
+    console.log("interestRateModel", address(interestRateModel));
     emit InterestRateModelSet(interestRateModel_);
   }
 

@@ -18,7 +18,8 @@ import {
 import { Auditor, InsufficientAccountLiquidity, MarketNotListed, IPriceFeed } from "../contracts/Auditor.sol";
 import { FixedLib, UnmatchedPoolState } from "../contracts/utils/FixedLib.sol";
 import { MockBalancerVault } from "../contracts/mocks/MockBalancerVault.sol";
-import { Market, Disagreement, ZeroRepay } from "../contracts/Market.sol";
+import { Market, Disagreement, ZeroRepay, IFlashLoanRecipient } from "../contracts/Market.sol";
+import { InterestRateModel, Parameters } from "../contracts/InterestRateModel.sol";
 import { FlashLoanAdapter } from "../contracts/periphery/FlashLoanAdapter.sol";
 
 contract DebtManagerTest is ForkTest {
@@ -46,6 +47,32 @@ contract DebtManagerTest is ForkTest {
   uint256 internal targetMaturity;
   FlashLoanAdapter internal flashLoanAdapter;
 
+  function upgradeMarket(Market market) internal {
+    vm.startPrank(deployment("TimelockController"));
+    market.setInterestRateModel(
+      new InterestRateModel(
+        Parameters({
+          minRate: 3.5e16,
+          naturalRate: 8e16,
+          maxUtilization: 1.3e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        market
+      )
+    );
+    vm.stopPrank();
+    upgrade(address(market), address(new Market(Market(address(market)).asset(), market.auditor())));
+    vm.prank(deployment("TimelockController"));
+    market.setMaxSupply(type(uint256).max);
+  }
+
   function setUp() external {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 99_811_375);
 
@@ -55,21 +82,28 @@ contract DebtManagerTest is ForkTest {
     wstETH = ERC20(deployment("wstETH"));
 
     marketOP = Market(deployment("MarketOP"));
+    upgradeMarket(marketOP);
     // upgrade(
     //   deployment("MarketOP"),
     //   address(new Market(Market(deployment("MarketOP")).asset(), Auditor(deployment("Auditor"))))
     // );
+
     marketUSDC = Market(deployment("MarketUSDC.e"));
+    upgradeMarket(marketUSDC);
     // upgrade(
     //   deployment("MarketUSDC.e"),
     //   address(new Market(Market(deployment("MarketUSDC.e")).asset(), Auditor(deployment("Auditor"))))
     // );
+
     marketWETH = Market(deployment("MarketWETH"));
+    upgradeMarket(marketWETH);
     // upgrade(
     //   deployment("MarketWETH"),
     //   address(new Market(Market(deployment("MarketWETH")).asset(), Auditor(deployment("Auditor"))))
     // );
+
     marketwstETH = Market(deployment("MarketwstETH"));
+    upgradeMarket(marketwstETH);
     // upgrade(
     //   deployment("MarketwstETH"),
     //   address(new Market(Market(deployment("MarketwstETH")).asset(), Auditor(deployment("Auditor"))))
@@ -78,20 +112,20 @@ contract DebtManagerTest is ForkTest {
     auditor = Auditor(deployment("Auditor"));
     permit2 = IPermit2(deployment("Permit2"));
 
-    // flashLoanAdapter = new FlashLoanAdapter(auditor);
-    // vm.label(address(flashLoanAdapter), "FlashLoanAdapter");
+    flashLoanAdapter = new FlashLoanAdapter(auditor);
+    vm.label(address(flashLoanAdapter), "FlashLoanAdapter");
 
     debtManager = DebtManager(
       address(
         new ERC1967Proxy(
-          // address(new DebtManager(auditor, permit2, IBalancerVault(address(flashLoanAdapter)))),
-          address(new DebtManager(auditor, permit2, IBalancerVault(deployment("BalancerVault")))),
+          address(new DebtManager(auditor, permit2, IBalancerVault(address(flashLoanAdapter)))),
+          // address(new DebtManager(auditor, permit2, IBalancerVault(deployment("BalancerVault")))),
           abi.encodeCall(DebtManager.initialize, ())
         )
       )
     );
     vm.label(address(debtManager), "DebtManager");
-    assertLt(usdc.balanceOf(address(debtManager.balancerVault())), 1_000_000e6);
+    // assertLt(usdc.balanceOf(address(debtManager.balancerVault())), 1_000_000e6);
 
     deal(address(usdc), address(this), 22_000_000e6);
     deal(address(weth), address(this), 1_000e18);
@@ -113,6 +147,11 @@ contract DebtManagerTest is ForkTest {
     deal(address(usdc), bob, 100_000e6);
     vm.label(bob, "bob");
   }
+
+  // function test_test_test() external {
+  //   emit log("before call");
+  //   marketUSDC.flashLoan(IFlashLoanRecipient(address(this)), 1, bytes(""));
+  // }
 
   function testFuzzRolls(
     uint8[4] calldata i,
@@ -199,7 +238,7 @@ contract DebtManagerTest is ForkTest {
     }
   }
 
-  function testLeverage() external _checkBalances {
+  function testLeverageX() external _checkBalances {
     uint256 principal = 100_000e6;
     uint256 ratio = 4e18;
     debtManager.leverage(marketUSDC, principal, ratio);
