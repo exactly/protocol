@@ -11,7 +11,6 @@ import {
 } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { Market, ERC20, FixedLib, Disagreement, IFlashLoanRecipient } from "../Market.sol";
 import { Auditor, MarketNotListed } from "../Auditor.sol";
-import { console } from "forge-std/console.sol";
 
 /// @title DebtManager
 /// @notice Contract for efficient debt management of accounts interacting with Exactly Protocol.
@@ -138,7 +137,6 @@ contract DebtManager is Initializable {
       // loopCount = uint256(amount).mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
       amounts[0] = uint256(amount).mulDivUp(1, loopCount);
     }
-    console.log("loopCount", loopCount);
     bytes[] memory calls = new bytes[](2 * loopCount);
     uint256 callIndex = 0;
     for (uint256 i = 0; i < loopCount; ) {
@@ -154,7 +152,6 @@ contract DebtManager is Initializable {
     }
 
     market.flashLoan(IFlashLoanRecipient(address(this)), amounts[0], hash(abi.encode(market, calls)));
-    // balancerVault.flashLoan(address(this), tokens, amounts, hash(abi.encode(market, calls)));
   }
 
   /// @notice Deleverages `_msgSender`'s position to a `ratio` via flash loan from Balancer's vault.
@@ -177,12 +174,13 @@ contract DebtManager is Initializable {
     r.amounts = new uint256[](1);
     r.tokens = new ERC20[](1);
     r.tokens[0] = market.asset();
+    // TODO remove amounts and tokens, check if needed for stack too deep
     address sender = _msgSender;
 
     uint256 collateral = market.maxWithdraw(sender) - withdraw;
     uint256 amount = collateral - (collateral - floatingBorrowAssets(market)).mulWadDown(ratio);
 
-    r.loopCount = amount.mulDivUp(1, r.tokens[0].balanceOf(address(balancerVault)));
+    r.loopCount = amount.mulDivUp(1, r.tokens[0].balanceOf(address(market)));
     r.amounts[0] = amount.mulDivUp(1, r.loopCount);
     r.calls = new bytes[](2 * r.loopCount + (withdraw == 0 ? 0 : 1));
     uint256 callIndex = 0;
@@ -190,7 +188,7 @@ contract DebtManager is Initializable {
       r.calls[callIndex++] = abi.encodeCall(market.repay, (r.amounts[0], sender));
       r.calls[callIndex++] = abi.encodeCall(
         market.withdraw,
-        (r.amounts[0], i + 1 == r.loopCount ? address(balancerVault) : address(this), sender)
+        (r.amounts[0], i + 1 == r.loopCount ? address(market) : address(this), sender)
       );
       unchecked {
         ++i;
@@ -198,7 +196,7 @@ contract DebtManager is Initializable {
     }
     if (withdraw != 0) r.calls[callIndex] = abi.encodeCall(market.withdraw, (withdraw, sender, sender));
 
-    balancerVault.flashLoan(address(this), r.tokens, r.amounts, hash(abi.encode(market, r.calls)));
+    market.flashLoan(IFlashLoanRecipient(address(this)), r.amounts[0], hash(abi.encode(market, r.calls)));
   }
 
   /// @notice Rolls a percentage of the fixed position of `_msgSender` to another fixed pool.

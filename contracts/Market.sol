@@ -4,7 +4,6 @@ pragma solidity ^0.8.17;
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable-v4/utils/math/MathUpgradeable.sol";
 import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
-import { ReentrancyGuard } from "solmate/src/utils/ReentrancyGuard.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { RewardsController } from "./RewardsController.sol";
 import { MarketExtension } from "./MarketExtension.sol";
@@ -12,9 +11,7 @@ import { MarketBase, IFlashLoanRecipient } from "./MarketBase.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Auditor } from "./Auditor.sol";
 
-import { console } from "forge-std/console.sol";
-
-contract Market is MarketBase, ReentrancyGuard {
+contract Market is MarketBase {
   using FixedPointMathLib for int256;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
@@ -30,14 +27,6 @@ contract Market is MarketBase, ReentrancyGuard {
   Auditor public immutable auditor;
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   MarketExtension public immutable extension;
-
-  /// @notice Flag to prevent new borrows and deposits.
-  bool public isFrozen;
-
-  /// @notice Tracks account's total amount of fixed deposits and borrows.
-  mapping(address account => FixedOps consolidated) public fixedConsolidated;
-  /// @notice Tracks the total amount of fixed deposits and borrows.
-  FixedOps public fixedOps;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
@@ -63,6 +52,10 @@ contract Market is MarketBase, ReentrancyGuard {
     uint256 dampSpeedDown_
   ) external {
     // solhint-enable no-unused-vars
+    delegateToExtension();
+  }
+
+  function initialize2(uint256 maxSupply_) external {
     delegateToExtension();
   }
 
@@ -671,21 +664,8 @@ contract Market is MarketBase, ReentrancyGuard {
     internalSeize(Market(msg.sender), liquidator, borrower, assets);
   }
 
-  error InsufficientFlashLoanBalance();
-  // TODO keep error and modifiers only in extension
-  function flashLoan(
-    IFlashLoanRecipient recipient,
-    uint256 amount,
-    bytes calldata data
-  ) external whenNotPaused nonReentrant {
-    console.log("on flashloan");
-    uint256 preLoanBalance = asset.balanceOf(address(this));
-    asset.safeTransfer(address(recipient), amount);
-
-    recipient.receiveFlashLoan(amount, data);
-
-    if (asset.balanceOf(address(this)) < preLoanBalance) revert InsufficientFlashLoanBalance();
-    // delegateToExtension();
+  function flashLoan(IFlashLoanRecipient recipient, uint256 amount, bytes calldata data) external {
+    delegateToExtension();
   }
 
   /// @notice Internal function to seize a certain amount of assets.
@@ -728,8 +708,6 @@ contract Market is MarketBase, ReentrancyGuard {
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be deposited to the floating pool.
   function afterDeposit(uint256 assets, uint256 shares) internal override whenNotPaused whenNotFrozen {
-    console.log("maxSupply", maxSupply);
-
     if (shares + totalSupply > maxSupply) revert MaxSupplyExceeded();
 
     updateFloatingAssetsAverage();
@@ -1109,14 +1087,6 @@ contract Market is MarketBase, ReentrancyGuard {
 
   /// @notice Emitted when `account` sets the `isFrozen` flag.
   event Frozen(address indexed account, bool isFrozen);
-
-  /// @notice Stores amount of fixed deposits and borrows.
-  /// @param deposits amount of fixed deposits.
-  /// @param borrows amount of fixed borrows.
-  struct FixedOps {
-    uint256 deposits;
-    uint256 borrows;
-  }
 }
 
 error Disagreement();

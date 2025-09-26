@@ -3265,7 +3265,7 @@ contract MarketTest is Test {
     bytes memory data = bytes("1234");
     FlashLoanConsumer consumer = new FlashLoanConsumer(market, data);
 
-    market.flashLoan(IFlashLoanRecipient(address(consumer)), 1 ether, data);
+    market.flashLoan(consumer, 1 ether, data);
   }
 
   function test_flashLoan_reverts_whenInsufficientBalance() external {
@@ -3276,6 +3276,17 @@ contract MarketTest is Test {
     // vm.expectRevert(stdError.arithmeticError);
     vm.expectRevert(bytes(""));
     market.flashLoan(IFlashLoanRecipient(address(consumer)), 1 ether, data);
+  }
+
+  function test_flashLoan_inflationAttack() external {
+    market.deposit(1 ether, address(this));
+
+    FlashLoanInflator inflator = new FlashLoanInflator(market);
+    market.flashLoan(inflator, 1 ether, bytes(""));
+
+    assertEq(market.totalAssets(), 2 ether);
+    assertEq(market.totalSupply(), 2 ether);
+    assertEq(asset.balanceOf(address(market)), 1 ether);
   }
 
   // solhint-enable func-name-mixedcase
@@ -3394,5 +3405,19 @@ contract FlashLoanConsumer is IFlashLoanRecipient {
     assert(asset.balanceOf(address(this)) == amount);
     assert(keccak256(data_) == keccak256(data));
     asset.transfer(address(market), amount);
+  }
+}
+
+contract FlashLoanInflator is IFlashLoanRecipient {
+  Market internal market;
+
+  constructor(Market market_) {
+    market = market_;
+  }
+
+  function receiveFlashLoan(uint256 amount, bytes calldata) external {
+    ERC20 asset = market.asset();
+    asset.approve(address(market), amount);
+    market.deposit(amount, address(this));
   }
 }

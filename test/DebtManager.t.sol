@@ -47,32 +47,6 @@ contract DebtManagerTest is ForkTest {
   uint256 internal targetMaturity;
   FlashLoanAdapter internal flashLoanAdapter;
 
-  function upgradeMarket(Market market) internal {
-    vm.startPrank(deployment("TimelockController"));
-    market.setInterestRateModel(
-      new InterestRateModel(
-        Parameters({
-          minRate: 3.5e16,
-          naturalRate: 8e16,
-          maxUtilization: 1.3e18,
-          naturalUtilization: 0.75e18,
-          growthSpeed: 1.1e18,
-          sigmoidSpeed: 2.5e18,
-          spreadFactor: 0.2e18,
-          maturitySpeed: 0.5e18,
-          timePreference: 0.01e18,
-          fixedAllocation: 0.6e18,
-          maxRate: 15_000e16
-        }),
-        market
-      )
-    );
-    vm.stopPrank();
-    upgrade(address(market), address(new Market(Market(address(market)).asset(), market.auditor())));
-    vm.prank(deployment("TimelockController"));
-    market.setMaxSupply(type(uint256).max);
-  }
-
   function setUp() external {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 99_811_375);
 
@@ -83,31 +57,15 @@ contract DebtManagerTest is ForkTest {
 
     marketOP = Market(deployment("MarketOP"));
     upgradeMarket(marketOP);
-    // upgrade(
-    //   deployment("MarketOP"),
-    //   address(new Market(Market(deployment("MarketOP")).asset(), Auditor(deployment("Auditor"))))
-    // );
 
     marketUSDC = Market(deployment("MarketUSDC.e"));
     upgradeMarket(marketUSDC);
-    // upgrade(
-    //   deployment("MarketUSDC.e"),
-    //   address(new Market(Market(deployment("MarketUSDC.e")).asset(), Auditor(deployment("Auditor"))))
-    // );
 
     marketWETH = Market(deployment("MarketWETH"));
     upgradeMarket(marketWETH);
-    // upgrade(
-    //   deployment("MarketWETH"),
-    //   address(new Market(Market(deployment("MarketWETH")).asset(), Auditor(deployment("Auditor"))))
-    // );
 
     marketwstETH = Market(deployment("MarketwstETH"));
     upgradeMarket(marketwstETH);
-    // upgrade(
-    //   deployment("MarketwstETH"),
-    //   address(new Market(Market(deployment("MarketwstETH")).asset(), Auditor(deployment("Auditor"))))
-    // );
 
     auditor = Auditor(deployment("Auditor"));
     permit2 = IPermit2(deployment("Permit2"));
@@ -148,10 +106,32 @@ contract DebtManagerTest is ForkTest {
     vm.label(bob, "bob");
   }
 
-  // function test_test_test() external {
-  //   emit log("before call");
-  //   marketUSDC.flashLoan(IFlashLoanRecipient(address(this)), 1, bytes(""));
-  // }
+  function upgradeMarket(Market market) internal {
+    vm.startPrank(deployment("TimelockController"));
+    market.setInterestRateModel(
+      new InterestRateModel(
+        Parameters({
+          minRate: 3.5e16,
+          naturalRate: 8e16,
+          maxUtilization: 1.3e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        market
+      )
+    );
+    vm.stopPrank();
+    upgrade(address(market), address(new Market(Market(address(market)).asset(), market.auditor())));
+
+    vm.prank(deployment("TimelockController"));
+    market.initialize2(type(uint256).max);
+  }
 
   function testFuzzRolls(
     uint8[4] calldata i,
@@ -327,7 +307,7 @@ contract DebtManagerTest is ForkTest {
     assertApproxEqAbs(marketUSDC.previewRefund(floatingBorrowShares), principal.mulWadDown(ratio - 1e18), 3);
   }
 
-  function testDeleverage() external _checkBalances {
+  function testDeleverageX() external _checkBalances {
     uint256 principal = 100_000e6;
     uint256 ratio = 4e18;
     debtManager.leverage(marketUSDC, principal, ratio);

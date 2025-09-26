@@ -2,14 +2,13 @@
 pragma solidity ^0.8.0;
 
 import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
-import { ReentrancyGuard } from "solmate/src/utils/ReentrancyGuard.sol";
 
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { Market } from "./Market.sol";
 import { MarketBase, IFlashLoanRecipient } from "./MarketBase.sol";
 import { Auditor } from "./Auditor.sol";
 
-contract MarketExtension is MarketBase, ReentrancyGuard {
+contract MarketExtension is MarketBase {
   using SafeTransferLib for ERC20;
 
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
@@ -40,6 +39,7 @@ contract MarketExtension is MarketBase, ReentrancyGuard {
     lastAccumulatorAccrual = uint32(block.timestamp);
     lastFloatingDebtUpdate = uint32(block.timestamp);
     lastAverageUpdate = uint32(block.timestamp);
+    locked = 1;
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
@@ -53,6 +53,11 @@ contract MarketExtension is MarketBase, ReentrancyGuard {
     setDampSpeed(dampSpeedUp_, dampSpeedDown_);
   }
 
+  function initialize2(uint256 maxSupply_) external reinitializer(2) {
+    locked = 1;
+    setMaxSupply(maxSupply_);
+  }
+
   function flashLoan(
     IFlashLoanRecipient recipient,
     uint256 amount,
@@ -63,7 +68,7 @@ contract MarketExtension is MarketBase, ReentrancyGuard {
 
     recipient.receiveFlashLoan(amount, data);
 
-    if (asset.balanceOf(address(this)) < preLoanBalance) revert InsufficientFlashLoanBalance();
+    if (asset.balanceOf(address(this)) < preLoanBalance) revert InsufficientFlashLoanRepay();
   }
 
   function transfer(address to, uint256 shares) public virtual override whenNotPaused returns (bool) {
@@ -79,6 +84,14 @@ contract MarketExtension is MarketBase, ReentrancyGuard {
     handleRewards(false, to);
     return super.transferFrom(from, to, shares);
   }
+
+  modifier nonReentrant() {
+    if (locked != 1) revert Reentrancy();
+    locked = 2;
+    _;
+    locked = 1;
+  }
 }
 
-error InsufficientFlashLoanBalance();
+error InsufficientFlashLoanRepay();
+error Reentrancy();
