@@ -222,7 +222,7 @@ contract Market is MarketBase {
         floatingBackupBorrowed = newFloatingBackupBorrowed;
       }
     }
-    uint256 fee = assets.mulWadUp(_getFixedRate(maturity, pool).mulDivDown(maturity - block.timestamp, 365 days));
+    uint256 fee = assets.mulWadUp(annualize(_getFixedRate(maturity, pool), maturity - block.timestamp));
     assetsOwed = assets + fee;
 
     // validate that the account is not taking arbitrary fees
@@ -332,7 +332,7 @@ contract Market is MarketBase {
     // verify if there are any penalties/fee for the account because of early withdrawal, if so discount
     if (block.timestamp < maturity) {
       assetsDiscounted = effectiveAssets.divWadDown(
-        1e18 + _getFixedRate(maturity, pool).mulDivDown(maturity - block.timestamp, 365 days)
+        1e18 + annualize(_getFixedRate(maturity, pool), maturity - block.timestamp)
       );
     } else {
       assetsDiscounted = effectiveAssets;
@@ -822,6 +822,10 @@ contract Market is MarketBase {
     }
   }
 
+  function annualize(uint256 value, uint256 duration) internal pure returns (uint256) {
+    return value.mulDivDown(duration, 365 days);
+  }
+
   /// @notice Retrieves fixed utilization of the floating pool.
   /// @dev Internal function to avoid code duplication.
   function fixedUtilization(uint256 supplied, uint256 borrowed, uint256 assets) internal pure returns (uint256) {
@@ -859,7 +863,7 @@ contract Market is MarketBase {
       for (uint256 i = latestMaturity + FixedLib.INTERVAL; i <= maxMaturity; i += FixedLib.INTERVAL) {
         FixedLib.Pool memory pool = fixedPools[i];
         uint256 backupBorrowed = pool.borrowed > pool.supplied ? pool.borrowed - pool.supplied : 0;
-        duration += backupBorrowed.mulDivDown(i - block.timestamp, 365 days);
+        duration += annualize(backupBorrowed, i - block.timestamp);
         if (i >= maturity) borrows += backupBorrowed;
       }
     }
