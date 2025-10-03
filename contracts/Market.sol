@@ -857,6 +857,8 @@ contract Market is MarketBase {
   function maturityDebtDuration(uint256 maturity) internal view returns (uint256 duration) {
     uint256 borrows;
     uint256 memFloatingAssetsAverage = previewFloatingAssetsAverage();
+    if (memFloatingAssetsAverage == 0) return 0;
+
     {
       uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
       uint256 maxMaturity = latestMaturity + (maxFuturePools) * FixedLib.INTERVAL;
@@ -867,21 +869,18 @@ contract Market is MarketBase {
         if (i >= maturity) borrows += backupBorrowed;
       }
     }
-    if (memFloatingAssetsAverage != 0) {
-      if (
-        !interestRateModel.canBorrowAtMaturity(
-          maturity,
-          borrows,
-          memFloatingAssetsAverage,
-          floatingBackupBorrowed,
-          maxFuturePools
-        )
-      ) {
-        revert InsufficientProtocolLiquidity();
-      }
-      return duration.divWadDown(memFloatingAssetsAverage);
+    if (
+      !interestRateModel.canBorrowAtMaturity(
+        maturity,
+        borrows,
+        memFloatingAssetsAverage,
+        floatingBackupBorrowed,
+        maxFuturePools
+      )
+    ) {
+      revert InsufficientProtocolLiquidity();
     }
-    return 0;
+    return duration.divWadDown(memFloatingAssetsAverage);
   }
 
   /// @notice Emits FixedEarningsUpdate event.
