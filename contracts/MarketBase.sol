@@ -79,6 +79,14 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
   /// @notice Address of the rewards controller that will accrue rewards for accounts operating with the Market.
   RewardsController public rewardsController;
 
+  /// @notice Flag to prevent new borrows and deposits.
+  bool public isFrozen;
+
+  /// @notice Tracks account's total amount of fixed deposits and borrows.
+  mapping(address account => FixedOps consolidated) public fixedConsolidated;
+  /// @notice Tracks the total amount of fixed deposits and borrows.
+  FixedOps public fixedOps;
+
   /// @notice Deposits amount of assets on behalf of the treasury address.
   /// @param fee amount of assets to be deposited.
   function depositToTreasury(uint256 fee) internal {
@@ -349,5 +357,13 @@ abstract contract MarketBase is Initializable, AccessControlUpgradeable, Pausabl
     uint256 fixedDeposits;
     uint256 fixedBorrows;
     uint256 floatingBorrowShares;
+  }
+
+  /// @notice Stores amount of fixed deposits and borrows.
+  /// @param deposits amount of fixed deposits.
+  /// @param borrows amount of fixed borrows.
+  struct FixedOps {
+    uint256 deposits;
+    uint256 borrows;
   }
 }
