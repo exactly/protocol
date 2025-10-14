@@ -40,6 +40,7 @@
     "@openzeppelin/contracts-upgradeable": "^5.0.2",
     "@openzeppelin/contracts-upgradeable-v4": "npm:@openzeppelin/contracts-upgradeable@^4.9.6",
     "@openzeppelin/contracts-v4": "npm:@openzeppelin/contracts@^4.9.6",
+    "solady": "^0.1.26",
     "solmate": "transmissions11/solmate#v7"
   },
   "devDependencies": {

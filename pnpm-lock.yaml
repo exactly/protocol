@@ -20,6 +20,9 @@ importers:
       '@openzeppelin/contracts-v4':
         specifier: npm:@openzeppelin/contracts@^4.9.6
         version: '@openzeppelin/contracts@4.9.6'
+      solady:
+        specifier: ^0.1.26
+        version: 0.1.26
       solmate:
         specifier: transmissions11/solmate#v7
         version: '@rari-capital/solmate@https://codeload.github.com/transmissions11/solmate/tar.gz/eaa7041378f9a6c12f943de08a6c41b31a9870fc'
@@ -3249,6 +3252,9 @@ packages:
   socks@2.8.3:
     resolution: {integrity: sha512-l5x7VUUWbjVFbafGLxPWkYsHIhEvmF85tbIeFZWc8ZPtoMyybuEhL7Jye/ooC4/d48FgOjSJXgsF/AJPYCW8Zw==}
     engines: {node: '>= 10.0.0', npm: '>= 3.0.0'}
+
+  solady@0.1.26:
+    resolution: {integrity: sha512-dhGr/ptJFdea/1KE6xgqgwEdbMhUiSfRc6A+jLeltPe16zyt9qtED3PElIBVRnzEmUO5aZTjKVAr6SlqXBBcIw==}
 
   solc@0.8.26:
     resolution: {integrity: sha512-yiPQNVf5rBFHwN6SIf3TUUvVAFKcQqmSUFeq+fb6pNRCo0ZCgpYOZDi3BVoezCPIAcKrVYd/qXlBLUP9wVrZ9g==}
@@ -7730,6 +7736,8 @@ snapshots:
     dependencies:
       ip-address: 9.0.5
       smart-buffer: 4.2.0
+
+  solady@0.1.26: {}
 
   solc@0.8.26(debug@4.3.7):
     dependencies:
