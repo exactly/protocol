@@ -8,6 +8,8 @@ import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 contract MockBalancerVault is ReentrancyGuard {
   using SafeTransferLib for ERC20;
 
+  uint256 public fee;
+
   function flashLoan(
     IFlashLoanRecipient recipient,
     ERC20[] memory tokens,
@@ -35,14 +37,26 @@ contract MockBalancerVault is ReentrancyGuard {
       token.safeTransfer(address(recipient), amount);
     }
 
-    recipient.receiveFlashLoan(tokens, amounts, new uint256[](tokens.length), userData);
+    uint256[] memory fees = new uint256[](tokens.length);
+    for (uint256 i = 0; i < fees.length; ++i) {
+      fees[i] = fee;
+    }
+
+    recipient.receiveFlashLoan(tokens, amounts, fees, userData);
 
     for (uint256 i = 0; i < tokens.length; ++i) {
       uint256 postLoanBalance = tokens[i].balanceOf(address(this));
       require(postLoanBalance >= preLoanBalances[i], "invalid post balance"); // solhint-disable-line gas-custom-errors
     }
   }
+
+  function setFee(uint256 fee_) external {
+    fee = fee_;
+    emit FeeSet(fee_, msg.sender);
+  }
 }
+
+event FeeSet(uint256 fee, address indexed sender);
 
 interface IFlashLoanRecipient {
   function receiveFlashLoan(
