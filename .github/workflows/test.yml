@@ -23,6 +23,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.3.6
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
       - run: rm -rf cache/fuzz cache/invariant
