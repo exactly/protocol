@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { Math } from "@openzeppelin/contracts-v4/utils/math/Math.sol";
-import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "solady/src/utils/FixedPointMathLib.sol";
 
 import { Auditor, Market, IPriceFeed } from "../Auditor.sol";
 import { FixedLib } from "../utils/FixedLib.sol";
@@ -29,7 +29,7 @@ contract IntegrationPreviewer {
   function healthFactor(address account) external view returns (uint256) {
     (uint256 adjustedCollateral, uint256 adjustedDebt) = auditor.accountLiquidity(account, Market(address(0)), 0);
     if (adjustedDebt == 0) return type(uint256).max;
-    return adjustedCollateral.divWadDown(adjustedDebt);
+    return adjustedCollateral.divWad(adjustedDebt);
   }
 
   /// @notice Returns the maximum additional amount of underlying assets the `account` can
@@ -44,10 +44,10 @@ contract IntegrationPreviewer {
   function borrowLimit(address account, Market market, uint256 targetHealthFactor) external view returns (uint256) {
     (uint256 adjustedCollateral, uint256 adjustedDebt) = auditor.accountLiquidity(account, market, 0);
     (uint256 adjustFactor, uint256 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
-    uint256 maxAdjustedDebt = adjustedCollateral.divWadDown(targetHealthFactor);
+    uint256 maxAdjustedDebt = adjustedCollateral.divWad(targetHealthFactor);
     if (adjustedDebt >= maxAdjustedDebt) return 0;
     uint256 maxExtraDebt = maxAdjustedDebt - adjustedDebt;
-    return maxExtraDebt.mulWadDown(adjustFactor).mulDivDown(10 ** decimals, auditor.assetPrice(priceFeed));
+    return maxExtraDebt.mulWad(adjustFactor).mulDiv(10 ** decimals, auditor.assetPrice(priceFeed));
   }
 
   /// @notice Preview the amount of underlying `assets` required to repay `positionAssets`
@@ -73,12 +73,12 @@ contract IntegrationPreviewer {
     if (totalPosition == 0) return 0;
     if (positionAssets > totalPosition) positionAssets = totalPosition;
     if (block.timestamp >= maturity) {
-      return positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
+      return positionAssets + positionAssets.mulWad((block.timestamp - maturity) * market.penaltyRate());
     }
     FixedLib.Pool memory pool;
     (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
     if (maturity > pool.lastAccrual) {
-      pool.unassignedEarnings -= pool.unassignedEarnings.mulDivDown(
+      pool.unassignedEarnings -= pool.unassignedEarnings.mulDiv(
         block.timestamp - pool.lastAccrual,
         maturity - pool.lastAccrual
       );
@@ -112,29 +112,29 @@ contract IntegrationPreviewer {
     if (totalPosition == 0) return 0;
     if (assets > type(uint256).max / 1e18) return totalPosition;
     if (block.timestamp >= maturity) {
-      return Math.min(assets.divWadDown(1e18 + (block.timestamp - maturity) * market.penaltyRate()), totalPosition);
+      return Math.min(assets.divWad(1e18 + (block.timestamp - maturity) * market.penaltyRate()), totalPosition);
     }
     if (assets >= totalPosition) return totalPosition;
     (uint256 borrowed, uint256 supplied, uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(maturity);
     if (maturity > lastAccrual) {
-      unassignedEarnings -= unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual);
+      unassignedEarnings -= unassignedEarnings.mulDiv(block.timestamp - lastAccrual, maturity - lastAccrual);
     }
     if (unassignedEarnings == 0) return assets;
     uint256 backupSupplied = borrowed - Math.min(borrowed, supplied);
     if (backupSupplied == 0) return assets;
     // k = principal / (principal + fee)
-    uint256 k = principal.divWadDown(totalPosition);
+    uint256 k = principal.divWad(totalPosition);
     if (k == 0) return assets;
     // r = (netUnassignedEarnings / backupSupplied) * k
-    uint256 netUnassignedEarnings = unassignedEarnings.mulWadDown(1e18 - market.backupFeeRate());
+    uint256 netUnassignedEarnings = unassignedEarnings.mulWad(1e18 - market.backupFeeRate());
     if (netUnassignedEarnings == 0) return assets;
-    uint256 r = netUnassignedEarnings.mulDivDown(k, backupSupplied);
+    uint256 r = netUnassignedEarnings.mulDiv(k, backupSupplied);
     // if r >= 1, unsaturated formula breaks; use saturated fallback
     if (r >= 1e18) return Math.min(assets + netUnassignedEarnings, totalPosition);
     // unsaturated guess: x ≈ assets / (1 - r)
-    uint256 x = assets.divWadDown(1e18 - r);
+    uint256 x = assets.divWad(1e18 - r);
     // validate unsaturated assumptions: k * x <= backupSupplied and x <= totalPosition
-    if (k.mulWadDown(x) <= backupSupplied && x <= totalPosition) return x;
+    if (k.mulWad(x) <= backupSupplied && x <= totalPosition) return x;
     // saturated fallback: x ≈ assets + netUnassignedEarnings, capped by total (safe add)
     return assets + Math.min(netUnassignedEarnings, totalPosition - assets);
   }
