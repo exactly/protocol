@@ -48,6 +48,7 @@ contract IntegrationPreviewerTest is ForkTest {
     vm.label(address(Market(deployment("MarketWBTC")).interestRateModel()), "InterestRateModelWBTC");
     vm.label(address(Market(deployment("MarketWETH")).interestRateModel()), "InterestRateModelWETH");
 
+    upgrade(address(auditor), address(new Auditor(auditor.priceDecimals())));
     upgrade(deployment("RewardsController"), address(new RewardsController()));
     Market[] memory markets = auditor.allMarkets();
     for (uint256 i = 0; i < markets.length; ++i) {
@@ -60,6 +61,8 @@ contract IntegrationPreviewerTest is ForkTest {
   }
 
   // solhint-disable func-name-mixedcase
+
+  // #region health factor
 
   function test_healthFactor() external view {
     assertEq(previewer.healthFactor(USER), 1.167689639007889221e18);
@@ -74,6 +77,45 @@ contract IntegrationPreviewerTest is ForkTest {
     vm.expectRevert(InsufficientAccountLiquidity.selector);
     exaUSDC.borrow(1, USER, USER);
   }
+
+  function test_previewHealthFactor() external {
+    uint256 assets = 10e6;
+    deal(address(usdc), USER, 1_000_000e6);
+    vm.startPrank(USER);
+    usdc.approve(address(exaUSDC), type(uint256).max);
+
+    uint256 healthFactor = previewer.previewHealthFactor(USER, exaUSDC, int256(assets), 0);
+    exaUSDC.deposit(assets, USER);
+    assertEq(healthFactor, previewer.healthFactor(USER), "bad health factor after deposit");
+
+    healthFactor = previewer.previewHealthFactor(
+      USER,
+      exaUSDC,
+      -int256(exaUSDC.previewMint(exaUSDC.previewWithdraw(assets))),
+      0
+    );
+    exaUSDC.withdraw(assets, USER, USER);
+    assertEq(healthFactor, previewer.healthFactor(USER), "bad health factor after withdraw");
+
+    (uint256 borrowed, uint256 supplied, , ) = exaUSDC.fixedPools(MATURITY);
+    healthFactor = previewer.previewHealthFactor(
+      USER,
+      exaUSDC,
+      0,
+      int256(
+        assets + assets.mulWadUp(exaUSDC.interestRateModel().fixedBorrowRate(MATURITY, assets, borrowed, supplied, 0))
+      )
+    );
+    exaUSDC.borrowAtMaturity(MATURITY, assets, type(uint256).max, USER, USER);
+    assertEq(healthFactor, previewer.healthFactor(USER), "bad health factor after fixed borrow");
+
+    healthFactor = previewer.previewHealthFactor(USER, exaUSDC, 0, -int256(assets));
+    exaUSDC.repayAtMaturity(MATURITY, assets, type(uint256).max, USER);
+    assertEq(healthFactor, previewer.healthFactor(USER), "bad health factor after fixed repay");
+  }
+  // #endregion
+
+  // #region fixed repay
 
   function test_fixedRepayAssets_beforeMaturity() external {
     uint256 positionAssets = 420e6;
@@ -175,6 +217,7 @@ contract IntegrationPreviewerTest is ForkTest {
 
     assertEq(previewer.fixedRepayPosition(USER, exaUSDC, MATURITY, repayAssets), principal + fee);
   }
+  // #endregion
 
   // solhint-enable func-name-mixedcase
 }

@@ -9,6 +9,7 @@ import { FixedLib } from "../utils/FixedLib.sol";
 
 contract IntegrationPreviewer {
   using FixedPointMathLib for uint256;
+  using FixedPointMathLib for int256;
   using FixedLib for FixedLib.Position;
   using FixedLib for FixedLib.Pool;
 
@@ -20,6 +21,8 @@ contract IntegrationPreviewer {
     auditor = auditor_;
   }
 
+  // #region health factor
+
   /// @notice Returns the health factor of an `account` across supported markets.
   /// @dev Uses `auditor.accountLiquidity` with no delta to obtain adjusted collateral and debt.
   /// If the account has no debt, returns `type(uint256).max`.
@@ -28,6 +31,25 @@ contract IntegrationPreviewer {
   /// @return healthFactor The account health factor in WAD, or max when there is no debt.
   function healthFactor(address account) external view returns (uint256) {
     (uint256 adjustedCollateral, uint256 adjustedDebt) = auditor.accountLiquidity(account, Market(address(0)), 0);
+    if (adjustedDebt == 0) return type(uint256).max;
+    return adjustedCollateral.divWad(adjustedDebt);
+  }
+
+  function previewHealthFactor(
+    address account,
+    Market market,
+    int256 collateralDelta,
+    int256 debtDelta
+  ) external view returns (uint256) {
+    (uint256 adjustedCollateral, uint256 adjustedDebt) = auditor.accountLiquidity(account, market, 0);
+    (uint256 adjustFactor, uint256 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
+    uint256 price = auditor.assetPrice(priceFeed);
+    uint256 absAdjustedCollateralDelta = collateralDelta.abs().mulDiv(price, 10 ** decimals).mulWad(adjustFactor);
+    if (collateralDelta < 0) adjustedCollateral -= absAdjustedCollateralDelta;
+    else adjustedCollateral += absAdjustedCollateralDelta;
+    uint256 absAdjustedDebtDelta = debtDelta.abs().mulDivUp(price, 10 ** decimals).divWadUp(adjustFactor);
+    if (debtDelta < 0) adjustedDebt -= absAdjustedDebtDelta;
+    else adjustedDebt += absAdjustedDebtDelta;
     if (adjustedDebt == 0) return type(uint256).max;
     return adjustedCollateral.divWad(adjustedDebt);
   }
@@ -49,6 +71,9 @@ contract IntegrationPreviewer {
     uint256 maxExtraDebt = maxAdjustedDebt - adjustedDebt;
     return maxExtraDebt.mulWad(adjustFactor).mulDiv(10 ** decimals, auditor.assetPrice(priceFeed));
   }
+  // #endregion
+
+  // #region fixed repay
 
   /// @notice Preview the amount of underlying `assets` required to repay `positionAssets`
   /// of a fixed-rate borrow position for `account` at `maturity` in `market`.
@@ -172,6 +197,7 @@ contract IntegrationPreviewer {
     /// @notice Borrower's fee outstanding for the fixed position (underlying asset units).
     uint256 fee;
   }
+  // #endregion
 
   function fixedDepositYield(Market market, uint256 maturity, uint256 assets) internal view returns (uint256 yield) {
     FixedLib.Pool memory p;
