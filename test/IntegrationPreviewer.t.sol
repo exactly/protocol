@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "solady/src/utils/FixedPointMathLib.sol";
 
 import { Auditor, InsufficientAccountLiquidity } from "../contracts/Auditor.sol";
 import { Market, InterestRateModel, ERC20 } from "../contracts/Market.sol";
