@@ -232,9 +232,8 @@ contract InterestRateModel {
     uint256 averageFactor = (1e18 -
       (
         -int256(
-          memFloatingAssets < memFloatingAssetsAverage
-            ? market.dampSpeedDown()
-            : market.dampSpeedUp() * (block.timestamp - market.lastAverageUpdate())
+          (memFloatingAssets < memFloatingAssetsAverage ? market.dampSpeedDown() : market.dampSpeedUp()) *
+            (block.timestamp - market.lastAverageUpdate())
         )
       ).expWad()).toUint256();
     return memFloatingAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(memFloatingAssets);
