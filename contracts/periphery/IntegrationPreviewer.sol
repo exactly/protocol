@@ -75,19 +75,7 @@ contract IntegrationPreviewer {
     if (block.timestamp >= maturity) {
       return positionAssets + positionAssets.mulWad((block.timestamp - maturity) * market.penaltyRate());
     }
-    FixedLib.Pool memory pool;
-    (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
-    if (maturity > pool.lastAccrual) {
-      pool.unassignedEarnings -= pool.unassignedEarnings.mulDiv(
-        block.timestamp - pool.lastAccrual,
-        maturity - pool.lastAccrual
-      );
-    }
-    (uint256 yield, ) = pool.calculateDeposit(
-      position.scaleProportionally(positionAssets).principal,
-      market.backupFeeRate()
-    );
-    return positionAssets - yield;
+    return positionAssets - fixedDepositYield(market, maturity, position.scaleProportionally(positionAssets).principal);
   }
 
   /// @notice Preview the portion of the fixed-rate position that can be covered with `assets`
@@ -183,5 +171,14 @@ contract IntegrationPreviewer {
     uint256 principal;
     /// @notice Borrower's fee outstanding for the fixed position (underlying asset units).
     uint256 fee;
+  }
+
+  function fixedDepositYield(Market market, uint256 maturity, uint256 assets) internal view returns (uint256 yield) {
+    FixedLib.Pool memory p;
+    (p.borrowed, p.supplied, p.unassignedEarnings, p.lastAccrual) = market.fixedPools(maturity);
+    if (maturity > p.lastAccrual) {
+      p.unassignedEarnings -= p.unassignedEarnings.mulDiv(block.timestamp - p.lastAccrual, maturity - p.lastAccrual);
+    }
+    (yield, ) = p.calculateDeposit(assets, market.backupFeeRate());
   }
 }
