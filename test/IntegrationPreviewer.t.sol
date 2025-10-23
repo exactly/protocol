@@ -4,9 +4,9 @@ pragma solidity ^0.8.0;
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 
-import { Auditor, Market, InsufficientAccountLiquidity } from "../contracts/Auditor.sol";
+import { Auditor, InsufficientAccountLiquidity } from "../contracts/Auditor.sol";
+import { Market, InterestRateModel, ERC20 } from "../contracts/Market.sol";
 import { IntegrationPreviewer } from "../contracts/periphery/IntegrationPreviewer.sol";
-import { InterestRateModel } from "../contracts/InterestRateModel.sol";
 import { RewardsController } from "../contracts/RewardsController.sol";
 import { ForkTest } from "./Fork.t.sol";
 
@@ -19,6 +19,7 @@ contract IntegrationPreviewerTest is ForkTest {
   address internal timelock;
   Auditor internal auditor;
   Market internal exaUSDC;
+  ERC20 internal usdc;
   IntegrationPreviewer internal previewer;
 
   function setUp() external {
@@ -28,6 +29,7 @@ contract IntegrationPreviewerTest is ForkTest {
     auditor = Auditor(deployment("Auditor"));
     exaUSDC = Market(deployment("MarketUSDC"));
     exaUSDC = Market(deployment("MarketUSDC"));
+    usdc = ERC20(deployment("USDC"));
     previewer = IntegrationPreviewer(address(new ERC1967Proxy(address(new IntegrationPreviewer(auditor)), "")));
     deployment("PriceFeedOP");
     deployment("PriceFeedUSDC");
@@ -79,8 +81,8 @@ contract IntegrationPreviewerTest is ForkTest {
     uint256 repayAssets = previewer.fixedRepayAssets(USER, exaUSDC, MATURITY, positionAssets);
 
     vm.startPrank(USER);
-    deal(address(exaUSDC.asset()), USER, 1_000_000e6);
-    exaUSDC.asset().approve(address(exaUSDC), type(uint256).max);
+    deal(address(usdc), USER, 1_000_000e6);
+    usdc.approve(address(exaUSDC), type(uint256).max);
     uint256 actualRepayAssets = exaUSDC.repayAtMaturity(MATURITY, positionAssets, type(uint256).max, USER);
 
     assertEq(actualRepayAssets, repayAssets);
@@ -93,8 +95,8 @@ contract IntegrationPreviewerTest is ForkTest {
     uint256 repayAssets = previewer.fixedRepayAssets(USER, exaUSDC, MATURITY, positionAssets);
 
     vm.startPrank(USER);
-    deal(address(exaUSDC.asset()), USER, 1_000_000e6);
-    exaUSDC.asset().approve(address(exaUSDC), type(uint256).max);
+    deal(address(usdc), USER, 1_000_000e6);
+    usdc.approve(address(exaUSDC), type(uint256).max);
     uint256 actualRepayAssets = exaUSDC.repayAtMaturity(MATURITY, positionAssets, type(uint256).max, USER);
 
     assertEq(actualRepayAssets, repayAssets);
@@ -106,8 +108,8 @@ contract IntegrationPreviewerTest is ForkTest {
     uint256 repayAssets = previewer.fixedRepayAssets(USER, exaUSDC, MATURITY, positionAssets);
 
     vm.startPrank(USER);
-    deal(address(exaUSDC.asset()), USER, 1_000_000e6);
-    exaUSDC.asset().approve(address(exaUSDC), type(uint256).max);
+    deal(address(usdc), USER, 1_000_000e6);
+    usdc.approve(address(exaUSDC), type(uint256).max);
     uint256 actualRepayAssets = exaUSDC.repayAtMaturity(MATURITY, positionAssets, type(uint256).max, USER);
 
     assertEq(actualRepayAssets, repayAssets);
@@ -120,8 +122,8 @@ contract IntegrationPreviewerTest is ForkTest {
     uint256 repayAssets = previewer.fixedRepayAssets(USER, exaUSDC, MATURITY, positionAssets);
 
     vm.startPrank(USER);
-    deal(address(exaUSDC.asset()), USER, 1_000_000e6);
-    exaUSDC.asset().approve(address(exaUSDC), type(uint256).max);
+    deal(address(usdc), USER, 1_000_000e6);
+    usdc.approve(address(exaUSDC), type(uint256).max);
     uint256 actualRepayAssets = exaUSDC.repayAtMaturity(MATURITY, positionAssets, type(uint256).max, USER);
 
     assertEq(actualRepayAssets, repayAssets);
@@ -133,8 +135,8 @@ contract IntegrationPreviewerTest is ForkTest {
     uint256 positionAssets = previewer.fixedRepayPosition(USER, exaUSDC, MATURITY, repayAssets);
 
     vm.startPrank(USER);
-    deal(address(exaUSDC.asset()), USER, 1_000_000e6);
-    exaUSDC.asset().approve(address(exaUSDC), type(uint256).max);
+    deal(address(usdc), USER, 1_000_000e6);
+    usdc.approve(address(exaUSDC), type(uint256).max);
     uint256 actualRepayAssets = exaUSDC.repayAtMaturity(MATURITY, positionAssets, type(uint256).max, USER);
 
     assertLe(actualRepayAssets, repayAssets);
@@ -148,8 +150,8 @@ contract IntegrationPreviewerTest is ForkTest {
     uint256 positionAssets = previewer.fixedRepayPosition(USER, exaUSDC, MATURITY, repayAssets);
 
     vm.startPrank(USER);
-    deal(address(exaUSDC.asset()), USER, 1_000_000e6);
-    exaUSDC.asset().approve(address(exaUSDC), type(uint256).max);
+    deal(address(usdc), USER, 1_000_000e6);
+    usdc.approve(address(exaUSDC), type(uint256).max);
     uint256 actualRepayAssets = exaUSDC.repayAtMaturity(MATURITY, positionAssets, type(uint256).max, USER);
 
     assertLe(actualRepayAssets, repayAssets);
