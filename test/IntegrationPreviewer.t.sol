@@ -115,6 +115,37 @@ contract IntegrationPreviewerTest is ForkTest {
   }
   // #endregion
 
+  // #region preview operations
+
+  function test_previewDeposit_(uint256 skipSeed) external {
+    uint256 assets = 10e6;
+    deal(address(usdc), USER, 1_000_000e6);
+    skip(bound(skipSeed, 0, 15 weeks));
+
+    IntegrationPreviewer.SharesPreview memory preview = previewer.previewDeposit(USER, exaUSDC, assets);
+
+    vm.startPrank(USER);
+    usdc.approve(address(exaUSDC), type(uint256).max);
+    uint256 shares = exaUSDC.deposit(assets, USER);
+
+    assertEq(preview.shares, shares, "wrong shares");
+    assertEq(preview.healthFactor, previewer.healthFactor(USER), "wrong health factor");
+  }
+
+  function test_previewWithdraw_(uint256 skipSeed) external {
+    uint256 assets = 10e6;
+    skip(bound(skipSeed, 0, 15 weeks));
+
+    IntegrationPreviewer.SharesPreview memory preview = previewer.previewWithdraw(USER, exaUSDC, assets);
+
+    vm.startPrank(USER);
+    uint256 shares = exaUSDC.withdraw(assets, USER, USER);
+
+    assertEq(preview.shares, shares, "wrong shares");
+    assertEq(preview.healthFactor, previewer.healthFactor(USER), "wrong health factor");
+  }
+  // #endregion
+
   // #region fixed repay
 
   function test_fixedRepayAssets_beforeMaturity() external {

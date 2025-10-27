@@ -35,12 +35,20 @@ contract IntegrationPreviewer {
     return adjustedCollateral.divWad(adjustedDebt);
   }
 
+  /// @notice Previews the health factor of an account after applying collateral and debt deltas.
+  /// @dev Calculates the health factor by adjusting current collateral and debt with the provided deltas.
+  /// Uses market-specific adjust factors and oracle prices for accurate calculations.
+  /// @param account The account whose health factor is being previewed.
+  /// @param market The market to apply the deltas to.
+  /// @param collateralDelta The change in collateral (positive for deposit, negative for withdraw).
+  /// @param debtDelta The change in debt (positive for borrow, negative for repay).
+  /// @return The previewed health factor in WAD, or max uint256 if no debt.
   function previewHealthFactor(
     address account,
     Market market,
     int256 collateralDelta,
     int256 debtDelta
-  ) external view returns (uint256) {
+  ) public view returns (uint256) {
     (uint256 adjustedCollateral, uint256 adjustedDebt) = auditor.accountLiquidity(account, market, 0);
     (uint256 adjustFactor, uint256 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
     uint256 price = auditor.assetPrice(priceFeed);
@@ -73,6 +81,72 @@ contract IntegrationPreviewer {
   }
   // #endregion
 
+  // #region preview operations
+
+  /// @notice Previews the result of depositing assets into a market.
+  /// @dev Calculates the shares that would be minted and the resulting health factor.
+  /// @param account The account performing the deposit.
+  /// @param market The market to deposit into.
+  /// @param assets The amount of assets to deposit.
+  /// @return preview A struct containing the shares to be minted and resulting health factor.
+  function previewDeposit(address account, Market market, uint256 assets) external view returns (SharesPreview memory) {
+    uint256 shares = market.previewDeposit(assets);
+    uint256 sharesPre = market.balanceOf(account);
+    uint256 interest = market.totalFloatingBorrowAssets() - market.floatingDebt();
+    uint256 treasuryFeeRate = market.treasuryFeeRate();
+    uint256 totalSupplyPlus = market.totalSupply() + shares;
+    uint256 totalAssetsPost = market.totalAssets() - interest.mulWad(1e18 - treasuryFeeRate) + assets + interest;
+    uint256 totalSupplyPost = totalSupplyPlus +
+      interest.mulWad(treasuryFeeRate).mulDiv(totalSupplyPlus, totalAssetsPost - interest.mulWad(treasuryFeeRate));
+    return
+      SharesPreview({
+        shares: shares,
+        healthFactor: previewHealthFactor(
+          account,
+          market,
+          int256((sharesPre + shares).mulDiv(totalAssetsPost, totalSupplyPost) - market.previewRedeem(sharesPre)),
+          0
+        )
+      });
+  }
+
+  /// @notice Previews the result of withdrawing assets from a market.
+  /// @dev Calculates the shares that would be burned and the resulting health factor.
+  /// @param account The account performing the withdrawal.
+  /// @param market The market to withdraw from.
+  /// @param assets The amount of assets to withdraw.
+  /// @return preview A struct containing the shares to be burned and resulting health factor.
+  function previewWithdraw(
+    address account,
+    Market market,
+    uint256 assets
+  ) external view returns (SharesPreview memory) {
+    uint256 shares = market.previewWithdraw(assets);
+    uint256 sharesPre = market.balanceOf(account);
+    uint256 interest = market.totalFloatingBorrowAssets() - market.floatingDebt();
+    uint256 treasuryFeeRate = market.treasuryFeeRate();
+    uint256 totalSupplyPre = market.totalSupply();
+    uint256 totalAssetsPost = market.totalAssets() - interest.mulWad(1e18 - treasuryFeeRate) + interest - assets;
+    uint256 fee = interest.mulWad(treasuryFeeRate);
+    uint256 preTreasuryAssets = totalAssetsPost + assets - fee;
+    int256 collateralDelta = int256(
+      (sharesPre - shares).mulDiv(
+        totalAssetsPost,
+        totalSupplyPre + fee.mulDiv(totalSupplyPre, preTreasuryAssets) - shares
+      )
+    ) - int256(market.previewRedeem(sharesPre));
+    return SharesPreview({ shares: shares, healthFactor: previewHealthFactor(account, market, collateralDelta, 0) });
+  }
+
+  /// @notice Preview result for ERC-4626 operations (deposit/withdraw).
+  struct SharesPreview {
+    /// @notice The number of shares that would be minted or burned.
+    uint256 shares;
+    /// @notice The resulting health factor after the operation.
+    uint256 healthFactor;
+  }
+  // #endregion
+
   // #region fixed repay
 
   /// @notice Preview the amount of underlying `assets` required to repay `positionAssets`
@@ -91,7 +165,7 @@ contract IntegrationPreviewer {
     Market market,
     uint256 maturity,
     uint256 positionAssets
-  ) external view returns (uint256 assets) {
+  ) public view returns (uint256 assets) {
     FixedLib.Position memory position;
     (position.principal, position.fee) = market.fixedBorrowPositions(maturity, account);
     uint256 totalPosition = position.principal + position.fee;
