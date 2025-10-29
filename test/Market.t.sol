@@ -26,7 +26,6 @@ import {
   Disagreement,
   MarketFrozen,
   NotPausingRole,
-  ExtensionFailed,
   MaxSupplyExceeded,
   InsufficientProtocolLiquidity
 } from "../contracts/Market.sol";
@@ -3077,7 +3076,7 @@ contract MarketTest is Test {
     market.unpause();
     market.transfer(BOB, 1 ether);
     market.pause();
-    vm.expectRevert(ExtensionFailed.selector);
+    vm.expectRevert(bytes(""));
     market.transfer(BOB, 1 ether);
 
     market.unpause();
@@ -3087,7 +3086,7 @@ contract MarketTest is Test {
 
     market.pause();
     vm.prank(BOB);
-    vm.expectRevert(ExtensionFailed.selector);
+    vm.expectRevert(bytes(""));
     market.transferFrom(address(this), BOB, 1 ether);
   }
 

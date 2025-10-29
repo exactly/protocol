@@ -949,7 +949,6 @@ contract Market is MarketBase {
     // solhint-disable-next-line avoid-low-level-calls
     (bool success, bytes memory data) = address(extension).delegatecall(msg.data);
     if (!success) {
-      if (data.length == 0) revert ExtensionFailed();
       // solhint-disable-next-line no-inline-assembly
       assembly ("memory-safe") {
         revert(add(32, data), mload(data))
@@ -1087,7 +1086,6 @@ contract Market is MarketBase {
 }
 
 error Disagreement();
-error ExtensionFailed();
 error InsufficientProtocolLiquidity();
 error MarketFrozen();
 error MaxSupplyExceeded();
