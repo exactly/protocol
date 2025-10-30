@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
-import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "solady/src/utils/FixedPointMathLib.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 
 import { MarketTest } from "./Market.t.sol";
@@ -376,7 +376,7 @@ contract VerifiedMarketTest is MarketTest {
     uint256 repaidAssets = marketWETH.liquidate(BOB, 1 ether, market);
     assertEq(
       marketWETH.earningsAccumulator(),
-      repaidAssets.mulWadDown(lendersIncentive),
+      repaidAssets.mulWad(lendersIncentive),
       "10% incentive to lenders != expected"
     );
     assertEq(

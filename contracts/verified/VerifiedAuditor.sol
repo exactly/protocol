@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "solady/src/utils/FixedPointMathLib.sol";
 
 import { Auditor, LiquidityVars, Market, MarketVars, RemainingDebt } from "../Auditor.sol";
 import { Firewall } from "./Firewall.sol";
