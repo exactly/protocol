@@ -10,8 +10,8 @@ contract VerifiedMarket is Market {
   constructor(ERC20 asset_, VerifiedAuditor auditor_) Market(asset_, auditor_) {}
 
   function deposit(uint256 assets, address receiver) public override returns (uint256 shares) {
-    _requireAllowed(receiver);
     _requireAllowed(msg.sender);
+    _requireAllowed(receiver);
     return super.deposit(assets, receiver);
   }
 
