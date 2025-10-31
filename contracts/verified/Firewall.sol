@@ -10,7 +10,7 @@ contract Firewall is Initializable, AccessControlUpgradeable {
   bytes32 public constant ALLOWER_ROLE = keccak256("ALLOWER_ROLE");
 
   /// @notice Mapping to store the allowed accounts.
-  mapping(address account => Allowed allowed) public allowlist;
+  mapping(address account => address allower) public allowlist;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor() {
@@ -30,13 +30,15 @@ contract Firewall is Initializable, AccessControlUpgradeable {
   /// @param account The account to allow or disallow.
   /// @param allowed Whether the account is allowed or disallowed.
   function allow(address account, bool allowed) external onlyRole(ALLOWER_ROLE) {
-    address prevAllower = allowlist[account].allower;
+    address prevAllower = allowlist[account];
     if (!allowed && prevAllower != msg.sender && hasRole(ALLOWER_ROLE, prevAllower)) {
       revert NotAllower(account, msg.sender);
     }
-    if (allowed && allowlist[account].allowed) revert AlreadyAllowed(account);
+    if (allowed && prevAllower != address(0)) revert AlreadyAllowed(account);
 
-    allowlist[account] = Allowed({ allower: msg.sender, allowed: allowed });
+    if (allowed) allowlist[account] = msg.sender;
+    else delete allowlist[account];
+
     emit AllowlistSet(account, msg.sender, allowed);
   }
 
@@ -44,7 +46,7 @@ contract Firewall is Initializable, AccessControlUpgradeable {
   /// @param account The account to check.
   /// @return allowed Whether the account is allowed.
   function isAllowed(address account) external view returns (bool) {
-    return allowlist[account].allowed;
+    return allowlist[account] != address(0);
   }
 
   /// @notice Emitted when a new account is allowlisted.
@@ -52,11 +54,6 @@ contract Firewall is Initializable, AccessControlUpgradeable {
   /// @param allower address of the allower that allowed the account.
   /// @param allowed whether the account is allowlisted.
   event AllowlistSet(address indexed account, address indexed allower, bool allowed);
-}
-
-struct Allowed {
-  address allower;
-  bool allowed;
 }
 
 error AlreadyAllowed(address account);

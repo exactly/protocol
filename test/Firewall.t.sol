@@ -25,22 +25,15 @@ contract FirewallTest is Test {
   function test_allow_allows_whenAllower() external {
     firewall.allow(address(this), true);
 
-    (address allower, bool allowed) = firewall.allowlist(address(this));
-
-    assertEq(allower, address(this));
-    assertTrue(allowed);
+    assertEq(firewall.allowlist(address(this)), address(this));
   }
 
   function test_allow_disallows_whenAllower() external {
     firewall.allow(address(this), true);
-    (address allower, bool allowed) = firewall.allowlist(address(this));
-    assertEq(allower, address(this));
-    assertTrue(allowed);
+    assertEq(firewall.allowlist(address(this)), address(this));
 
     firewall.allow(address(this), false);
-    (allower, allowed) = firewall.allowlist(address(this));
-    assertEq(allower, address(this));
-    assertFalse(allowed);
+    assertEq(firewall.allowlist(address(this)), address(0));
   }
 
   function test_allow_reverts_whenNotAllower() external {
@@ -50,8 +43,7 @@ contract FirewallTest is Test {
     );
     firewall.allow(address(this), true);
 
-    (, bool allowed) = firewall.allowlist(address(this));
-    assertFalse(allowed);
+    assertEq(firewall.allowlist(address(this)), address(0));
   }
 
   function test_allow_emitsAllowlistSet() external {
@@ -85,9 +77,7 @@ contract FirewallTest is Test {
 
     vm.startPrank(allower2);
     firewall.allow(bob, true);
-    (address allower, bool allowed) = firewall.allowlist(bob);
-    assertEq(allower, allower2);
-    assertTrue(allowed);
+    assertEq(firewall.allowlist(bob), allower2);
   }
 
   function test_disallow_disallows_whenAllowedAndOriginalAllower() external {
