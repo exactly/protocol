@@ -18,10 +18,7 @@ contract FlashLoanAdapterTest is ForkTest {
   IBalancerVaultV3 internal vaultV3;
 
   function setUp() external {
-    vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 141_227_400);
-
-    vaultV3 = IBalancerVaultV3(0xbA1333333333a1BA1108E8412f11850A5C319bA9);
-    adapter = new FlashLoanAdapter(vaultV3, address(this));
+    adapter = new FlashLoanAdapter(IBalancerVaultV3(address(0)), address(this));
   }
 
   // solhint-disable func-name-mixedcase
@@ -51,12 +48,14 @@ contract FlashLoanAdapterTest is ForkTest {
   }
 
   function test_consumeAdapter() external {
+    _setUpFork();
     IERC20 rETH = IERC20(0x9Bcef72be871e61ED4fBbc7630889beE758eb81D);
     FlashLoanConsumer consumer = new FlashLoanConsumer(adapter, rETH);
     consumer.callFlashLoan();
   }
 
   function test_consumeAdapter_withWToken() external {
+    _setUpFork();
     IERC20 usdc = IERC20(deployment("USDC"));
     IERC4626 waOptUSDCn = IERC4626(address(0x41B334E9F2C0ED1f30fD7c351874a6071C53a78E));
     adapter.setWToken(usdc, waOptUSDCn);
@@ -70,6 +69,13 @@ contract FlashLoanAdapterTest is ForkTest {
   }
 
   // solhint-enable func-name-mixedcase
+
+  function _setUpFork() internal {
+    vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 141_227_400);
+
+    vaultV3 = IBalancerVaultV3(0xbA1333333333a1BA1108E8412f11850A5C319bA9);
+    adapter = new FlashLoanAdapter(vaultV3, address(this));
+  }
 }
 
 contract FlashLoanConsumer is IFlashLoanRecipient {
