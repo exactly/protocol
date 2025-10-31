@@ -10,6 +10,7 @@ import {
   IBalancerVaultV3,
   IERC4626,
   IFlashLoanRecipient,
+  InvalidLength,
   WTokenSet
 } from "../contracts/periphery/FlashLoanAdapter.sol";
 
@@ -66,6 +67,16 @@ contract FlashLoanAdapterTest is ForkTest {
 
     assertEq(usdc.balanceOf(address(consumer)), 0);
     assertEq(usdc.balanceOf(address(adapter)), 0);
+  }
+
+  function test_flashLoan_reverts_whenTokensLengthNotOne() external {
+    vm.expectRevert(InvalidLength.selector);
+    adapter.flashLoan(address(0), new IERC20[](0), new uint256[](1), "");
+  }
+
+  function test_flashLoan_reverts_whenAmountsLengthNotOne() external {
+    vm.expectRevert(InvalidLength.selector);
+    adapter.flashLoan(address(0), new IERC20[](1), new uint256[](0), "");
   }
 
   // solhint-enable func-name-mixedcase

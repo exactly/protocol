@@ -17,8 +17,7 @@ contract FlashLoanAdapter is AccessControl {
   }
 
   function flashLoan(address recipient, IERC20[] memory tokens, uint256[] memory amounts, bytes memory data) external {
-    assert(tokens.length == 1);
-    assert(amounts.length == 1);
+    if (tokens.length != 1 || amounts.length != 1) revert InvalidLength();
     uint256[] memory fees = new uint256[](1);
     if (tokens[0].balanceOf(address(vault)) < amounts[0]) {
       IERC4626 wToken = wTokens[tokens[0]];
@@ -87,6 +86,7 @@ interface IFlashLoanRecipient {
 }
 
 error InsufficientLiquidity();
+error InvalidLength();
 error UnauthorizedVault();
 
 event WTokenSet(IERC20 indexed asset, IERC4626 indexed wToken, address indexed account);
