@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import { Initializable } from "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol";
 import { IERC20 } from "@openzeppelin/contracts-v4/token/ERC20/IERC20.sol";
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { FixedPointMathLib } from "solady/src/utils/FixedPointMathLib.sol";
 import { SafeTransferLib } from "solady/src/utils/SafeTransferLib.sol";
 
@@ -19,6 +20,7 @@ interface IFlashLoanRecipient {
 }
 
 contract DebtRoller is IFlashLoanRecipient, Initializable, AccessControlUpgradeable {
+  using EfficientHashLib for bytes;
   using FixedPointMathLib for uint256;
   using SafeTransferLib for address;
 
@@ -76,13 +78,13 @@ contract DebtRoller is IFlashLoanRecipient, Initializable, AccessControlUpgradea
   }
 
   function _hash(bytes memory data) internal returns (bytes memory) {
-    callHash = keccak256(data);
+    callHash = data.hash();
     return data;
   }
 
   function receiveFlashLoan(IERC20[] memory, uint256[] memory, uint256[] memory fees, bytes memory data) external {
     bytes32 memCallHash = callHash;
-    if (msg.sender != address(flashLoaner) || memCallHash != keccak256(data)) revert UnauthorizedFlashLoaner();
+    if (msg.sender != address(flashLoaner) || memCallHash != data.hash()) revert UnauthorizedFlashLoaner();
     callHash = bytes32(0);
 
     RollFixedData memory r = abi.decode(data, (RollFixedData));
