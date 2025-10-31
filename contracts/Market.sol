@@ -55,6 +55,8 @@ contract Market is MarketBase {
     delegateToExtension();
   }
 
+  /// @notice Initializes second storage layout version.
+  /// @dev can only be called once after the first initialization.
   // solhint-disable-next-line no-unused-vars
   function initialize2(uint256 maxSupply_) external {
     delegateToExtension();

@@ -5,10 +5,15 @@ import { AccessControl } from "@openzeppelin/contracts-v4/access/AccessControl.s
 import { IERC20 } from "@openzeppelin/contracts-v4/interfaces/IERC20.sol";
 import { IERC4626 } from "@openzeppelin/contracts-v4/interfaces/IERC4626.sol";
 
+/// @title FlashLoanAdapter
+/// @notice Adapter to use Balancer V3 vault with Balancer V2 interface.
+///   Uses wrapped tokens when there's not enough liquidity in the vault.
 contract FlashLoanAdapter is AccessControl {
   IBalancerVaultV3 public immutable vault;
 
+  /// @notice Mapping to check if a token is a wrapped token.
   mapping(IERC20 wToken => bool isWToken) public isWToken;
+  /// @notice Mapping to get the wrapped token for an asset.
   mapping(IERC20 asset => IERC4626 wToken) public wTokens;
 
   constructor(IBalancerVaultV3 vault_, address owner) {
@@ -16,6 +21,11 @@ contract FlashLoanAdapter is AccessControl {
     vault = vault_;
   }
 
+  /// @notice Performs a flash loan using the Balancer V3 vault.
+  /// @param recipient The address to receive the flash loan.
+  /// @param tokens The tokens to borrow.
+  /// @param amounts The amounts to borrow.
+  /// @param data Additional data to pass to the recipient.
   function flashLoan(address recipient, IERC20[] memory tokens, uint256[] memory amounts, bytes memory data) external {
     if (tokens.length != 1 || amounts.length != 1) revert InvalidLength();
     uint256[] memory fees = new uint256[](1);
@@ -35,6 +45,8 @@ contract FlashLoanAdapter is AccessControl {
     );
   }
 
+  /// @notice Receives a flash loan from the Balancer V3 vault.
+  /// @param payload The payload containing the recipient, tokens, amounts, fees, and data.
   function receiveFlashLoan(bytes calldata payload) external {
     if (msg.sender != address(vault)) revert UnauthorizedVault();
     (
@@ -63,6 +75,9 @@ contract FlashLoanAdapter is AccessControl {
     }
   }
 
+  /// @notice Sets a wrapped token for an asset.
+  /// @param asset The asset to set the wrapped token for.
+  /// @param token The wrapped token to set.
   function setWToken(IERC20 asset, IERC4626 token) external onlyRole(DEFAULT_ADMIN_ROLE) {
     wTokens[asset] = token;
     isWToken[token] = true;

@@ -8,6 +8,8 @@ import { Market } from "./Market.sol";
 import { MarketBase } from "./MarketBase.sol";
 import { Auditor } from "./Auditor.sol";
 
+/// @title MarketExtension
+/// @notice Extension to the Market contract to add additional functionality.
 contract MarketExtension is MarketBase {
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;

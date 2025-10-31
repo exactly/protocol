@@ -8,6 +8,8 @@ import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable-v4
 import { IPriceFeed } from "./utils/IPriceFeed.sol";
 import { Market } from "./Market.sol";
 
+/// @title Auditor
+/// @notice Auditor contract that can be used by markets to check liquidity and liquidations.
 contract Auditor is Initializable, AccessControlUpgradeable {
   using FixedPointMathLib for uint256;
 
@@ -235,6 +237,12 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     return maxRepayAmount(base, repay, maxLiquidatorAssets, borrower);
   }
 
+  /// @notice Calculates the maximum amount of assets the liquidator is allowed to repay.
+  /// @dev address parameter is unused here but required in other implementations of the function.
+  /// @param base The base liquidity variables.
+  /// @param repay The repay liquidity variables.
+  /// @param maxLiquidatorAssets The maximum amount of assets the liquidator is willing to accept.
+  /// @return maxRepayAssets The maximum amount of assets the liquidator is allowed to repay.
   function maxRepayAmount(
     LiquidityVars memory base,
     MarketVars memory repay,
