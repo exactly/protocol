@@ -12,9 +12,11 @@ import {
   Auditor,
   Market,
   DebtRoller,
+  IERC20,
   IFlashLoaner,
+  InvalidOperation,
   NotMarket,
-  InvalidOperation
+  UnauthorizedFlashLoaner
 } from "../contracts/periphery/DebtRoller.sol";
 import { MockBalancerVault } from "../contracts/mocks/MockBalancerVault.sol";
 import { MockInterestRateModel } from "../contracts/mocks/MockInterestRateModel.sol";
@@ -114,6 +116,11 @@ contract DebtRollerTest is Test {
   function test_rollFixed_reverts_whenInvalidOperation() external {
     vm.expectRevert(InvalidOperation.selector);
     debtRoller.rollFixed(exaUSDC, FixedLib.INTERVAL, FixedLib.INTERVAL, 1, 1, 1e18);
+  }
+
+  function test_receiveFlashLoan_reverts_whenUnauthorizedFlashLoaner() external {
+    vm.expectRevert(UnauthorizedFlashLoaner.selector);
+    debtRoller.receiveFlashLoan(new IERC20[](0), new uint256[](0), new uint256[](0), "");
   }
 
   // solhint-enable func-name-mixedcase

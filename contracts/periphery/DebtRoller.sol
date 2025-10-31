@@ -82,7 +82,7 @@ contract DebtRoller is IFlashLoanRecipient, Initializable, AccessControlUpgradea
 
   function receiveFlashLoan(IERC20[] memory, uint256[] memory, uint256[] memory fees, bytes memory data) external {
     bytes32 memCallHash = callHash;
-    assert(msg.sender == address(flashLoaner) && memCallHash == keccak256(data));
+    if (msg.sender != address(flashLoaner) || memCallHash != keccak256(data)) revert UnauthorizedFlashLoaner();
     callHash = bytes32(0);
 
     RollFixedData memory r = abi.decode(data, (RollFixedData));
@@ -117,3 +117,4 @@ interface IFlashLoaner {
 }
 
 error InvalidOperation();
+error UnauthorizedFlashLoaner();
