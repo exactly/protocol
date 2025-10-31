@@ -39,7 +39,7 @@ contract Firewall is Initializable, AccessControlUpgradeable {
     if (allowed) allowlist[account] = msg.sender;
     else delete allowlist[account];
 
-    emit AllowlistSet(account, msg.sender, allowed);
+    emit Allowed(account, msg.sender, allowed);
   }
 
   /// @notice Returns whether an account is allowed.
@@ -53,7 +53,7 @@ contract Firewall is Initializable, AccessControlUpgradeable {
   /// @param account address of the account that was allowlisted.
   /// @param allower address of the allower that allowed the account.
   /// @param allowed whether the account is allowlisted.
-  event AllowlistSet(address indexed account, address indexed allower, bool allowed);
+  event Allowed(address indexed account, address indexed allower, bool allowed);
 }
 
 error AlreadyAllowed(address account);

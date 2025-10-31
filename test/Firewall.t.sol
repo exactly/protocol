@@ -46,9 +46,9 @@ contract FirewallTest is Test {
     assertEq(firewall.allowlist(address(this)), address(0));
   }
 
-  function test_allow_emitsAllowlistSet() external {
+  function test_allow_emitsAllowed() external {
     vm.expectEmit(true, true, true, true, address(firewall));
-    emit AllowlistSet(address(this), address(this), true);
+    emit Allowed(address(this), address(this), true);
     firewall.allow(address(this), true);
   }
 
@@ -110,4 +110,4 @@ contract FirewallTest is Test {
   // solhint-enable func-name-mixedcase
 }
 
-event AllowlistSet(address indexed account, address indexed allower, bool allowed);
+event Allowed(address indexed account, address indexed allower, bool allowed);
