@@ -1,0 +1,48 @@
+{
+  "address": "0xDcB28a97e6c95b5100EED0CC4003ce13EC0c33e0",
+  "abi": [
+    { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
+    { "inputs": [], "name": "PoolAlreadyExists", "type": "error" },
+    { "inputs": [], "name": "SameAddress", "type": "error" },
+    { "inputs": [], "name": "ZeroAddress", "type": "error" },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "tokenA", "type": "address" },
+        { "internalType": "address", "name": "tokenB", "type": "address" },
+        { "internalType": "bool", "name": "stable", "type": "bool" }
+      ],
+      "name": "createPool",
+      "outputs": [{ "internalType": "contract MockVelodromePool", "name": "pool", "type": "address" }],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "", "type": "address" },
+        { "internalType": "bool", "name": "stable", "type": "bool" }
+      ],
+      "name": "getFee",
+      "outputs": [{ "internalType": "uint24", "name": "", "type": "uint24" }],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "tokenA", "type": "address" },
+        { "internalType": "address", "name": "tokenB", "type": "address" },
+        { "internalType": "bool", "name": "stable", "type": "bool" }
+      ],
+      "name": "getPool",
+      "outputs": [{ "internalType": "address", "name": "pool", "type": "address" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [{ "internalType": "address", "name": "pool", "type": "address" }],
+      "name": "isPool",
+      "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ]
+}
