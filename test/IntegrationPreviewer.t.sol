@@ -144,6 +144,43 @@ contract IntegrationPreviewerTest is ForkTest {
     assertEq(preview.shares, shares, "wrong shares");
     assertEq(preview.healthFactor, previewer.healthFactor(USER), "wrong health factor");
   }
+
+  function test_previewBorrowAtMaturity(uint256 skipSeed) external {
+    uint256 assets = 10e6;
+    skip(bound(skipSeed, 0, 1 weeks));
+
+    IntegrationPreviewer.AssetsPreview memory preview = previewer.previewBorrowAtMaturity(
+      USER,
+      exaUSDC,
+      MATURITY,
+      assets
+    );
+
+    vm.startPrank(USER);
+    uint256 positionAssets = exaUSDC.borrowAtMaturity(MATURITY, assets, type(uint256).max, USER, USER);
+
+    assertEq(preview.assets, positionAssets, "wrong assets owed");
+    assertEq(preview.healthFactor, previewer.healthFactor(USER), "wrong health factor");
+  }
+
+  function test_previewRepayAtMaturity() external {
+    uint256 assets = 10e6;
+    deal(address(usdc), USER, 1_000_000e6);
+
+    IntegrationPreviewer.AssetsPreview memory preview = previewer.previewRepayAtMaturity(
+      USER,
+      exaUSDC,
+      MATURITY,
+      assets
+    );
+
+    vm.startPrank(USER);
+    usdc.approve(address(exaUSDC), type(uint256).max);
+    uint256 repayAssets = exaUSDC.repayAtMaturity(MATURITY, assets, type(uint256).max, USER);
+
+    assertEq(preview.assets, repayAssets, "wrong repay assets");
+    assertEq(preview.healthFactor, previewer.healthFactor(USER), "wrong health factor");
+  }
   // #endregion
 
   // #region fixed repay

@@ -138,10 +138,59 @@ contract IntegrationPreviewer {
     return SharesPreview({ shares: shares, healthFactor: previewHealthFactor(account, market, collateralDelta, 0) });
   }
 
+  /// @notice Previews the result of borrowing assets at a fixed maturity.
+  /// @dev Calculates the total assets owed (principal + interest) and resulting health factor.
+  /// @param account The account performing the borrow.
+  /// @param market The market to borrow from.
+  /// @param maturity The maturity timestamp for the fixed-rate loan.
+  /// @param assets The amount of assets to borrow.
+  /// @return preview A struct containing the total assets owed and resulting health factor.
+  function previewBorrowAtMaturity(
+    address account,
+    Market market,
+    uint256 maturity,
+    uint256 assets
+  ) public view returns (AssetsPreview memory) {
+    (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(maturity);
+    uint256 rate = market.interestRateModel().fixedBorrowRate(maturity, assets, borrowed, supplied, 0);
+    uint256 fee = assets.mulWadUp(rate);
+    uint256 assetsOwed = assets + fee;
+    return
+      AssetsPreview({ assets: assetsOwed, healthFactor: previewHealthFactor(account, market, 0, int256(assetsOwed)) });
+  }
+
+  /// @notice Previews the result of repaying a fixed-rate position.
+  /// @dev Calculates the assets required to repay the position and resulting health factor.
+  /// @param account The account performing the repayment.
+  /// @param market The market containing the position.
+  /// @param maturity The maturity timestamp of the fixed-rate position.
+  /// @param positionAssets The amount of position (principal + fee) to repay.
+  /// @return preview A struct containing the assets required and resulting health factor.
+  function previewRepayAtMaturity(
+    address account,
+    Market market,
+    uint256 maturity,
+    uint256 positionAssets
+  ) public view returns (AssetsPreview memory) {
+    return
+      AssetsPreview({
+        assets: fixedRepayAssets(account, market, maturity, positionAssets),
+        healthFactor: previewHealthFactor(account, market, 0, -int256(positionAssets))
+      });
+  }
+
   /// @notice Preview result for ERC-4626 operations (deposit/withdraw).
   struct SharesPreview {
     /// @notice The number of shares that would be minted or burned.
     uint256 shares;
+    /// @notice The resulting health factor after the operation.
+    uint256 healthFactor;
+  }
+
+  /// @notice Preview result for assets operations.
+  struct AssetsPreview {
+    /// @notice The total assets involved in the operation.
+    uint256 assets;
     /// @notice The resulting health factor after the operation.
     uint256 healthFactor;
   }
