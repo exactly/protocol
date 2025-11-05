@@ -224,10 +224,21 @@ contract InterestRateModel {
   }
 
   function previewFloatingAssetsAverage(uint256 maturity) internal view returns (uint256) {
+    uint256 memFloatingDebt = market.floatingDebt();
+    uint256 memFloatingAssets = market.floatingAssets();
+    uint256 newDebt = memFloatingDebt.mulWadDown(
+      floatingRate(
+        floatingUtilization(memFloatingAssets, memFloatingDebt),
+        globalUtilization(memFloatingAssets, memFloatingDebt, market.floatingBackupBorrowed())
+      ).mulDivDown(block.timestamp - market.lastFloatingDebtUpdate(), 365 days)
+    );
+    memFloatingAssets += newDebt;
     FixedLib.Pool memory pool;
     (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
-    uint256 memFloatingAssets = market.floatingAssets() +
-      pool.unassignedEarnings.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual);
+    memFloatingAssets += pool.unassignedEarnings.mulDivDown(
+      block.timestamp - pool.lastAccrual,
+      maturity - pool.lastAccrual
+    );
     uint256 memFloatingAssetsAverage = market.floatingAssetsAverage();
     uint256 averageFactor = (1e18 -
       (
@@ -253,6 +264,10 @@ contract InterestRateModel {
     uint256 floatingAssets
   ) internal pure returns (uint256) {
     return floatingAssets != 0 && borrowed > supplied ? (borrowed - supplied).divWadUp(floatingAssets) : 0;
+  }
+
+  function floatingUtilization(uint256 floatingAssets, uint256 floatingDebt) internal pure returns (uint256) {
+    return floatingAssets != 0 ? floatingDebt.divWadUp(floatingAssets) : 0;
   }
 }
 
