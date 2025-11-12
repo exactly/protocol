@@ -28,7 +28,6 @@ contract IntegrationPreviewerTest is ForkTest {
     timelock = deployment("TimelockController");
     auditor = Auditor(deployment("Auditor"));
     exaUSDC = Market(deployment("MarketUSDC"));
-    exaUSDC = Market(deployment("MarketUSDC"));
     usdc = ERC20(deployment("USDC"));
     previewer = IntegrationPreviewer(address(new ERC1967Proxy(address(new IntegrationPreviewer(auditor)), "")));
     deployment("PriceFeedOP");
@@ -40,7 +39,6 @@ contract IntegrationPreviewerTest is ForkTest {
     deployment("MarketUSDC.e");
     deployment("MarketWBTC");
     deployment("MarketWETH");
-    deployment("USDC");
     vm.label(address(previewer), "IntegrationPreviewer");
     vm.label(address(exaUSDC.interestRateModel()), "InterestRateModelUSDC");
     vm.label(address(Market(deployment("MarketOP")).interestRateModel()), "InterestRateModelOP");
