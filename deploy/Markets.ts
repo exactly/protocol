@@ -165,6 +165,12 @@ const func: DeployFunction = async ({
     }
 
     const { address: priceFeed } = await get(`${mockPrices[assetSymbol] ? "Mock" : ""}PriceFeed${assetSymbol}`);
+    if ((await market.totalSupply()) === 0n && live) {
+      const fiveUSDAssets =
+        (5n * 10n ** 18n * 10n ** (await market.decimals())) / (await auditor.assetPrice(priceFeed));
+      await (await asset.approve(market.target, fiveUSDAssets)).wait();
+      await (await market.deposit(fiveUSDAssets, "0x000000000000000000000000000000000000dEaD")).wait();
+    }
     const adjustFactor = parseUnits(String(config.adjustFactor));
     if (!(await auditor.allMarkets()).includes(market.target as string)) {
       await executeOrPropose(auditor, "enableMarket", [market.target, priceFeed, adjustFactor]);

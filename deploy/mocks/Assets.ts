@@ -2,7 +2,7 @@ import { env } from "process";
 import { ethers, network } from "hardhat";
 import type { MarketConfig } from "hardhat/types/config";
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { MockPriceFeed } from "../../types";
+import type { IPriceFeed, MockERC20, MockPriceFeed } from "../../types";
 
 const { parseUnits, formatUnits, getContract, getSigner } = ethers;
 const {
@@ -26,7 +26,7 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
       .map((asset) => [asset, {}] as [string, MarketConfig]),
   ]) {
     const decimals = { "USDC.e": 6, USDC: 6, WBTC: 8 }[symbol] ?? 18;
-    await deploy(symbol, {
+    const { newlyDeployed } = await deploy(symbol, {
       skipIfAlreadyDeployed: true,
       contract: symbol === "WETH" ? "MockWETH" : "MockERC20",
       ...(symbol !== "WETH" && { args: [symbol, { "USDC.e": "USDC" }[symbol] ?? symbol, decimals] }),
@@ -73,6 +73,14 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
         log("setting price", symbol, formatUnits(mockPrices[symbol], priceDecimals));
         await (await mockPriceFeed.setPrice(mockPrices[symbol])).wait();
       }
+    }
+
+    if (newlyDeployed) {
+      const asset = await getContract<MockERC20>(symbol);
+      const oracle = await getContract<IPriceFeed>(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
+      const fiveUSDAssets =
+        (5n * 10n ** BigInt(priceDecimals) * 10n ** (await asset.decimals())) / (await oracle.latestAnswer());
+      await (await asset.mint(deployer, fiveUSDAssets)).wait();
     }
   }
 };
