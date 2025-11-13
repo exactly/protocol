@@ -2,7 +2,7 @@ import type { DeployFunction } from "hardhat-deploy/types";
 
 const func: DeployFunction = async ({ deployments: { deploy }, getNamedAccounts }) => {
   const { deployer } = await getNamedAccounts();
-  await deploy("BalancerVault", {
+  await deploy("Balancer2Vault", {
     skipIfAlreadyDeployed: true,
     contract: "MockBalancerVault",
     from: deployer,

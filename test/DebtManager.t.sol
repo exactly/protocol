@@ -60,7 +60,7 @@ contract DebtManagerTest is ForkTest {
     debtManager = DebtManager(
       address(
         new ERC1967Proxy(
-          address(new DebtManager(auditor, permit2, IBalancerVault(deployment("BalancerVault")))),
+          address(new DebtManager(auditor, permit2, IBalancerVault(deployment("Balancer2Vault")))),
           abi.encodeCall(DebtManager.initialize, ())
         )
       )

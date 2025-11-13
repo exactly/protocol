@@ -4,7 +4,7 @@ import tenderlify from "./.utils/tenderlify";
 
 const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAccounts }) => {
   const [{ address: flashLoaner }, { address: timelock }, { deployer }] = await Promise.all([
-    get("BalancerVault"),
+    get("Balancer3Vault"),
     get("TimelockController"),
     getNamedAccounts(),
   ]);
@@ -21,7 +21,8 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
 };
 
 func.tags = ["FlashLoan"];
-func.dependencies = ["Governance", "Balancer"];
-func.skip = async ({ network }) => !!network.config.sunset;
+func.dependencies = ["Governance"];
+func.skip = async ({ network, deployments }) =>
+  !!network.config.sunset || !(await deployments.getOrNull("Balancer3Vault"));
 
 export default func;

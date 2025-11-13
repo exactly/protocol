@@ -1,6 +1,6 @@
 import { env } from "process";
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { Auditor, ERC20, DebtManager, Market, RewardsController } from "../types";
+import type { Auditor, ERC20, DebtManager, Market, RewardsController, DebtRoller } from "../types";
 import { mockPrices } from "./mocks/Assets";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
@@ -22,15 +22,23 @@ const func: DeployFunction = async ({
     throw new Error("verified markets do not support rewards");
   }
 
-  const [rewards, debtManager, auditor, pauser, { address: timelock }, { deployer, multisig, treasury = ZeroAddress }] =
-    await Promise.all([
-      getContractOrNull<RewardsController>("RewardsController"),
-      getContractOrNull<DebtManager>("DebtManager"),
-      getContract<Auditor>("Auditor"),
-      getOrNull("Pauser"),
-      get("TimelockController"),
-      getNamedAccounts(),
-    ]);
+  const [
+    rewards,
+    debtManager,
+    debtRoller,
+    auditor,
+    pauser,
+    { address: timelock },
+    { deployer, multisig, treasury = ZeroAddress },
+  ] = await Promise.all([
+    getContractOrNull<RewardsController>("RewardsController"),
+    getContractOrNull<DebtManager>("DebtManager"),
+    getContractOrNull<DebtRoller>("DebtRoller"),
+    getContract<Auditor>("Auditor"),
+    getOrNull("Pauser"),
+    get("TimelockController"),
+    getNamedAccounts(),
+  ]);
 
   const earningsAccumulatorSmoothFactor = parseUnits(String(finance.earningsAccumulatorSmoothFactor));
   const penaltyRate = parseUnits(String(finance.penaltyRatePerDay)) / 86_400n;
@@ -192,12 +200,14 @@ const func: DeployFunction = async ({
       }
     }
 
-    if (
-      debtManager &&
-      (await auditor.allMarkets()).includes(market.target as string) &&
-      (await asset.allowance(debtManager.target, market.target)) === 0n
-    ) {
-      await (await debtManager.approve(market.target)).wait();
+    for (const debtHelper of [debtManager, debtRoller]) {
+      if (
+        debtHelper &&
+        (await auditor.allMarkets()).includes(market.target as string) &&
+        (await asset.allowance(debtHelper.target, market.target)) === 0n
+      ) {
+        await (await debtHelper.approve(market.target)).wait();
+      }
     }
 
     if (pauser) await grantRole(market, keccak256(toUtf8Bytes("EMERGENCY_ADMIN_ROLE")), pauser.address);

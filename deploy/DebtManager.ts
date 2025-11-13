@@ -6,7 +6,7 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
     await Promise.all([
       get("Auditor"),
       get("Permit2"),
-      get("BalancerVault"),
+      get("Balancer2Vault"),
       get("TimelockController"),
       getNamedAccounts(),
     ]);
@@ -33,6 +33,7 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
 
 func.tags = ["DebtManager"];
 func.dependencies = ["Governance", "Auditor", "Markets", "Balancer", "Permit2"];
-func.skip = async ({ network }) => !!network.config.sunset;
+func.skip = async ({ network, deployments }) =>
+  !!network.config.sunset || !(await deployments.getOrNull("Balancer2Vault"));
 
 export default func;

@@ -4,7 +4,7 @@ import validateUpgrade from "./.utils/validateUpgrade";
 const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAccounts }) => {
   const [{ address: auditor }, { address: flashLoaner }, { address: timelock }, { deployer }] = await Promise.all([
     get("Auditor"),
-    get("BalancerVault"),
+    get("FlashLoanAdapter"),
     get("TimelockController"),
     getNamedAccounts(),
   ]);
@@ -25,7 +25,8 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
 };
 
 func.tags = ["DebtRoller"];
-func.dependencies = ["Governance", "Auditor", "Markets", "Balancer"];
-func.skip = async ({ network }) => !!network.config.sunset;
+func.dependencies = ["Governance", "Auditor", "Markets", "FlashLoan"];
+func.skip = async ({ network, deployments }) =>
+  !!network.config.sunset || !(await deployments.getOrNull("FlashLoanAdapter"));
 
 export default func;

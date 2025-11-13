@@ -24,7 +24,7 @@ const func: DeployFunction = async ({
     { deployer },
   ] = await Promise.all([
     get("Auditor"),
-    get("DebtManager"),
+    getOrNull("DebtManager").then((d) => d ?? { address: null }),
     getOrNull("EXA").then((d) => d ?? { address: ZeroAddress }),
     getOrNull("EXAPool").then((d) => d ?? { address: ZeroAddress }),
     getOrNull("EXAGauge").then((d) => d ?? { address: ZeroAddress }),
@@ -37,14 +37,16 @@ const func: DeployFunction = async ({
   await validateUpgrade("Previewer", { args: [auditor, priceFeedETH], envKey: "PREVIEWER" }, async (name, opts) =>
     deploy(name, { ...opts, proxy: { proxyContract: "TransparentUpgradeableProxy" }, from: deployer, log: true }),
   );
-  await validateUpgrade("DebtPreviewer", { args: [debtManager], envKey: "DEBT_PREVIEWER" }, async (name, opts) =>
-    deploy(name, {
-      ...opts,
-      proxy: { proxyContract: "TransparentUpgradeableProxy" },
-      from: deployer,
-      log: true,
-    }),
-  );
+  if (debtManager) {
+    await validateUpgrade("DebtPreviewer", { args: [debtManager], envKey: "DEBT_PREVIEWER" }, async (name, opts) =>
+      deploy(name, {
+        ...opts,
+        proxy: { proxyContract: "TransparentUpgradeableProxy" },
+        from: deployer,
+        log: true,
+      }),
+    );
+  }
 
   if (periphery?.extraReserve == null) return;
   await validateUpgrade(
