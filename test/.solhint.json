@@ -1,0 +1,9 @@
+{
+  "rules": {
+    "func-name-mixedcase": "off",
+    "gas-calldata-parameters": "off",
+    "gas-increment-by-one": "off",
+    "gas-small-strings": "off",
+    "max-states-count": "off"
+  }
+}
