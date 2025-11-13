@@ -11,5 +11,6 @@ const func: DeployFunction = async ({ deployments: { deploy }, getNamedAccounts 
 };
 
 func.tags = ["Balancer"];
+func.skip = async ({ network }) => !!network.live && network.name === "base";
 
 export default func;
