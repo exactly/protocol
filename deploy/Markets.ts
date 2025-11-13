@@ -14,7 +14,7 @@ const func: DeployFunction = async ({
     config: { finance, verified },
     live,
   },
-  ethers: { ZeroAddress, parseUnits, getContractOrNull, getContract, getSigner },
+  ethers: { MaxUint256, ZeroAddress, parseUnits, getContractOrNull, getContract, getSigner },
   deployments: { deploy, get, getOrNull },
   getNamedAccounts,
 }) => {
@@ -43,6 +43,7 @@ const func: DeployFunction = async ({
   for (const [assetSymbol, config] of Object.entries(finance.markets)) {
     const asset = await getContract<ERC20>(assetSymbol);
     const marketName = `Market${assetSymbol}`;
+    const maxSupply = config.maxSupply ? parseUnits(String(config.maxSupply), await asset.decimals()) : MaxUint256;
     await validateUpgrade(
       marketName,
       {
@@ -64,7 +65,7 @@ const func: DeployFunction = async ({
                 args: [
                   assetSymbol,
                   finance.futurePools,
-                  config.maxSupply,
+                  maxSupply,
                   earningsAccumulatorSmoothFactor,
                   ZeroAddress, // irm
                   penaltyRate,
@@ -135,8 +136,8 @@ const func: DeployFunction = async ({
     if ((await market.maxFuturePools()) !== BigInt(finance.futurePools)) {
       await executeOrPropose(market, "setMaxFuturePools", [finance.futurePools]);
     }
-    if ((await market.maxSupply()) !== config.maxSupply) {
-      await executeOrPropose(market, "setMaxSupply", [config.maxSupply]);
+    if ((await market.maxSupply()) !== maxSupply) {
+      await executeOrPropose(market, "setMaxSupply", [maxSupply]);
     }
     if ((await market.earningsAccumulatorSmoothFactor()) !== earningsAccumulatorSmoothFactor) {
       await executeOrPropose(market, "setEarningsAccumulatorSmoothFactor", [earningsAccumulatorSmoothFactor]);
