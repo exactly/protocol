@@ -1,0 +1,2837 @@
+{
+  "manifestVersion": "3.2",
+  "proxies": [
+    {
+      "address": "0x310A2694521f75C7B2b64b5937C16CE65C3EFE01",
+      "txHash": "0x4730c55298744e2c54db5634bace2951a8f7330bf1f55361ae2278d0c5da62f9",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x0Aeb0BCB919858C0a4dceC3EeD879985034A597c",
+      "txHash": "0x2fb394a52b78eb6b75152355d9832acb7bff5d72cbb16775265658a2bb2c9e2c",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x52eE5238e5676598551c8d2bBcCB62c72FC3A0c4",
+      "txHash": "0xf6f591842cf0542c9d198d2114a815ac12fe16a2c228b89473a78c1125416b37",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x85c21fA8AeE39891E115E2b28c3dB2dE5B0AaF4f",
+      "txHash": "0x22ce151ebdaa4e7c013053deacde21f82a2c7c697e286878b36b84c0c69f054f",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x61EDAcB54aA8a689013682529df8914C87692E4b",
+      "txHash": "0xeb1af88c74421b51de5cd6e173526df37f62038fe469b0aaf972721b731ff4cc",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x8C2F35c8076bCb5D4b696bAE11AcA0ac0Dd873e4",
+      "txHash": "0x6f0bebed955cf0a783a3014edbc6a1c5eb0f9c1bdeebd0617a7fdd97ce908a77",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x1Dcf89Dfa88363ef33d49dD591b1eE5e84DD0F75",
+      "txHash": "0x15f1f687d648588d4205b08e3af0f9fcb2180728cb74825ba63f419d65f278dc",
+      "kind": "transparent"
+    },
+    {
+      "address": "0xbFC928268CE3536C313A30F509a297b35C590ECb",
+      "txHash": "0x0ef75bcdf552a5c00e38992c53adcd8468f75f74254d54569716013715765b4c",
+      "kind": "transparent"
+    },
+    {
+      "address": "0xe1D3D23aa7C0B591f96bfabCa188797739e24F00",
+      "txHash": "0x4b4b650d58223fd2a21fd14a319a5da40f8424764ced573a609115aec0b33e3c",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x132Cce52A30e3F2f6D06bd772B420fa8514989c5",
+      "txHash": "0xd39c91a7e8c3fce336668c6e60a567f5f488ebf16af96a95dbff1a3768d6db6f",
+      "kind": "transparent"
+    },
+    {
+      "address": "0xE69Aaa5cF5b9a7E813dB65544d454e46b28c9a6B",
+      "txHash": "0x963745e150cfa93fb9b1f13d756203fd85080bbbf45b92b99dd32a3447b97e44",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x2E9ccE021c73b8b4fe8Cd2d4C4aC9e6Ed4131796",
+      "txHash": "0x5f760fed034e9a7dd1202f091fb245b9a468193c3f3eca01e14aca9e5201329a",
+      "kind": "transparent"
+    }
+  ],
+  "impls": {
+    "0xaEb62e6F27BC103702E7BC879AE98bceA56f027E": {
+      "address": "0xaEb62e6F27BC103702E7BC879AE98bceA56f027E",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "allowlist",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_mapping(t_address,t_address)",
+            "contract": "Firewall",
+            "src": "contracts/verified/Firewall.sol:13"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)2441_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(AccessControlStorage)2451_storage": {
+            "label": "struct AccessControlUpgradeable.AccessControlStorage",
+            "members": [
+              {
+                "label": "_roles",
+                "type": "t_mapping(t_bytes32,t_struct(RoleData)2441_storage)",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(InitializableStorage)2575_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(RoleData)2441_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "hasRole",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_mapping(t_address,t_address)": {
+            "label": "mapping(address => address)",
+            "numberOfBytes": "32"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.AccessControl": [
+            {
+              "contract": "AccessControlUpgradeable",
+              "label": "_roles",
+              "type": "t_mapping(t_bytes32,t_struct(RoleData)2441_storage)",
+              "src": "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol:61",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "0x79E30d4d61224dCE20f2d84f99edb2452565b107": {
+      "address": "0x79E30d4d61224dCE20f2d84f99edb2452565b107",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/utils/ContextUpgradeable.sol:40"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC165Upgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/utils/introspection/ERC165Upgradeable.sol:41"
+          },
+          {
+            "label": "_roles",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_mapping(t_bytes32,t_struct(RoleData)23_storage)",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol:57"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol:260"
+          },
+          {
+            "label": "accountMarkets",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "Auditor",
+            "src": "contracts/Auditor.sol:35"
+          },
+          {
+            "label": "markets",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_mapping(t_contract(Market)26846,t_struct(MarketData)22436_storage)",
+            "contract": "Auditor",
+            "src": "contracts/Auditor.sol:37"
+          },
+          {
+            "label": "marketList",
+            "offset": 0,
+            "slot": "153",
+            "type": "t_array(t_contract(Market)26846)dyn_storage",
+            "contract": "Auditor",
+            "src": "contracts/Auditor.sol:39"
+          },
+          {
+            "label": "liquidationIncentive",
+            "offset": 0,
+            "slot": "154",
+            "type": "t_struct(LiquidationIncentive)22442_storage",
+            "contract": "Auditor",
+            "src": "contracts/Auditor.sol:42"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_contract(Market)26846)dyn_storage": {
+            "label": "contract Market[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IPriceFeed)49622": {
+            "label": "contract IPriceFeed",
+            "numberOfBytes": "20"
+          },
+          "t_contract(Market)26846": {
+            "label": "contract Market",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)23_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_contract(Market)26846,t_struct(MarketData)22436_storage)": {
+            "label": "mapping(contract Market => struct Auditor.MarketData)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(LiquidationIncentive)22442_storage": {
+            "label": "struct Auditor.LiquidationIncentive",
+            "members": [
+              {
+                "label": "liquidator",
+                "type": "t_uint128",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "lenders",
+                "type": "t_uint128",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(MarketData)22436_storage": {
+            "label": "struct Auditor.MarketData",
+            "members": [
+              {
+                "label": "adjustFactor",
+                "type": "t_uint128",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "decimals",
+                "type": "t_uint8",
+                "offset": 16,
+                "slot": "0"
+              },
+              {
+                "label": "index",
+                "type": "t_uint8",
+                "offset": 17,
+                "slot": "0"
+              },
+              {
+                "label": "isListed",
+                "type": "t_bool",
+                "offset": 18,
+                "slot": "0"
+              },
+              {
+                "label": "priceFeed",
+                "type": "t_contract(IPriceFeed)49622",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(RoleData)23_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "members",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint128": {
+            "label": "uint128",
+            "numberOfBytes": "16"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
+    },
+    "0x03859FA7549449a7DDe7663e5C06A38C5b0d4489": {
+      "address": "0x03859FA7549449a7DDe7663e5C06A38C5b0d4489",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/utils/ContextUpgradeable.sol:40"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC165Upgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/utils/introspection/ERC165Upgradeable.sol:41"
+          },
+          {
+            "label": "_roles",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_mapping(t_bytes32,t_struct(RoleData)23_storage)",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol:57"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol:260"
+          },
+          {
+            "label": "_paused",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_bool",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/security/PausableUpgradeable.sol:29"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/security/PausableUpgradeable.sol:116"
+          },
+          {
+            "label": "name",
+            "offset": 0,
+            "slot": "201",
+            "type": "t_string_storage",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:21"
+          },
+          {
+            "label": "symbol",
+            "offset": 0,
+            "slot": "202",
+            "type": "t_string_storage",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:23"
+          },
+          {
+            "label": "totalSupply",
+            "offset": 0,
+            "slot": "203",
+            "type": "t_uint256",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:31"
+          },
+          {
+            "label": "balanceOf",
+            "offset": 0,
+            "slot": "204",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:33"
+          },
+          {
+            "label": "allowance",
+            "offset": 0,
+            "slot": "205",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:35"
+          },
+          {
+            "label": "nonces",
+            "offset": 0,
+            "slot": "206",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:45"
+          },
+          {
+            "label": "fixedDepositPositions",
+            "offset": 0,
+            "slot": "207",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)17926_storage))",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:20"
+          },
+          {
+            "label": "fixedBorrowPositions",
+            "offset": 0,
+            "slot": "208",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)17926_storage))",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:22"
+          },
+          {
+            "label": "fixedPools",
+            "offset": 0,
+            "slot": "209",
+            "type": "t_mapping(t_uint256,t_struct(Pool)17920_storage)",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:24"
+          },
+          {
+            "label": "accounts",
+            "offset": 0,
+            "slot": "210",
+            "type": "t_mapping(t_address,t_struct(Account)13342_storage)",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:27"
+          },
+          {
+            "label": "floatingBackupBorrowed",
+            "offset": 0,
+            "slot": "211",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:30"
+          },
+          {
+            "label": "floatingDebt",
+            "offset": 0,
+            "slot": "212",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:32"
+          },
+          {
+            "label": "earningsAccumulator",
+            "offset": 0,
+            "slot": "213",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:35"
+          },
+          {
+            "label": "penaltyRate",
+            "offset": 0,
+            "slot": "214",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:37"
+          },
+          {
+            "label": "backupFeeRate",
+            "offset": 0,
+            "slot": "215",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:39"
+          },
+          {
+            "label": "dampSpeedUp",
+            "offset": 0,
+            "slot": "216",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:41"
+          },
+          {
+            "label": "dampSpeedDown",
+            "offset": 0,
+            "slot": "217",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:43"
+          },
+          {
+            "label": "maxFuturePools",
+            "offset": 0,
+            "slot": "218",
+            "type": "t_uint8",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:46"
+          },
+          {
+            "label": "lastAccumulatorAccrual",
+            "offset": 1,
+            "slot": "218",
+            "type": "t_uint32",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:48"
+          },
+          {
+            "label": "lastFloatingDebtUpdate",
+            "offset": 5,
+            "slot": "218",
+            "type": "t_uint32",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:50"
+          },
+          {
+            "label": "lastAverageUpdate",
+            "offset": 9,
+            "slot": "218",
+            "type": "t_uint32",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:52"
+          },
+          {
+            "label": "interestRateModel",
+            "offset": 0,
+            "slot": "219",
+            "type": "t_contract(InterestRateModel)9171",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:55"
+          },
+          {
+            "label": "earningsAccumulatorSmoothFactor",
+            "offset": 0,
+            "slot": "220",
+            "type": "t_uint128",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:58"
+          },
+          {
+            "label": "reserveFactor",
+            "offset": 16,
+            "slot": "220",
+            "type": "t_uint128",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:60"
+          },
+          {
+            "label": "floatingAssets",
+            "offset": 0,
+            "slot": "221",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:63"
+          },
+          {
+            "label": "floatingAssetsAverage",
+            "offset": 0,
+            "slot": "222",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:65"
+          },
+          {
+            "label": "totalFloatingBorrowShares",
+            "offset": 0,
+            "slot": "223",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "224",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:72",
+            "renamedFrom": "floatingUtilization"
+          },
+          {
+            "label": "treasury",
+            "offset": 0,
+            "slot": "225",
+            "type": "t_address",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:75"
+          },
+          {
+            "label": "treasuryFeeRate",
+            "offset": 0,
+            "slot": "226",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:77"
+          },
+          {
+            "label": "rewardsController",
+            "offset": 0,
+            "slot": "227",
+            "type": "t_contract(RewardsController)17066",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:80"
+          },
+          {
+            "label": "isFrozen",
+            "offset": 20,
+            "slot": "227",
+            "type": "t_bool",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:83"
+          },
+          {
+            "label": "fixedConsolidated",
+            "offset": 0,
+            "slot": "228",
+            "type": "t_mapping(t_address,t_struct(FixedOps)13348_storage)",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:86"
+          },
+          {
+            "label": "fixedOps",
+            "offset": 0,
+            "slot": "229",
+            "type": "t_struct(FixedOps)13348_storage",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:88"
+          },
+          {
+            "label": "maxSupply",
+            "offset": 0,
+            "slot": "231",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:91"
+          },
+          {
+            "label": "lockedAssets",
+            "offset": 0,
+            "slot": "232",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "VerifiedMarket",
+            "src": "contracts/verified/VerifiedMarket.sol:11"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(InterestRateModel)9171": {
+            "label": "contract InterestRateModel",
+            "numberOfBytes": "20"
+          },
+          "t_contract(RewardsController)17066": {
+            "label": "contract RewardsController",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(Account)13342_storage)": {
+            "label": "mapping(address => struct MarketBase.Account)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(FixedOps)13348_storage)": {
+            "label": "mapping(address => struct MarketBase.FixedOps)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(Position)17926_storage)": {
+            "label": "mapping(address => struct FixedLib.Position)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)23_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)17926_storage))": {
+            "label": "mapping(uint256 => mapping(address => struct FixedLib.Position))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(Pool)17920_storage)": {
+            "label": "mapping(uint256 => struct FixedLib.Pool)",
+            "numberOfBytes": "32"
+          },
+          "t_string_storage": {
+            "label": "string",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Account)13342_storage": {
+            "label": "struct MarketBase.Account",
+            "members": [
+              {
+                "label": "fixedDeposits",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "fixedBorrows",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "floatingBorrowShares",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          },
+          "t_struct(FixedOps)13348_storage": {
+            "label": "struct MarketBase.FixedOps",
+            "members": [
+              {
+                "label": "deposits",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "borrows",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(Pool)17920_storage": {
+            "label": "struct FixedLib.Pool",
+            "members": [
+              {
+                "label": "borrowed",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "supplied",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "unassignedEarnings",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "lastAccrual",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              }
+            ],
+            "numberOfBytes": "128"
+          },
+          "t_struct(Position)17926_storage": {
+            "label": "struct FixedLib.Position",
+            "members": [
+              {
+                "label": "principal",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "fee",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(RoleData)23_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "members",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint128": {
+            "label": "uint128",
+            "numberOfBytes": "16"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
+    },
+    "0x81C9A7B55A4df39A9B7B5F781ec0e53539694873": {
+      "address": "0x81C9A7B55A4df39A9B7B5F781ec0e53539694873",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:68"
+          }
+        ],
+        "types": {
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
+    },
+    "0xB4B6d4E969001dccc6bF50c4f4bd394fb4Ed0b77": {
+      "address": "0xB4B6d4E969001dccc6bF50c4f4bd394fb4Ed0b77",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/utils/ContextUpgradeable.sol:40"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC165Upgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/utils/introspection/ERC165Upgradeable.sol:41"
+          },
+          {
+            "label": "_roles",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_mapping(t_bytes32,t_struct(RoleData)23_storage)",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol:57"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol:260"
+          },
+          {
+            "label": "_paused",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_bool",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/security/PausableUpgradeable.sol:29"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/security/PausableUpgradeable.sol:116"
+          },
+          {
+            "label": "name",
+            "offset": 0,
+            "slot": "201",
+            "type": "t_string_storage",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:21"
+          },
+          {
+            "label": "symbol",
+            "offset": 0,
+            "slot": "202",
+            "type": "t_string_storage",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:23"
+          },
+          {
+            "label": "totalSupply",
+            "offset": 0,
+            "slot": "203",
+            "type": "t_uint256",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:31"
+          },
+          {
+            "label": "balanceOf",
+            "offset": 0,
+            "slot": "204",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:33"
+          },
+          {
+            "label": "allowance",
+            "offset": 0,
+            "slot": "205",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:35"
+          },
+          {
+            "label": "nonces",
+            "offset": 0,
+            "slot": "206",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:45"
+          },
+          {
+            "label": "fixedDepositPositions",
+            "offset": 0,
+            "slot": "207",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)17926_storage))",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:20"
+          },
+          {
+            "label": "fixedBorrowPositions",
+            "offset": 0,
+            "slot": "208",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)17926_storage))",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:22"
+          },
+          {
+            "label": "fixedPools",
+            "offset": 0,
+            "slot": "209",
+            "type": "t_mapping(t_uint256,t_struct(Pool)17920_storage)",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:24"
+          },
+          {
+            "label": "accounts",
+            "offset": 0,
+            "slot": "210",
+            "type": "t_mapping(t_address,t_struct(Account)13342_storage)",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:27"
+          },
+          {
+            "label": "floatingBackupBorrowed",
+            "offset": 0,
+            "slot": "211",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:30"
+          },
+          {
+            "label": "floatingDebt",
+            "offset": 0,
+            "slot": "212",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:32"
+          },
+          {
+            "label": "earningsAccumulator",
+            "offset": 0,
+            "slot": "213",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:35"
+          },
+          {
+            "label": "penaltyRate",
+            "offset": 0,
+            "slot": "214",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:37"
+          },
+          {
+            "label": "backupFeeRate",
+            "offset": 0,
+            "slot": "215",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:39"
+          },
+          {
+            "label": "dampSpeedUp",
+            "offset": 0,
+            "slot": "216",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:41"
+          },
+          {
+            "label": "dampSpeedDown",
+            "offset": 0,
+            "slot": "217",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:43"
+          },
+          {
+            "label": "maxFuturePools",
+            "offset": 0,
+            "slot": "218",
+            "type": "t_uint8",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:46"
+          },
+          {
+            "label": "lastAccumulatorAccrual",
+            "offset": 1,
+            "slot": "218",
+            "type": "t_uint32",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:48"
+          },
+          {
+            "label": "lastFloatingDebtUpdate",
+            "offset": 5,
+            "slot": "218",
+            "type": "t_uint32",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:50"
+          },
+          {
+            "label": "lastAverageUpdate",
+            "offset": 9,
+            "slot": "218",
+            "type": "t_uint32",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:52"
+          },
+          {
+            "label": "interestRateModel",
+            "offset": 0,
+            "slot": "219",
+            "type": "t_contract(InterestRateModel)9171",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:55"
+          },
+          {
+            "label": "earningsAccumulatorSmoothFactor",
+            "offset": 0,
+            "slot": "220",
+            "type": "t_uint128",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:58"
+          },
+          {
+            "label": "reserveFactor",
+            "offset": 16,
+            "slot": "220",
+            "type": "t_uint128",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:60"
+          },
+          {
+            "label": "floatingAssets",
+            "offset": 0,
+            "slot": "221",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:63"
+          },
+          {
+            "label": "floatingAssetsAverage",
+            "offset": 0,
+            "slot": "222",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:65"
+          },
+          {
+            "label": "totalFloatingBorrowShares",
+            "offset": 0,
+            "slot": "223",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "224",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:72",
+            "renamedFrom": "floatingUtilization"
+          },
+          {
+            "label": "treasury",
+            "offset": 0,
+            "slot": "225",
+            "type": "t_address",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:75"
+          },
+          {
+            "label": "treasuryFeeRate",
+            "offset": 0,
+            "slot": "226",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:77"
+          },
+          {
+            "label": "rewardsController",
+            "offset": 0,
+            "slot": "227",
+            "type": "t_contract(RewardsController)17066",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:80"
+          },
+          {
+            "label": "isFrozen",
+            "offset": 20,
+            "slot": "227",
+            "type": "t_bool",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:83"
+          },
+          {
+            "label": "fixedConsolidated",
+            "offset": 0,
+            "slot": "228",
+            "type": "t_mapping(t_address,t_struct(FixedOps)13348_storage)",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:86"
+          },
+          {
+            "label": "fixedOps",
+            "offset": 0,
+            "slot": "229",
+            "type": "t_struct(FixedOps)13348_storage",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:88"
+          },
+          {
+            "label": "maxSupply",
+            "offset": 0,
+            "slot": "231",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:91"
+          },
+          {
+            "label": "lockedAssets",
+            "offset": 0,
+            "slot": "232",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "VerifiedMarket",
+            "src": "contracts/verified/VerifiedMarket.sol:11"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(InterestRateModel)9171": {
+            "label": "contract InterestRateModel",
+            "numberOfBytes": "20"
+          },
+          "t_contract(RewardsController)17066": {
+            "label": "contract RewardsController",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(Account)13342_storage)": {
+            "label": "mapping(address => struct MarketBase.Account)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(FixedOps)13348_storage)": {
+            "label": "mapping(address => struct MarketBase.FixedOps)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(Position)17926_storage)": {
+            "label": "mapping(address => struct FixedLib.Position)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)23_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)17926_storage))": {
+            "label": "mapping(uint256 => mapping(address => struct FixedLib.Position))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(Pool)17920_storage)": {
+            "label": "mapping(uint256 => struct FixedLib.Pool)",
+            "numberOfBytes": "32"
+          },
+          "t_string_storage": {
+            "label": "string",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Account)13342_storage": {
+            "label": "struct MarketBase.Account",
+            "members": [
+              {
+                "label": "fixedDeposits",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "fixedBorrows",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "floatingBorrowShares",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          },
+          "t_struct(FixedOps)13348_storage": {
+            "label": "struct MarketBase.FixedOps",
+            "members": [
+              {
+                "label": "deposits",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "borrows",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(Pool)17920_storage": {
+            "label": "struct FixedLib.Pool",
+            "members": [
+              {
+                "label": "borrowed",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "supplied",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "unassignedEarnings",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "lastAccrual",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              }
+            ],
+            "numberOfBytes": "128"
+          },
+          "t_struct(Position)17926_storage": {
+            "label": "struct FixedLib.Position",
+            "members": [
+              {
+                "label": "principal",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "fee",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(RoleData)23_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "members",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint128": {
+            "label": "uint128",
+            "numberOfBytes": "16"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
+    },
+    "0x50b8186FE470E125b3A7C3F3D6b0f7Fa7310873A": {
+      "address": "0x50b8186FE470E125b3A7C3F3D6b0f7Fa7310873A",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/utils/ContextUpgradeable.sol:40"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC165Upgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/utils/introspection/ERC165Upgradeable.sol:41"
+          },
+          {
+            "label": "_roles",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_mapping(t_bytes32,t_struct(RoleData)23_storage)",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol:57"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol:260"
+          },
+          {
+            "label": "_paused",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_bool",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/security/PausableUpgradeable.sol:29"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/security/PausableUpgradeable.sol:116"
+          },
+          {
+            "label": "name",
+            "offset": 0,
+            "slot": "201",
+            "type": "t_string_storage",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:21"
+          },
+          {
+            "label": "symbol",
+            "offset": 0,
+            "slot": "202",
+            "type": "t_string_storage",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:23"
+          },
+          {
+            "label": "totalSupply",
+            "offset": 0,
+            "slot": "203",
+            "type": "t_uint256",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:31"
+          },
+          {
+            "label": "balanceOf",
+            "offset": 0,
+            "slot": "204",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:33"
+          },
+          {
+            "label": "allowance",
+            "offset": 0,
+            "slot": "205",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:35"
+          },
+          {
+            "label": "nonces",
+            "offset": 0,
+            "slot": "206",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:45"
+          },
+          {
+            "label": "fixedDepositPositions",
+            "offset": 0,
+            "slot": "207",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)17926_storage))",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:20"
+          },
+          {
+            "label": "fixedBorrowPositions",
+            "offset": 0,
+            "slot": "208",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)17926_storage))",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:22"
+          },
+          {
+            "label": "fixedPools",
+            "offset": 0,
+            "slot": "209",
+            "type": "t_mapping(t_uint256,t_struct(Pool)17920_storage)",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:24"
+          },
+          {
+            "label": "accounts",
+            "offset": 0,
+            "slot": "210",
+            "type": "t_mapping(t_address,t_struct(Account)13342_storage)",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:27"
+          },
+          {
+            "label": "floatingBackupBorrowed",
+            "offset": 0,
+            "slot": "211",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:30"
+          },
+          {
+            "label": "floatingDebt",
+            "offset": 0,
+            "slot": "212",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:32"
+          },
+          {
+            "label": "earningsAccumulator",
+            "offset": 0,
+            "slot": "213",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:35"
+          },
+          {
+            "label": "penaltyRate",
+            "offset": 0,
+            "slot": "214",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:37"
+          },
+          {
+            "label": "backupFeeRate",
+            "offset": 0,
+            "slot": "215",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:39"
+          },
+          {
+            "label": "dampSpeedUp",
+            "offset": 0,
+            "slot": "216",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:41"
+          },
+          {
+            "label": "dampSpeedDown",
+            "offset": 0,
+            "slot": "217",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:43"
+          },
+          {
+            "label": "maxFuturePools",
+            "offset": 0,
+            "slot": "218",
+            "type": "t_uint8",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:46"
+          },
+          {
+            "label": "lastAccumulatorAccrual",
+            "offset": 1,
+            "slot": "218",
+            "type": "t_uint32",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:48"
+          },
+          {
+            "label": "lastFloatingDebtUpdate",
+            "offset": 5,
+            "slot": "218",
+            "type": "t_uint32",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:50"
+          },
+          {
+            "label": "lastAverageUpdate",
+            "offset": 9,
+            "slot": "218",
+            "type": "t_uint32",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:52"
+          },
+          {
+            "label": "interestRateModel",
+            "offset": 0,
+            "slot": "219",
+            "type": "t_contract(InterestRateModel)9171",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:55"
+          },
+          {
+            "label": "earningsAccumulatorSmoothFactor",
+            "offset": 0,
+            "slot": "220",
+            "type": "t_uint128",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:58"
+          },
+          {
+            "label": "reserveFactor",
+            "offset": 16,
+            "slot": "220",
+            "type": "t_uint128",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:60"
+          },
+          {
+            "label": "floatingAssets",
+            "offset": 0,
+            "slot": "221",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:63"
+          },
+          {
+            "label": "floatingAssetsAverage",
+            "offset": 0,
+            "slot": "222",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:65"
+          },
+          {
+            "label": "totalFloatingBorrowShares",
+            "offset": 0,
+            "slot": "223",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "224",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:72",
+            "renamedFrom": "floatingUtilization"
+          },
+          {
+            "label": "treasury",
+            "offset": 0,
+            "slot": "225",
+            "type": "t_address",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:75"
+          },
+          {
+            "label": "treasuryFeeRate",
+            "offset": 0,
+            "slot": "226",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:77"
+          },
+          {
+            "label": "rewardsController",
+            "offset": 0,
+            "slot": "227",
+            "type": "t_contract(RewardsController)17066",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:80"
+          },
+          {
+            "label": "isFrozen",
+            "offset": 20,
+            "slot": "227",
+            "type": "t_bool",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:83"
+          },
+          {
+            "label": "fixedConsolidated",
+            "offset": 0,
+            "slot": "228",
+            "type": "t_mapping(t_address,t_struct(FixedOps)13348_storage)",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:86"
+          },
+          {
+            "label": "fixedOps",
+            "offset": 0,
+            "slot": "229",
+            "type": "t_struct(FixedOps)13348_storage",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:88"
+          },
+          {
+            "label": "maxSupply",
+            "offset": 0,
+            "slot": "231",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:91"
+          },
+          {
+            "label": "lockedAssets",
+            "offset": 0,
+            "slot": "232",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "VerifiedMarket",
+            "src": "contracts/verified/VerifiedMarket.sol:11"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(InterestRateModel)9171": {
+            "label": "contract InterestRateModel",
+            "numberOfBytes": "20"
+          },
+          "t_contract(RewardsController)17066": {
+            "label": "contract RewardsController",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(Account)13342_storage)": {
+            "label": "mapping(address => struct MarketBase.Account)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(FixedOps)13348_storage)": {
+            "label": "mapping(address => struct MarketBase.FixedOps)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(Position)17926_storage)": {
+            "label": "mapping(address => struct FixedLib.Position)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)23_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)17926_storage))": {
+            "label": "mapping(uint256 => mapping(address => struct FixedLib.Position))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(Pool)17920_storage)": {
+            "label": "mapping(uint256 => struct FixedLib.Pool)",
+            "numberOfBytes": "32"
+          },
+          "t_string_storage": {
+            "label": "string",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Account)13342_storage": {
+            "label": "struct MarketBase.Account",
+            "members": [
+              {
+                "label": "fixedDeposits",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "fixedBorrows",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "floatingBorrowShares",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          },
+          "t_struct(FixedOps)13348_storage": {
+            "label": "struct MarketBase.FixedOps",
+            "members": [
+              {
+                "label": "deposits",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "borrows",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(Pool)17920_storage": {
+            "label": "struct FixedLib.Pool",
+            "members": [
+              {
+                "label": "borrowed",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "supplied",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "unassignedEarnings",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "lastAccrual",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              }
+            ],
+            "numberOfBytes": "128"
+          },
+          "t_struct(Position)17926_storage": {
+            "label": "struct FixedLib.Position",
+            "members": [
+              {
+                "label": "principal",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "fee",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(RoleData)23_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "members",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint128": {
+            "label": "uint128",
+            "numberOfBytes": "16"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
+    },
+    "0xBd1ba78A3976cAB420A9203E6ef14D18C2B2E031": {
+      "address": "0xBd1ba78A3976cAB420A9203E6ef14D18C2B2E031",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/utils/ContextUpgradeable.sol:40"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC165Upgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/utils/introspection/ERC165Upgradeable.sol:41"
+          },
+          {
+            "label": "_roles",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_mapping(t_bytes32,t_struct(RoleData)23_storage)",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol:57"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol:260"
+          },
+          {
+            "label": "_paused",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_bool",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/security/PausableUpgradeable.sol:29"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/security/PausableUpgradeable.sol:116"
+          },
+          {
+            "label": "name",
+            "offset": 0,
+            "slot": "201",
+            "type": "t_string_storage",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:21"
+          },
+          {
+            "label": "symbol",
+            "offset": 0,
+            "slot": "202",
+            "type": "t_string_storage",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:23"
+          },
+          {
+            "label": "totalSupply",
+            "offset": 0,
+            "slot": "203",
+            "type": "t_uint256",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:31"
+          },
+          {
+            "label": "balanceOf",
+            "offset": 0,
+            "slot": "204",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:33"
+          },
+          {
+            "label": "allowance",
+            "offset": 0,
+            "slot": "205",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:35"
+          },
+          {
+            "label": "nonces",
+            "offset": 0,
+            "slot": "206",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ERC20",
+            "src": "solmate/src/tokens/ERC20.sol:45"
+          },
+          {
+            "label": "fixedDepositPositions",
+            "offset": 0,
+            "slot": "207",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)17926_storage))",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:20"
+          },
+          {
+            "label": "fixedBorrowPositions",
+            "offset": 0,
+            "slot": "208",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)17926_storage))",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:22"
+          },
+          {
+            "label": "fixedPools",
+            "offset": 0,
+            "slot": "209",
+            "type": "t_mapping(t_uint256,t_struct(Pool)17920_storage)",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:24"
+          },
+          {
+            "label": "accounts",
+            "offset": 0,
+            "slot": "210",
+            "type": "t_mapping(t_address,t_struct(Account)13342_storage)",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:27"
+          },
+          {
+            "label": "floatingBackupBorrowed",
+            "offset": 0,
+            "slot": "211",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:30"
+          },
+          {
+            "label": "floatingDebt",
+            "offset": 0,
+            "slot": "212",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:32"
+          },
+          {
+            "label": "earningsAccumulator",
+            "offset": 0,
+            "slot": "213",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:35"
+          },
+          {
+            "label": "penaltyRate",
+            "offset": 0,
+            "slot": "214",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:37"
+          },
+          {
+            "label": "backupFeeRate",
+            "offset": 0,
+            "slot": "215",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:39"
+          },
+          {
+            "label": "dampSpeedUp",
+            "offset": 0,
+            "slot": "216",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:41"
+          },
+          {
+            "label": "dampSpeedDown",
+            "offset": 0,
+            "slot": "217",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:43"
+          },
+          {
+            "label": "maxFuturePools",
+            "offset": 0,
+            "slot": "218",
+            "type": "t_uint8",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:46"
+          },
+          {
+            "label": "lastAccumulatorAccrual",
+            "offset": 1,
+            "slot": "218",
+            "type": "t_uint32",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:48"
+          },
+          {
+            "label": "lastFloatingDebtUpdate",
+            "offset": 5,
+            "slot": "218",
+            "type": "t_uint32",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:50"
+          },
+          {
+            "label": "lastAverageUpdate",
+            "offset": 9,
+            "slot": "218",
+            "type": "t_uint32",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:52"
+          },
+          {
+            "label": "interestRateModel",
+            "offset": 0,
+            "slot": "219",
+            "type": "t_contract(InterestRateModel)9171",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:55"
+          },
+          {
+            "label": "earningsAccumulatorSmoothFactor",
+            "offset": 0,
+            "slot": "220",
+            "type": "t_uint128",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:58"
+          },
+          {
+            "label": "reserveFactor",
+            "offset": 16,
+            "slot": "220",
+            "type": "t_uint128",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:60"
+          },
+          {
+            "label": "floatingAssets",
+            "offset": 0,
+            "slot": "221",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:63"
+          },
+          {
+            "label": "floatingAssetsAverage",
+            "offset": 0,
+            "slot": "222",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:65"
+          },
+          {
+            "label": "totalFloatingBorrowShares",
+            "offset": 0,
+            "slot": "223",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "224",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:72",
+            "renamedFrom": "floatingUtilization"
+          },
+          {
+            "label": "treasury",
+            "offset": 0,
+            "slot": "225",
+            "type": "t_address",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:75"
+          },
+          {
+            "label": "treasuryFeeRate",
+            "offset": 0,
+            "slot": "226",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:77"
+          },
+          {
+            "label": "rewardsController",
+            "offset": 0,
+            "slot": "227",
+            "type": "t_contract(RewardsController)17066",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:80"
+          },
+          {
+            "label": "isFrozen",
+            "offset": 20,
+            "slot": "227",
+            "type": "t_bool",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:83"
+          },
+          {
+            "label": "fixedConsolidated",
+            "offset": 0,
+            "slot": "228",
+            "type": "t_mapping(t_address,t_struct(FixedOps)13348_storage)",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:86"
+          },
+          {
+            "label": "fixedOps",
+            "offset": 0,
+            "slot": "229",
+            "type": "t_struct(FixedOps)13348_storage",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:88"
+          },
+          {
+            "label": "maxSupply",
+            "offset": 0,
+            "slot": "231",
+            "type": "t_uint256",
+            "contract": "MarketBase",
+            "src": "contracts/MarketBase.sol:91"
+          },
+          {
+            "label": "lockedAssets",
+            "offset": 0,
+            "slot": "232",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "VerifiedMarket",
+            "src": "contracts/verified/VerifiedMarket.sol:11"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(InterestRateModel)9171": {
+            "label": "contract InterestRateModel",
+            "numberOfBytes": "20"
+          },
+          "t_contract(RewardsController)17066": {
+            "label": "contract RewardsController",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(Account)13342_storage)": {
+            "label": "mapping(address => struct MarketBase.Account)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(FixedOps)13348_storage)": {
+            "label": "mapping(address => struct MarketBase.FixedOps)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(Position)17926_storage)": {
+            "label": "mapping(address => struct FixedLib.Position)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)23_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)17926_storage))": {
+            "label": "mapping(uint256 => mapping(address => struct FixedLib.Position))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(Pool)17920_storage)": {
+            "label": "mapping(uint256 => struct FixedLib.Pool)",
+            "numberOfBytes": "32"
+          },
+          "t_string_storage": {
+            "label": "string",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Account)13342_storage": {
+            "label": "struct MarketBase.Account",
+            "members": [
+              {
+                "label": "fixedDeposits",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "fixedBorrows",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "floatingBorrowShares",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          },
+          "t_struct(FixedOps)13348_storage": {
+            "label": "struct MarketBase.FixedOps",
+            "members": [
+              {
+                "label": "deposits",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "borrows",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(Pool)17920_storage": {
+            "label": "struct FixedLib.Pool",
+            "members": [
+              {
+                "label": "borrowed",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "supplied",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "unassignedEarnings",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "lastAccrual",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              }
+            ],
+            "numberOfBytes": "128"
+          },
+          "t_struct(Position)17926_storage": {
+            "label": "struct FixedLib.Position",
+            "members": [
+              {
+                "label": "principal",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "fee",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(RoleData)23_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "members",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint128": {
+            "label": "uint128",
+            "numberOfBytes": "16"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
+    },
+    "0xF7b7A94ECc28A63869BBCF0d061bd5888d7B3d0E": {
+      "address": "0xF7b7A94ECc28A63869BBCF0d061bd5888d7B3d0E",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/utils/ContextUpgradeable.sol:40"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC165Upgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/utils/introspection/ERC165Upgradeable.sol:41"
+          },
+          {
+            "label": "_roles",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_mapping(t_bytes32,t_struct(RoleData)23_storage)",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol:57"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol:260"
+          },
+          {
+            "label": "callHash",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_bytes32",
+            "contract": "DebtRoller",
+            "src": "contracts/periphery/DebtRoller.sol:31"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)23_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(RoleData)23_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "members",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
+    },
+    "0x7Bf6D7aD79e14152FaD7F48c3cEbD796a01D57fD": {
+      "address": "0x7Bf6D7aD79e14152FaD7F48c3cEbD796a01D57fD",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [],
+        "types": {},
+        "namespaces": {}
+      }
+    },
+    "0x70ea56405e79d3ef943c276371F596717D2D9f5a": {
+      "address": "0x70ea56405e79d3ef943c276371F596717D2D9f5a",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [],
+        "types": {},
+        "namespaces": {}
+      }
+    },
+    "0xf8f563E33973d1Bdd6c768132BC431EA7A7B56fa": {
+      "address": "0xf8f563E33973d1Bdd6c768132BC431EA7A7B56fa",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [],
+        "types": {},
+        "namespaces": {}
+      }
+    },
+    "0xC91DC7A797cd5FBCf6F334C792a2b24EFf55292C": {
+      "address": "0xC91DC7A797cd5FBCf6F334C792a2b24EFf55292C",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [],
+        "types": {},
+        "namespaces": {}
+      }
+    }
+  }
+}
