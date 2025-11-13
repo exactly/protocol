@@ -44,7 +44,7 @@ const hardhatConfig: Config = {
       sunset: true,
       priceDecimals: 18,
       timelockDelay: 24 * 3_600,
-      finance: { treasuryFeeRate: 0, futurePools: 3 },
+      finance: { marketDefaults: { treasuryFeeRate: 0, futurePools: 3 } },
       url: env.ETHEREUM_NODE ?? "",
     },
     optimism: { priceDecimals: 8, timelockDelay: 24 * 3_600, url: env.OPTIMISM_NODE ?? "" },
@@ -88,26 +88,28 @@ const hardhatConfig: Config = {
     },
   },
   finance: {
-    treasuryFeeRate: 0.2,
     liquidationIncentive: { liquidator: 0.05, lenders: 0.0025 },
-    penaltyRatePerDay: 0.0045,
-    backupFeeRate: 0.1,
-    reserveFactor: 0.05,
-    dampSpeed: { up: 0.000053, down: 0.4 },
-    futurePools: 10,
-    earningsAccumulatorSmoothFactor: 2,
-    interestRateModel: {
-      minRate: 1.95e-2,
-      naturalRate: 4e-2,
-      maxUtilization: 1.3,
-      naturalUtilization: 0.88,
-      growthSpeed: 1.1,
-      sigmoidSpeed: 2.5,
-      spreadFactor: 0.3,
-      maturitySpeed: 0.5,
-      timePreference: 0.2,
-      fixedAllocation: 0.6,
-      maxRate: 18.25,
+    marketDefaults: {
+      treasuryFeeRate: 0.2,
+      penaltyRatePerDay: 0.0045,
+      backupFeeRate: 0.1,
+      reserveFactor: 0.05,
+      dampSpeed: { up: 0.000053, down: 0.4 },
+      futurePools: 10,
+      earningsAccumulatorSmoothFactor: 2,
+      interestRateModel: {
+        minRate: 1.95e-2,
+        naturalRate: 4e-2,
+        maxUtilization: 1.3,
+        naturalUtilization: 0.88,
+        growthSpeed: 1.1,
+        sigmoidSpeed: 2.5,
+        spreadFactor: 0.3,
+        maturitySpeed: 0.5,
+        timePreference: 0.2,
+        fixedAllocation: 0.6,
+        maxRate: 18.25,
+      },
     },
     rewards: {
       undistributedFactor: 0.5,
@@ -446,9 +448,15 @@ extendConfig((extendedConfig, { finance }) => {
           .filter(([, { networks }]) => !live || !networks || networks.includes(networkName))
           .map(([name, { networks, overrides, interestRateModel, ...market }]) => {
             const config = {
+              ...finance.marketDefaults,
+              ...networkConfig.finance?.marketDefaults,
               ...market,
               ...overrides?.[live ? networkName : "optimism"],
-              interestRateModel: { ...finance.interestRateModel, ...interestRateModel },
+              interestRateModel: {
+                ...finance.marketDefaults.interestRateModel,
+                ...networkConfig.finance?.marketDefaults?.interestRateModel,
+                ...interestRateModel,
+              },
               frozen: live && market.frozen,
             };
             if (config.rewards) {
@@ -467,25 +475,18 @@ extendConfig((extendedConfig, { finance }) => {
 declare module "hardhat/types/config" {
   export interface FinanceConfig {
     liquidationIncentive: { liquidator: number; lenders: number };
-    penaltyRatePerDay: number;
-    treasuryFeeRate?: number;
-    backupFeeRate: number;
-    reserveFactor: number;
-    dampSpeed: { up: number; down: number };
-    futurePools: number;
-    earningsAccumulatorSmoothFactor: number;
+    marketDefaults: MarketConfig;
     rewards: RewardsParameters;
     escrow: EscrowParameters;
     staking: StakingParameters;
-    interestRateModel: IRMParameters;
     markets: { [asset: string]: MarketConfig };
     periphery?: PeripheryConfig;
   }
 
-  export interface FinanceUserConfig extends Omit<FinanceConfig, "markets" | "periphery" | "interestRateModel"> {
+  export interface FinanceUserConfig extends Omit<FinanceConfig, "marketDefaults" | "markets" | "periphery"> {
+    marketDefaults: MarketUserConfig;
     markets: { [asset: string]: MarketUserConfig };
     periphery: { [network: string]: PeripheryConfig };
-    interestRateModel: IRMParameters;
   }
 
   export interface RewardsParameters {
@@ -519,6 +520,13 @@ declare module "hardhat/types/config" {
     frozen?: boolean;
     adjustFactor: number;
     priceFeed?: "double" | { wrapper: string; fn: string; baseUnit: bigint };
+    penaltyRatePerDay: number;
+    treasuryFeeRate: number;
+    backupFeeRate: number;
+    reserveFactor: number;
+    dampSpeed: { up: number; down: number };
+    futurePools: number;
+    earningsAccumulatorSmoothFactor: number;
     interestRateModel: IRMParameters;
     maxSupply?: number;
     rewards?: {
@@ -531,7 +539,7 @@ declare module "hardhat/types/config" {
     };
   }
 
-  export interface MarketUserConfig extends Omit<MarketConfig, "interestRateModel"> {
+  export interface MarketUserConfig extends Partial<Omit<MarketConfig, "interestRateModel">> {
     networks?: string[];
     overrides?: { [network: string]: Partial<MarketUserConfig> };
     interestRateModel?: Partial<IRMParameters>;
@@ -563,7 +571,10 @@ declare module "hardhat/types/config" {
   export interface HttpNetworkUserConfig {
     priceDecimals: number;
     timelockDelay?: number;
-    finance?: Omit<Partial<FinanceConfig>, "staking"> & { staking?: Partial<StakingParameters> };
+    finance?: Omit<Partial<FinanceConfig>, "marketDefaults" | "staking"> & {
+      marketDefaults?: Partial<MarketConfig>;
+      staking?: Partial<StakingParameters>;
+    };
     verified?: boolean;
     sunset?: boolean;
   }

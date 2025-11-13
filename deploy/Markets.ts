@@ -11,14 +11,17 @@ import { keccak256, toUtf8Bytes } from "ethers";
 
 const func: DeployFunction = async ({
   network: {
-    config: { finance, verified },
+    config: {
+      finance: { markets },
+      verified,
+    },
     live,
   },
   ethers: { MaxUint256, ZeroAddress, parseUnits, getContractOrNull, getContract, getSigner },
   deployments: { deploy, get, getOrNull },
   getNamedAccounts,
 }) => {
-  if (verified && Object.values(finance.markets).some(({ rewards }) => rewards)) {
+  if (verified && Object.values(markets).some(({ rewards }) => rewards)) {
     throw new Error("verified markets do not support rewards");
   }
 
@@ -40,17 +43,16 @@ const func: DeployFunction = async ({
     getNamedAccounts(),
   ]);
 
-  const earningsAccumulatorSmoothFactor = parseUnits(String(finance.earningsAccumulatorSmoothFactor));
-  const penaltyRate = parseUnits(String(finance.penaltyRatePerDay)) / 86_400n;
-  const backupFeeRate = parseUnits(String(finance.backupFeeRate));
-  const reserveFactor = parseUnits(String(finance.reserveFactor));
-  const dampSpeedUp = parseUnits(String(finance.dampSpeed.up));
-  const dampSpeedDown = parseUnits(String(finance.dampSpeed.down));
-  const treasuryFeeRate = parseUnits(String(finance.treasuryFeeRate ?? 0));
-
-  for (const [assetSymbol, config] of Object.entries(finance.markets)) {
+  for (const [assetSymbol, config] of Object.entries(markets)) {
     const asset = await getContract<ERC20>(assetSymbol);
     const marketName = `Market${assetSymbol}`;
+    const earningsAccumulatorSmoothFactor = parseUnits(String(config.earningsAccumulatorSmoothFactor));
+    const penaltyRate = parseUnits(String(config.penaltyRatePerDay)) / 86_400n;
+    const backupFeeRate = parseUnits(String(config.backupFeeRate));
+    const reserveFactor = parseUnits(String(config.reserveFactor));
+    const dampSpeedUp = parseUnits(String(config.dampSpeed.up));
+    const dampSpeedDown = parseUnits(String(config.dampSpeed.down));
+    const treasuryFeeRate = parseUnits(String(config.treasuryFeeRate ?? 0));
     const maxSupply = config.maxSupply ? parseUnits(String(config.maxSupply), await asset.decimals()) : MaxUint256;
     await validateUpgrade(
       marketName,
@@ -72,7 +74,7 @@ const func: DeployFunction = async ({
                 methodName: "initialize",
                 args: [
                   assetSymbol,
-                  finance.futurePools,
+                  config.futurePools,
                   maxSupply,
                   earningsAccumulatorSmoothFactor,
                   ZeroAddress, // irm
@@ -141,8 +143,8 @@ const func: DeployFunction = async ({
     if ((await market.isFrozen()) !== !!config.frozen) {
       await executeOrPropose(market, "setFrozen", [config.frozen]);
     }
-    if ((await market.maxFuturePools()) !== BigInt(finance.futurePools)) {
-      await executeOrPropose(market, "setMaxFuturePools", [finance.futurePools]);
+    if ((await market.maxFuturePools()) !== BigInt(config.futurePools)) {
+      await executeOrPropose(market, "setMaxFuturePools", [config.futurePools]);
     }
     if ((await market.maxSupply()) !== maxSupply) {
       await executeOrPropose(market, "setMaxSupply", [maxSupply]);
@@ -222,7 +224,7 @@ const func: DeployFunction = async ({
 
     const newRewards = (
       await Promise.all(
-        Object.entries(finance.markets).map(async ([assetSymbol, { rewards: marketRewards }]) => {
+        Object.entries(markets).map(async ([assetSymbol, { rewards: marketRewards }]) => {
           if (!marketRewards) return;
 
           const market = await getContract<Market>(`Market${assetSymbol}`);
