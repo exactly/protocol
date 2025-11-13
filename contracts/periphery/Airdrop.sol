@@ -68,6 +68,7 @@ struct Broker {
   uint256 fee;
 }
 
+// solhint-disable-next-line gas-struct-packing
 struct CreateWithDurations {
   address sender;
   address recipient;

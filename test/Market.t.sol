@@ -3224,8 +3224,6 @@ contract MarketTest is Test {
     assertFalse(market.paused());
   }
 
-  // solhint-disable func-name-mixedcase
-
   function test_setMaxSupply_sets_whenAdmin() external {
     assertEq(market.maxSupply(), type(uint256).max);
     market.setMaxSupply(10 ether);
@@ -3255,8 +3253,6 @@ contract MarketTest is Test {
     vm.expectRevert(MaxSupplyExceeded.selector);
     market.deposit(2 ether, address(this));
   }
-
-  // solhint-enable func-name-mixedcase
 
   event MarketUpdate(
     uint256 timestamp,

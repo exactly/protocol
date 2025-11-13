@@ -22,8 +22,6 @@ contract FlashLoanAdapterTest is ForkTest {
     adapter = new FlashLoanAdapter(IBalancerVaultV3(address(0)), address(this));
   }
 
-  // solhint-disable func-name-mixedcase
-
   function test_setWToken_sets_whenAdmin() external {
     IERC20 asset = IERC20(address(0x1));
     IERC4626 wToken = IERC4626(address(0x2));
@@ -78,8 +76,6 @@ contract FlashLoanAdapterTest is ForkTest {
     vm.expectRevert(InvalidLength.selector);
     adapter.flashLoan(address(0), new IERC20[](1), new uint256[](0), "");
   }
-
-  // solhint-enable func-name-mixedcase
 
   function _setUpFork() internal {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 141_227_400);

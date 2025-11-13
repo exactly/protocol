@@ -58,8 +58,6 @@ contract IntegrationPreviewerTest is ForkTest {
     }
   }
 
-  // solhint-disable func-name-mixedcase
-
   // #region health factor
 
   function test_healthFactor() external view {
@@ -247,6 +245,4 @@ contract IntegrationPreviewerTest is ForkTest {
     assertEq(previewer.fixedRepayPosition(USER, exaUSDC, MATURITY, repayAssets), principal + fee);
   }
   // #endregion
-
-  // solhint-enable func-name-mixedcase
 }

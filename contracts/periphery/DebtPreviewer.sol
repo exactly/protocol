@@ -481,7 +481,7 @@ contract DebtPreviewer {
         for (r.i = 0; r.i < r.rewardList.length; ++r.i) {
           (r.start, , ) = r.controller.distributionTime(market, r.rewardList[r.i]);
           if (r.start == 0) continue;
-          rewards[index++].asset = r.rewardList[r.i];
+          rewards[index++].asset = r.rewardList[r.i]; // solhint-disable-line gas-increment-by-one
         }
         RewardRate[] memory rewardList = rewards;
         rewards = new RewardRate[](index);

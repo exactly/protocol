@@ -26,6 +26,7 @@ contract FlashLoanAdapter is AccessControl {
   /// @param tokens The tokens to borrow.
   /// @param amounts The amounts to borrow.
   /// @param data Additional data to pass to the recipient.
+  // solhint-disable-next-line gas-calldata-parameters
   function flashLoan(address recipient, IERC20[] memory tokens, uint256[] memory amounts, bytes memory data) external {
     if (tokens.length != 1 || amounts.length != 1) revert InvalidLength();
     uint256[] memory fees = new uint256[](1);

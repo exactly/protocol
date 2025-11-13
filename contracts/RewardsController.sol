@@ -721,7 +721,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       }
       if (rewardData.lastUpdate == 0) {
         // add reward address to distribution data's available rewards if distribution is new
-        dist.availableRewards[dist.availableRewardsCount++] = configs[i].reward;
+        dist.availableRewards[dist.availableRewardsCount++] = configs[i].reward; // solhint-disable-line gas-increment-by-one,max-line-length
         dist.baseUnit = 10 ** configs[i].market.decimals();
         // set initial parameters if distribution is new
         rewardData.start = configs[i].start;
@@ -791,7 +791,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return
       keccak256(
         abi.encode(
-          keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+          keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"), // solhint-disable-line gas-small-strings,max-line-length
           keccak256("RewardsController"),
           keccak256("1"),
           block.chainid,
@@ -817,11 +817,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
             DOMAIN_SEPARATOR(),
             keccak256(
               abi.encode(
-                keccak256("ClaimPermit(address owner,address spender,address[] assets,uint256 deadline)"),
+                keccak256("ClaimPermit(address owner,address spender,address[] assets,uint256 deadline)"), // solhint-disable-line gas-small-strings,max-line-length
                 permit.owner,
                 msg.sender,
                 permit.assets,
-                nonces[permit.owner]++,
+                nonces[permit.owner]++, // solhint-disable-line gas-increment-by-one
                 permit.deadline
               )
             )
@@ -886,6 +886,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint128 accrued;
   }
 
+  // solhint-disable-next-line gas-struct-packing
   struct Config {
     Market market;
     ERC20 reward;
@@ -1007,6 +1008,7 @@ error InvalidConfig();
 error NotKeeper();
 error NotEnded();
 
+// solhint-disable-next-line gas-struct-packing
 struct ClaimPermit {
   address owner;
   ERC20[] assets;

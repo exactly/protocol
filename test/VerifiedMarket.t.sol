@@ -110,8 +110,6 @@ contract VerifiedMarketTest is MarketTest {
     vm.stopPrank();
   }
 
-  // solhint-disable func-name-mixedcase
-
   function test_borrow_borrows_whenBorrowerIsAllowed() external {
     marketWETH.deposit(100 ether, address(this));
 
@@ -770,6 +768,4 @@ contract VerifiedMarketTest is MarketTest {
     assertEq(marketWETH.totalSupply(), 19 ether);
     assertEq(marketWETH.floatingDebt(), 1 ether);
   }
-
-  // solhint-enable func-name-mixedcase
 }

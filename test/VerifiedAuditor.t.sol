@@ -32,8 +32,6 @@ contract VerifiedAuditorTest is Test {
     firewall.allow(address(this), true);
   }
 
-  // solhint-disable func-name-mixedcase
-
   function test_setFirewall_sets_whenAdmin() public {
     Firewall newFirewall = Firewall(address(0x1));
 
@@ -81,6 +79,4 @@ contract VerifiedAuditorTest is Test {
     vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, address(this)));
     auditor.unlock(bob);
   }
-
-  // solhint-enable func-name-mixedcase
 }

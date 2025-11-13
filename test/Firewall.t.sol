@@ -20,8 +20,6 @@ contract FirewallTest is Test {
     bob = makeAddr("bob");
   }
 
-  // solhint-disable func-name-mixedcase
-
   function test_allow_allows_whenAllower() external {
     firewall.allow(address(this), true);
 
@@ -106,8 +104,6 @@ contract FirewallTest is Test {
     firewall.allow(bob, false);
     assertFalse(firewall.isAllowed(bob));
   }
-
-  // solhint-enable func-name-mixedcase
 }
 
 event Allowed(address indexed account, address indexed allower, bool allowed);

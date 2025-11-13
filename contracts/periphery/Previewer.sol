@@ -24,6 +24,7 @@ contract Previewer {
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IPriceFeed public immutable basePriceFeed;
 
+  // solhint-disable-next-line gas-struct-packing
   struct MarketAccount {
     // market
     Market market;
@@ -473,7 +474,7 @@ contract Previewer {
         for (r.i = 0; r.i < r.rewardList.length; ++r.i) {
           (r.start, , ) = r.controller.distributionTime(market, r.rewardList[r.i]);
           if (r.start == 0) continue;
-          rewards[index++].asset = r.rewardList[r.i];
+          rewards[index++].asset = r.rewardList[r.i]; // solhint-disable-line gas-increment-by-one
         }
         RewardRate[] memory rewardList = rewards;
         rewards = new RewardRate[](index);

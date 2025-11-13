@@ -139,11 +139,13 @@ contract DebtManager is Initializable {
     bytes[] memory calls = new bytes[](2 * loopCount);
     uint256 callIndex = 0;
     for (uint256 i = 0; i < loopCount; ) {
+      // solhint-disable gas-increment-by-one
       calls[callIndex++] = abi.encodeCall(market.deposit, (i == 0 ? amounts[0] + deposit : amounts[0], sender));
       calls[callIndex++] = abi.encodeCall(
         market.borrow,
         (amounts[0], i + 1 == loopCount ? address(balancerVault) : address(this), sender)
       );
+      // solhint-enable gas-increment-by-one
       unchecked {
         ++i;
       }
@@ -182,11 +184,13 @@ contract DebtManager is Initializable {
     r.calls = new bytes[](2 * r.loopCount + (withdraw == 0 ? 0 : 1));
     uint256 callIndex = 0;
     for (uint256 i = 0; i < r.loopCount; ) {
+      // solhint-disable gas-increment-by-one
       r.calls[callIndex++] = abi.encodeCall(market.repay, (r.amounts[0], sender));
       r.calls[callIndex++] = abi.encodeCall(
         market.withdraw,
         (r.amounts[0], i + 1 == r.loopCount ? address(balancerVault) : address(this), sender)
       );
+      // solhint-enable gas-increment-by-one
       unchecked {
         ++i;
       }
@@ -228,6 +232,7 @@ contract DebtManager is Initializable {
     r.positionAssets = r.positionAssets / r.loopCount;
     r.calls = new bytes[](2 * r.loopCount);
     for (r.i = 0; r.i < r.loopCount; ) {
+      // solhint-disable gas-increment-by-one
       r.calls[r.callIndex++] = abi.encodeCall(
         market.repayAtMaturity,
         (repayMaturity, r.positionAssets, type(uint256).max, sender)
@@ -242,6 +247,7 @@ contract DebtManager is Initializable {
           sender
         )
       );
+      // solhint-enable gas-increment-by-one
       unchecked {
         ++r.i;
       }
@@ -311,6 +317,7 @@ contract DebtManager is Initializable {
     r.amounts[0] = repayAssets.mulDivUp(1, r.loopCount);
     r.calls = new bytes[](2 * r.loopCount);
     for (r.i = 0; r.i < r.loopCount; ) {
+      // solhint-disable gas-increment-by-one
       r.calls[r.callIndex++] = abi.encodeCall(
         market.repayAtMaturity,
         (repayMaturity, positionAssets, type(uint256).max, sender)
@@ -319,6 +326,7 @@ contract DebtManager is Initializable {
         market.borrow,
         (r.amounts[0], r.i + 1 == r.loopCount ? address(balancerVault) : address(this), sender)
       );
+      // solhint-enable gas-increment-by-one
       unchecked {
         ++r.i;
       }
@@ -371,6 +379,7 @@ contract DebtManager is Initializable {
     r.amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
     r.calls = new bytes[](2 * r.loopCount);
     for (r.i = 0; r.i < r.loopCount; ) {
+      // solhint-disable gas-increment-by-one
       r.calls[r.callIndex++] = abi.encodeCall(market.repay, (r.amounts[0], sender));
       r.calls[r.callIndex++] = abi.encodeCall(
         market.borrowAtMaturity,
@@ -382,6 +391,7 @@ contract DebtManager is Initializable {
           sender
         )
       );
+      // solhint-enable gas-increment-by-one
       unchecked {
         ++r.i;
       }
@@ -549,6 +559,7 @@ contract DebtManager is Initializable {
 error AllowanceSurplus();
 error InvalidOperation();
 
+// solhint-disable-next-line gas-struct-packing
 struct Permit {
   address account;
   uint256 value;
@@ -563,6 +574,7 @@ struct Permit2 {
   bytes signature;
 }
 
+// solhint-disable-next-line gas-struct-packing
 struct SwapCallbackData {
   Market marketIn;
   Market marketOut;

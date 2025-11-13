@@ -66,8 +66,6 @@ contract DebtRollerTest is Test {
     usdc.mint(address(mockBalancerVault), 1_000_000e6);
   }
 
-  // solhint-disable func-name-mixedcase
-
   function test_rollFixed_rolls() external {
     deposit(100_000e6);
 
@@ -122,8 +120,6 @@ contract DebtRollerTest is Test {
     vm.expectRevert(UnauthorizedFlashLoaner.selector);
     debtRoller.receiveFlashLoan(new IERC20[](0), new uint256[](0), new uint256[](0), "");
   }
-
-  // solhint-enable func-name-mixedcase
 
   function deposit(uint256 amount) internal {
     usdc.mint(address(this), amount);
