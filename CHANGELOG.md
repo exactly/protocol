@@ -1,5 +1,79 @@
 # @exactly/protocol
 
+## 0.2.22
+
+### Patch Changes
+
+- [`bb51de1`](https://github.com/exactly/protocol/commit/bb51de1981c039a694975cfae3bc1f777d86c177) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: firewall redeem and withdraw
+
+- [`4a0acda`](https://github.com/exactly/protocol/commit/4a0acda2302665c242e7f3845900e8b80f99d2ce) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - 🔥 market: remove unneeded symbol setter
+
+- [`beeafdd`](https://github.com/exactly/protocol/commit/beeafdd31eeded537569984e7c010d3e829de8a5) Thanks [@itofarina](https://github.com/itofarina)! - 🔊 firewall: rename allowed event
+
+- [`0d18408`](https://github.com/exactly/protocol/commit/0d18408a9b42d7c6c9a5948b6aef9fc40d8181e6) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: firewall mint and deposit
+
+- [`4862647`](https://github.com/exactly/protocol/commit/4862647b71c6e455fd17b45bbedab22d5c5126dd) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - 🩹 irm: fix legacy fixed rate
+
+- [`36c3b4f`](https://github.com/exactly/protocol/commit/36c3b4f99114a9036543fa59023dd6b6f467d2c6) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: unlock locked funds of allowlisted accounts
+
+- [`df868dd`](https://github.com/exactly/protocol/commit/df868dda4452e584e08b0ace416aad8f0db630bf) Thanks [@itofarina](https://github.com/itofarina)! - ♻️ debt roller: revert with custom error on invalid call
+
+- [`d38137e`](https://github.com/exactly/protocol/commit/d38137ef4decc74eac758e598c9d1f29d745d6b4) Thanks [@itofarina](https://github.com/itofarina)! - 🔥 market: drop init consolidated
+
+- [`610236a`](https://github.com/exactly/protocol/commit/610236aca58e5fd4b7991cd91c24f8a2a3fa3a8a) Thanks [@itofarina](https://github.com/itofarina)! - ⚡️ firewall: simplify allowlist storage
+
+- [`ce0ffe5`](https://github.com/exactly/protocol/commit/ce0ffe5b5b113d47166509b0eb4c9ce5d68d8ce7) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: firewall liquidate
+
+- [`6d35ddf`](https://github.com/exactly/protocol/commit/6d35ddfbaeb10bba70d56510fbcbdd70204fee6f) Thanks [@itofarina](https://github.com/itofarina)! - ✨ periphery: implement flashloan adapter
+
+- [`6112ada`](https://github.com/exactly/protocol/commit/6112adaf9486a14428ae907e4bf12a5e897a6915) Thanks [@itofarina](https://github.com/itofarina)! - ♻️ market: split withdraw at maturity function
+
+- [`8c4ddb4`](https://github.com/exactly/protocol/commit/8c4ddb4ed01c164d7fbab1ff115ed8257621c0a7) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: add verified market
+
+- [`c391897`](https://github.com/exactly/protocol/commit/c391897fbc5d0ffeaa52db74e01b905eea45e974) Thanks [@itofarina](https://github.com/itofarina)! - 👔 market: always forward extension errors
+
+- [`af2f141`](https://github.com/exactly/protocol/commit/af2f1413dc8e96a5d301cddb4eff7283b49f1827) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: firewall refund
+
+- [`b9b3e57`](https://github.com/exactly/protocol/commit/b9b3e5757c9f5938d2adde98773340c31c99f937) Thanks [@itofarina](https://github.com/itofarina)! - ⚡️ market: use private constants
+
+- [`1214b63`](https://github.com/exactly/protocol/commit/1214b63d0929672576f6926a1205c69bc6297231) Thanks [@itofarina](https://github.com/itofarina)! - ♻️ adapter: validate inputs with custom error
+
+- [`ef95df8`](https://github.com/exactly/protocol/commit/ef95df8a40fb51a9a4c1b634d7b8c955486910f6) Thanks [@itofarina](https://github.com/itofarina)! - ♻️ verified: adopt solady
+
+- [`55d4d3f`](https://github.com/exactly/protocol/commit/55d4d3f19b12c2fd397d86416bf10cbd17468697) Thanks [@itofarina](https://github.com/itofarina)! - 🎨 verified: extract auditor only-allowed modifier
+
+- [`ef9a9d8`](https://github.com/exactly/protocol/commit/ef9a9d8ff906ef20d21cb37bad99324a28445aee) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - ✨ integration: preview health factor
+
+- [`163127a`](https://github.com/exactly/protocol/commit/163127a8dd2984b67aaa24e8c3fc0b26e5d9cf47) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: firewall transfer and transferFrom
+
+- [`3a0740d`](https://github.com/exactly/protocol/commit/3a0740d5cb4fa4596fdaa876bac133f5cad6188b) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: lock funds of not allowed accounts
+
+- [`b0a5e66`](https://github.com/exactly/protocol/commit/b0a5e662f8840106267139c39ab205e84959ced1) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: restrict unallows to original granter
+
+- [`c7bb1e4`](https://github.com/exactly/protocol/commit/c7bb1e4b7a4bb4bbca51f58c6a02e9071adad879) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - ✨ integration: preview floating shares operations
+
+- [`536ec00`](https://github.com/exactly/protocol/commit/536ec0055cc7909778a5e6ee5f869574448853f6) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: firewall repays
+
+- [`e8ec3bf`](https://github.com/exactly/protocol/commit/e8ec3bfa8cf558becf20ac0fd886689287e7dc28) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - 🚀 base: deploy protocol
+
+- [`d0264a5`](https://github.com/exactly/protocol/commit/d0264a5b270582166013b81bc83dda892c6d66ff) Thanks [@itofarina](https://github.com/itofarina)! - 🔥 market: drop fixed principals function
+
+- [`9e50006`](https://github.com/exactly/protocol/commit/9e50006ef7320076ed74766c764d0ec062899c1b) Thanks [@itofarina](https://github.com/itofarina)! - ✨ periphery: add debt roller contract
+
+- [`0e5281e`](https://github.com/exactly/protocol/commit/0e5281e3b0d656ca5581fcfa3c29f5ff2906f9ac) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: firewall borrows
+
+- [`9d288b9`](https://github.com/exactly/protocol/commit/9d288b9d0899b064f863d709b9f6fce3a6bd0b10) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: firewall deposit at maturity
+
+- [`7bdb13e`](https://github.com/exactly/protocol/commit/7bdb13e01a80a484b97f48a4581ce13beb4bd843) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: lock fixed deposits
+
+- [`4aa6ab2`](https://github.com/exactly/protocol/commit/4aa6ab2854e5255b7b30f66a6a81682cdf875c1c) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: add verified auditor
+
+- [`1c5e295`](https://github.com/exactly/protocol/commit/1c5e295016a4c358883280accb1a558869c9513b) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: firewall withdraw at maturity
+
+- [`6f33a13`](https://github.com/exactly/protocol/commit/6f33a13044359a95efc8b425d1c39b8a6a9e3b17) Thanks [@itofarina](https://github.com/itofarina)! - ✨ verified: add firewall contract
+
+- [`71d9bee`](https://github.com/exactly/protocol/commit/71d9beed9c03de764b8ca5594c72925b546df48e) Thanks [@itofarina](https://github.com/itofarina)! - 🎨 verified: extract market only-allowed modifier
+
 ## 0.2.21
 
 ### Patch Changes
