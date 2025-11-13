@@ -378,7 +378,7 @@ contract DebtManagerTest is ForkTest {
 
   function testFlashloanFeeGreaterThanZero() external {
     vm.prank(0xacAaC3e6D6Df918Bf3c809DFC7d42de0e4a72d4C);
-    ProtocolFeesCollector(0xce88686553686DA562CE7Cea497CE749DA109f9F).setFlashLoanFeePercentage(1e15);
+    IProtocolFeesCollector(0xce88686553686DA562CE7Cea497CE749DA109f9F).setFlashLoanFeePercentage(1e15);
 
     vm.expectRevert("BAL#602");
     debtManager.leverage(marketUSDC, 100_000e6, 1.03e18);
@@ -1113,7 +1113,7 @@ enum Operation {
   FixedToFixed
 }
 
-interface ProtocolFeesCollector {
+interface IProtocolFeesCollector {
   function setFlashLoanFeePercentage(uint256) external;
 }
 
