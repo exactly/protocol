@@ -86,6 +86,10 @@ const hardhatConfig: Config = {
     hypernative: {
       optimism: "0xEa2127b14D05229CB3d4b75b42052e556AB7391F",
     },
+    allower: {
+      base: "0xaF8Be39EA35498073f0fFBD8038Fd995D863Ae14",
+      "base-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
+    },
   },
   finance: {
     liquidationIncentive: { liquidator: 0.05, lenders: 0.0025 },

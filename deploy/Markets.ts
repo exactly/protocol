@@ -1,13 +1,13 @@
 import { env } from "process";
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { Auditor, ERC20, DebtManager, Market, RewardsController, DebtRoller } from "../types";
+import type { Auditor, ERC20, DebtManager, Market, RewardsController, DebtRoller, Firewall } from "../types";
 import { mockPrices } from "./mocks/Assets";
+import DEAD_ADDRESS from "./.utils/DEAD_ADDRESS";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
 import tenderlify from "./.utils/tenderlify";
 import grantRole from "./.utils/grantRole";
-import { keccak256, toUtf8Bytes } from "ethers";
 
 const func: DeployFunction = async ({
   network: {
@@ -17,7 +17,7 @@ const func: DeployFunction = async ({
     },
     live,
   },
-  ethers: { MaxUint256, ZeroAddress, parseUnits, getContractOrNull, getContract, getSigner },
+  ethers: { MaxUint256, ZeroAddress, parseUnits, getContractOrNull, getContract, getSigner, keccak256, toUtf8Bytes },
   deployments: { deploy, get, getOrNull },
   getNamedAccounts,
 }) => {
@@ -29,6 +29,7 @@ const func: DeployFunction = async ({
     rewards,
     debtManager,
     debtRoller,
+    firewall,
     auditor,
     pauser,
     { address: timelock },
@@ -37,6 +38,7 @@ const func: DeployFunction = async ({
     getContractOrNull<RewardsController>("RewardsController"),
     getContractOrNull<DebtManager>("DebtManager"),
     getContractOrNull<DebtRoller>("DebtRoller"),
+    getContractOrNull<Firewall>("Firewall"),
     getContract<Auditor>("Auditor"),
     getOrNull("Pauser"),
     get("TimelockController"),
@@ -180,7 +182,7 @@ const func: DeployFunction = async ({
       const fiveUSDAssets =
         (5n * 10n ** 18n * 10n ** (await market.decimals())) / (await auditor.assetPrice(priceFeed));
       await (await asset.approve(market.target, fiveUSDAssets)).wait();
-      await (await market.deposit(fiveUSDAssets, "0x000000000000000000000000000000000000dEaD")).wait();
+      await (await market.deposit(fiveUSDAssets, DEAD_ADDRESS)).wait();
     }
     const adjustFactor = parseUnits(String(config.adjustFactor));
     if (!(await auditor.allMarkets()).includes(market.target as string)) {
@@ -280,10 +282,12 @@ const func: DeployFunction = async ({
     if (newRewards.length) await executeOrPropose(rewards, "config", [newRewards]);
   }
 
+  if (firewall) await transferOwnership(firewall, deployer, timelock);
+
   await transferOwnership(auditor, deployer, timelock);
 };
 
 func.tags = ["Markets"];
-func.dependencies = ["Auditor", "Governance", "Assets", "PriceFeeds", "Rewards", "Pauser"];
+func.dependencies = ["Auditor", "Governance", "Assets", "PriceFeeds", "Rewards", "Pauser", "Firewall"];
 
 export default func;
