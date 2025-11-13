@@ -48,6 +48,13 @@ const hardhatConfig: Config = {
       url: env.ETHEREUM_NODE ?? "",
     },
     optimism: { priceDecimals: 8, timelockDelay: 24 * 3_600, url: env.OPTIMISM_NODE ?? "" },
+    base: {
+      verified: true,
+      priceDecimals: 8,
+      timelockDelay: 24 * 3_600,
+      finance: { marketDefaults: { futurePools: 3 } },
+      url: env.BASE_NODE ?? "",
+    },
     "op-sepolia": {
       priceDecimals: 8,
       finance: {
@@ -63,6 +70,7 @@ const hardhatConfig: Config = {
       default: 0,
       ethereum: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
       optimism: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
+      base: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
       "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
       "base-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
@@ -70,6 +78,7 @@ const hardhatConfig: Config = {
       default: 0,
       ethereum: "0x7A65824d74B0C20730B6eE4929ABcc41Cbe843Aa",
       optimism: "0xC0d6Bc5d052d1e74523AD79dD5A954276c9286D3",
+      base: "0x7A65824d74B0C20730B6eE4929ABcc41Cbe843Aa",
     },
     treasury: {
       default: 0,
@@ -190,6 +199,7 @@ const hardhatConfig: Config = {
         adjustFactor: 0.91,
         interestRateModel: { minRate: 5e-2, naturalRate: 11e-2, growthSpeed: 1.3 },
         overrides: {
+          base: { futurePools: 10 },
           optimism: {
             rewards: {
               OP: {
@@ -373,7 +383,7 @@ const hardhatConfig: Config = {
         },
       },
       cbBTC: {
-        networks: ["base-sepolia"],
+        networks: ["base", "base-sepolia"],
         adjustFactor: 0.85,
         interestRateModel: {
           minRate: 1e-2,
@@ -381,6 +391,18 @@ const hardhatConfig: Config = {
           maxUtilization: 1.05,
           naturalUtilization: 0.5,
           growthSpeed: 2,
+        },
+      },
+      cbXRP: {
+        networks: ["base", "base-sepolia"],
+        adjustFactor: 0.6,
+        maxSupply: 420_000,
+        interestRateModel: {
+          minRate: 1.5e-2,
+          naturalRate: 2e-1,
+          maxUtilization: 1.4,
+          naturalUtilization: 0.5,
+          growthSpeed: 1.25,
         },
       },
     },
