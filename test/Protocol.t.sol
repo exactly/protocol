@@ -18,13 +18,7 @@ import {
 import { InterestRateModel, UtilizationExceeded, Parameters } from "../contracts/InterestRateModel.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
-import {
-  Auditor,
-  RemainingDebt,
-  InsufficientAccountLiquidity,
-  InsufficientShortfall,
-  RemainingDebt
-} from "../contracts/Auditor.sol";
+import { Auditor, InsufficientAccountLiquidity, InsufficientShortfall, RemainingDebt } from "../contracts/Auditor.sol";
 import { RewardsController } from "../contracts/RewardsController.sol";
 
 contract ProtocolTest is Test {

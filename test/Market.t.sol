@@ -13,7 +13,6 @@ import { PriceFeedWrapper } from "../contracts/PriceFeedWrapper.sol";
 import { PriceFeedDouble } from "../contracts/PriceFeedDouble.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { MockStETH } from "../contracts/mocks/MockStETH.sol";
-import { FixedLib } from "../contracts/utils/FixedLib.sol";
 import {
   ERC20,
   Market,
