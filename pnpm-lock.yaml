@@ -9,11 +9,11 @@ importers:
   .:
     dependencies:
       '@openzeppelin/contracts':
-        specifier: ^5.0.2
-        version: 5.0.2
+        specifier: ^5.4.0
+        version: 5.4.0
       '@openzeppelin/contracts-upgradeable':
-        specifier: ^5.0.2
-        version: 5.0.2(@openzeppelin/contracts@5.0.2)
+        specifier: ^5.4.0
+        version: 5.4.0(@openzeppelin/contracts@5.4.0)
       '@openzeppelin/contracts-upgradeable-v4':
         specifier: npm:@openzeppelin/contracts-upgradeable@^4.9.6
         version: '@openzeppelin/contracts-upgradeable@4.9.6'
@@ -670,16 +670,16 @@ packages:
   '@openzeppelin/contracts-upgradeable@4.9.6':
     resolution: {integrity: sha512-m4iHazOsOCv1DgM7eD7GupTJ+NFVujRZt1wzddDPSVGpWdKq1SKkla5htKG7+IS4d2XOCtzkUNwRZ7Vq5aEUMA==}
 
-  '@openzeppelin/contracts-upgradeable@5.0.2':
-    resolution: {integrity: sha512-0MmkHSHiW2NRFiT9/r5Lu4eJq5UJ4/tzlOgYXNAIj/ONkQTVnz22pLxDvp4C4uZ9he7ZFvGn3Driptn1/iU7tQ==}
+  '@openzeppelin/contracts-upgradeable@5.4.0':
+    resolution: {integrity: sha512-STJKyDzUcYuB35Zub1JpWW58JxvrFFVgQ+Ykdr8A9PGXgtq/obF5uoh07k2XmFyPxfnZdPdBdhkJ/n2YxJ87HQ==}
     peerDependencies:
-      '@openzeppelin/contracts': 5.0.2
+      '@openzeppelin/contracts': 5.4.0
 
   '@openzeppelin/contracts@4.9.6':
     resolution: {integrity: sha512-xSmezSupL+y9VkHZJGDoCBpmnB2ogM13ccaYDWqJTfS3dbuHkgjuwDFUmaFauBCboQMGB/S5UqUl2y54X99BmA==}
 
-  '@openzeppelin/contracts@5.0.2':
-    resolution: {integrity: sha512-ytPc6eLGcHHnapAZ9S+5qsdomhjo6QBHTDRRBFfTxXIpsicMhVPouPgmUPebZZZGX7vt9USA+Z+0M0dSVtSUEA==}
+  '@openzeppelin/contracts@5.4.0':
+    resolution: {integrity: sha512-eCYgWnLg6WO+X52I16TZt8uEjbtdkgLC0SUX/xnAksjjrQI4Xfn4iBRoI5j55dmlOhDv1Y7BoR3cU7e3WWhC6A==}
 
   '@openzeppelin/defender-sdk-base-client@1.14.4':
     resolution: {integrity: sha512-tOePVQLKpqfGQ1GMzHvSBNd2psPYd86LDNpvdl5gjD0Y2kW/zNh5qBXy29RraGtk/qc8zs9hzS5pAOh0vhGkGQ==}
@@ -4651,13 +4651,13 @@ snapshots:
 
   '@openzeppelin/contracts-upgradeable@4.9.6': {}
 
-  '@openzeppelin/contracts-upgradeable@5.0.2(@openzeppelin/contracts@5.0.2)':
+  '@openzeppelin/contracts-upgradeable@5.4.0(@openzeppelin/contracts@5.4.0)':
     dependencies:
-      '@openzeppelin/contracts': 5.0.2
+      '@openzeppelin/contracts': 5.4.0
 
   '@openzeppelin/contracts@4.9.6': {}
 
-  '@openzeppelin/contracts@5.0.2': {}
+  '@openzeppelin/contracts@5.4.0': {}
 
   '@openzeppelin/defender-sdk-base-client@1.14.4(encoding@0.1.13)':
     dependencies:
