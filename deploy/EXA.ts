@@ -1,8 +1,9 @@
 import { MerkleTree } from "merkletreejs";
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { EXA, EscrowedEXA } from "../types";
+import type { EXA, EscrowedEXA, ProxyAdmin } from "../types";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
+import timelockPropose from "./.utils/timelockPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
 import grantRole from "./.utils/grantRole";
 import airdrop from "../scripts/airdrop.json";
@@ -33,7 +34,10 @@ const func: DeployFunction = async ({
         owner: timelock,
         viaAdminContract: { name: "ProxyAdmin" },
         proxyContract: "TransparentUpgradeableProxy",
-        execute: { init: { methodName: "initialize", args: [] } },
+        execute: {
+          init: { methodName: "initialize", args: [] },
+          onUpgrade: { methodName: "initialize2", args: [timelock] },
+        },
       },
       from: deployer,
       log: true,
@@ -41,6 +45,16 @@ const func: DeployFunction = async ({
   );
 
   const exa = await getContract<EXA>("EXA", await getSigner(deployer));
+
+  if (!(await exa.hasRole(await exa.DEFAULT_ADMIN_ROLE(), timelock))) {
+    const proxyAdmin = await getContract<ProxyAdmin>("ProxyAdmin", await getSigner(deployer));
+    await timelockPropose(proxyAdmin, "upgradeAndCall", [
+      exa.target,
+      (await get("EXA_Implementation")).address,
+      exa.interface.encodeFunctionData("initialize2", [timelock]),
+    ]);
+  }
+
   const deployerBalance = await exa.balanceOf(deployer);
   if (deployerBalance !== 0n) await (await exa.transfer(treasury ?? multisig, deployerBalance)).wait();
 

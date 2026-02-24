@@ -31,8 +31,10 @@ contract EscrowedEXATest is ForkTest {
   function setUp() external {
     vm.createSelectFork(vm.envString("OP_SEPOLIA_NODE"), 8_893_980);
 
-    exa = new EXA();
-    exa.initialize();
+    uint256 chainId = block.chainid;
+    vm.chainId(10);
+    exa = EXA(address(new ERC1967Proxy(address(new EXA()), abi.encodeCall(EXA.initialize, ()))));
+    vm.chainId(chainId);
     sablier = ISablierV2LockupLinear(deployment("SablierV2LockupLinear"));
     esEXA = EscrowedEXA(
       address(
