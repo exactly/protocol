@@ -62,7 +62,7 @@ const func: DeployFunction = async ({
         contract: verified ? "VerifiedMarket" : "Market",
         args: [asset.target, auditor.target],
         envKey: "MARKETS",
-        unsafeAllow: ["constructor", "state-variable-immutable"],
+        unsafeAllow: ["constructor", "delegatecall", "state-variable-immutable"],
       },
       async (name, opts) =>
         deploy(name, {
