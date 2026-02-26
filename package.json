@@ -17,7 +17,7 @@
     "test:hardhat": "hardhat test --deploy-fixture",
     "coverage": "pnpm coverage:snapshot && pnpm coverage:foundry && pnpm coverage:hardhat && pnpm coverage:fuzzer",
     "coverage:foundry": "forge coverage --report lcov --no-match-contract Protocol",
-    "coverage:hardhat": "hardhat coverage",
+    "coverage:hardhat": "SOLIDITY_COVERAGE=true hardhat coverage",
     "coverage:snapshot": "FOUNDRY_PROFILE=snapshot forge snapshot --check --no-match-contract Protocol",
     "coverage:fuzzer": "FOUNDRY_PROFILE=production forge test --no-match-contract Protocol",
     "deploy:ethereum": "hardhat --network ethereum deploy",
