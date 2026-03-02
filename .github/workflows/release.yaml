@@ -23,7 +23,7 @@ jobs:
           cache: pnpm
       - uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.6
+          version: v1.5.1
       - run: pnpm install --frozen-lockfile
       - uses: changesets/action@v1
         with:
