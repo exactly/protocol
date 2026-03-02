@@ -6,6 +6,7 @@
 /lcov.info
 /types/
 
+.claude/settings.local.json
 .openzeppelin/unknown-*
 .vscode/
 cache/
