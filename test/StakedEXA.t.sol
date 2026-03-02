@@ -226,20 +226,57 @@ contract StakedEXATest is Test {
     for (uint256 a = 0; a < accounts.length; ++a) {
       address account = accounts[a];
       address shadow = address(uint160(account) + 1);
+      bool skipRewardBalanceCheck;
 
       {
         uint256 balance = stEXA.balanceOf(account);
         assertEq(balance, stEXA.balanceOf(shadow), "balance != shadow");
 
         if (balance != 0) {
-          vm.prank(account);
-          stEXA.withdraw(balance, account, account);
+          bool accountDeficit = hasDeficit(account, balance);
+          bool shadowDeficit = hasDeficit(shadow, balance);
+          bytes memory accountOneUnitShortfall = accountDeficit
+            ? checkOneUnitDeficit(account, balance, address(0), 0)
+            : bytes("");
+          bytes memory shadowOneUnitShortfall = shadowDeficit
+            ? checkOneUnitDeficit(shadow, balance, address(0), 0)
+            : bytes("");
+          if (accountDeficit || shadowDeficit) {
+            skipRewardBalanceCheck = true;
+            if (accountOneUnitShortfall.length != 0) {
+              vm.prank(account);
+              vm.expectRevert(accountOneUnitShortfall);
+              stEXA.withdraw(balance, account, account);
+            }
+            if (shadowOneUnitShortfall.length != 0) {
+              vm.prank(shadow);
+              vm.expectRevert(shadowOneUnitShortfall);
+              stEXA.withdraw(balance, shadow, shadow);
+            }
+          } else {
+            vm.prank(account);
+            stEXA.withdraw(balance, account, account);
 
-          vm.prank(shadow);
-          stEXA.withdraw(balance, shadow, shadow);
+            bytes memory shadowOneUnitShortfallAfterAccountWithdraw = checkOneUnitDeficit(
+              shadow,
+              balance,
+              address(0),
+              0
+            );
+            if (shadowOneUnitShortfallAfterAccountWithdraw.length != 0) {
+              skipRewardBalanceCheck = true;
+              vm.prank(shadow);
+              vm.expectRevert(shadowOneUnitShortfallAfterAccountWithdraw);
+              stEXA.withdraw(balance, shadow, shadow);
+            } else {
+              vm.prank(shadow);
+              stEXA.withdraw(balance, shadow, shadow);
+            }
+          }
         }
       }
 
+      if (skipRewardBalanceCheck) continue;
       for (uint256 i = 0; i < rewards.length; ++i) {
         IERC20 reward = rewards[i];
         uint256 balance = reward.balanceOf(account);
@@ -267,23 +304,57 @@ contract StakedEXATest is Test {
     address account = accounts[uint256(keccak256(abi.encode(assets, block.timestamp))) % accounts.length];
     uint256 prevShares = stEXA.balanceOf(account);
     uint256 total = prevShares + assets;
+    {
+      address shadowAccount = address(uint160(account) + 1);
+      uint256 shadowShares = stEXA.balanceOf(shadowAccount);
+      bool accountDeficit = hasDeficit(account, prevShares);
+      bool shadowDeficit = hasDeficit(shadowAccount, shadowShares);
+      bytes memory accountOneUnitDeficit = accountDeficit
+        ? checkOneUnitDeficit(account, prevShares, address(0), 0)
+        : bytes("");
+      bytes memory shadowOneUnitDeficit = shadowDeficit
+        ? checkOneUnitDeficit(shadowAccount, shadowShares, address(0), 0)
+        : bytes("");
+
+      if (assets != 0 && (accountDeficit || shadowDeficit)) {
+        if (accountOneUnitDeficit.length != 0) {
+          exa.mint(account, assets);
+          vm.prank(account);
+          exa.approve(address(stEXA), assets);
+          vm.prank(account);
+          vm.expectRevert(accountOneUnitDeficit);
+          stEXA.deposit(assets, account);
+          exa.burn(account, assets);
+        }
+        if (shadowOneUnitDeficit.length != 0) {
+          exa.mint(shadowAccount, assets);
+          vm.prank(shadowAccount);
+          exa.approve(address(stEXA), assets);
+          vm.prank(shadowAccount);
+          vm.expectRevert(shadowOneUnitDeficit);
+          stEXA.deposit(assets, shadowAccount);
+          exa.burn(shadowAccount, assets);
+        }
+        return;
+      }
+    }
 
     exa.mint(account, assets);
-    vm.startPrank(account);
+    vm.prank(account);
     exa.approve(address(stEXA), assets);
+    vm.prank(account);
     if (assets == 0) vm.expectRevert(ZeroAmount.selector);
     // TODO assert after-refTime properties
     stEXA.deposit(assets, account);
-    vm.stopPrank();
     assertEq(stEXA.totalAssets(), prevAssets + assets, "missing assets");
 
     if (assets == 0) return;
     address shadow = address(uint160(account) + 1);
     exa.mint(shadow, assets);
-    vm.startPrank(shadow);
+    vm.prank(shadow);
     exa.approve(address(stEXA), assets);
+    vm.prank(shadow);
     stEXA.deposit(assets, shadow);
-    vm.stopPrank();
 
     uint256 timestamp = block.timestamp * 1e18;
     uint256 time = timestamp - avgStart[account];
@@ -345,21 +416,50 @@ contract StakedEXATest is Test {
   }
 
   function testHandlerWithdraw(uint256 assets) external {
+    uint256 seed = assets;
     address account = accounts[uint256(keccak256(abi.encode(assets, block.timestamp))) % accounts.length];
+    address shadow = address(uint160(account) + 1);
     assets = _bound(assets, 0, stEXA.maxWithdraw(account));
+    if (msg.sender != address(this) && assets != 0) {
+      bytes memory shadowOneUnitShortfallAfterAccountWithdraw = checkOneUnitDeficit(shadow, assets, account, assets);
+      if (shadowOneUnitShortfallAfterAccountWithdraw.length != 0) {
+        vm.expectRevert(shadowOneUnitShortfallAfterAccountWithdraw);
+        this.testHandlerWithdraw(seed);
+        return;
+      }
+    }
     uint256 prevAssets = stEXA.totalAssets();
     uint256 prevShares = stEXA.balanceOf(account);
+    {
+      bool accountDeficit = hasDeficit(account, assets);
+      bool shadowDeficit = hasDeficit(shadow, assets);
+      bytes memory accountOneUnitShortfall = accountDeficit
+        ? checkOneUnitDeficit(account, assets, address(0), 0)
+        : bytes("");
+      bytes memory shadowOneUnitShortfall = shadowDeficit
+        ? checkOneUnitDeficit(shadow, assets, address(0), 0)
+        : bytes("");
+      if (msg.sender != address(this) && assets != 0 && (accountDeficit || shadowDeficit)) {
+        if (accountOneUnitShortfall.length != 0) {
+          vm.prank(account);
+          vm.expectRevert(accountOneUnitShortfall);
+          stEXA.withdraw(assets, account, account);
+        }
+        if (shadowOneUnitShortfall.length != 0) {
+          vm.prank(shadow);
+          vm.expectRevert(shadowOneUnitShortfall);
+          stEXA.withdraw(assets, shadow, shadow);
+        }
+        return;
+      }
+    }
 
     vm.prank(account);
     if (assets == 0) vm.expectRevert(ZeroAmount.selector);
     stEXA.withdraw(assets, account, account);
+    if (assets == 0) return;
 
     assertEq(stEXA.totalAssets(), prevAssets - assets, "missing assets");
-
-    if (assets == 0) return;
-    address shadow = address(uint160(account) + 1);
-    vm.prank(shadow);
-    stEXA.withdraw(assets, shadow, shadow);
 
     IERC20[] memory rewards = stEXA.allRewardsTokens();
 
@@ -387,6 +487,9 @@ contract StakedEXATest is Test {
       );
       assertEq(v.claimable, stEXA.rawClaimable(v.reward, account, v.shares), "rawClaimable != expected");
     }
+
+    vm.prank(shadow);
+    stEXA.withdraw(assets, shadow, shadow);
   }
 
   function testHandlerClaim(uint8 index) external {
@@ -435,13 +538,21 @@ contract StakedEXATest is Test {
 
     (uint40 rDuration, uint40 finishAt, , , uint256 rate) = stEXA.rewards(reward);
     if (rDuration == 0) vm.expectRevert(stdError.divisionError);
-    else if (
-      (
-        block.timestamp >= finishAt
-          ? (uint256(assets) * 1e18) / rDuration
-          : (uint256(assets) * 1e18 + (finishAt - block.timestamp) * rate) / rDuration
-      ) == 0
-    ) vm.expectRevert(ZeroRate.selector);
+    else {
+      uint256 nextRate = block.timestamp >= finishAt
+        ? (uint256(assets) * 1e18) / rDuration
+        : (uint256(assets) * 1e18 + (finishAt - block.timestamp) * rate) / rDuration;
+      if (nextRate == 0) vm.expectRevert(ZeroRate.selector);
+      else {
+        uint256 available = reward.balanceOf(address(stEXA));
+        uint256 required = nextRate.mulWadDown(rDuration);
+        if (address(reward) == stEXA.asset()) {
+          uint256 totalAssets = stEXA.totalAssets();
+          if (available < totalAssets) vm.expectRevert(stdError.arithmeticError);
+          else if (required > available - totalAssets) vm.expectRevert(InsufficientBalance.selector);
+        } else if (required > available) vm.expectRevert(InsufficientBalance.selector);
+      }
+    }
     stEXA.notifyRewardAmount(reward, assets);
   }
 
@@ -1894,6 +2005,102 @@ contract StakedEXATest is Test {
   function earned(IERC20 reward, address account) internal view returns (uint256) {
     uint256 balance = stEXA.balanceOf(account);
     return stEXA.earned(reward, account, balance);
+  }
+
+  function checkOneUnitDeficit(
+    address account,
+    uint256 amount,
+    address previous,
+    uint256 previousAmount
+  ) internal view returns (bytes memory) {
+    if (amount == 0) return bytes("");
+    uint256 balance = stEXA.balanceOf(account);
+    if (balance == 0) return bytes("");
+
+    IERC20[] memory rewards = stEXA.allRewardsTokens();
+    for (uint256 i = 0; i < rewards.length; ++i) {
+      uint256 contractBalance = rewards[i].balanceOf(address(stEXA));
+
+      if (previous != address(0) && previousAmount != 0) {
+        uint256 previousBalance = stEXA.balanceOf(previous);
+        if (previousBalance != 0) {
+          uint256 previousClaimAmount = (stEXA.claimed(previous, rewards[i]) * previousAmount) / previousBalance;
+          uint256 previousClaimableAmount = stEXA.rawClaimable(rewards[i], previous, previousAmount);
+          if (previousClaimableAmount < previousClaimAmount) previousClaimableAmount = previousClaimAmount;
+          previousClaimAmount = previousClaimableAmount - previousClaimAmount;
+          if (previousClaimAmount > contractBalance) continue;
+          contractBalance -= previousClaimAmount;
+
+          uint256 previousSaveAmount = (stEXA.saved(previous, rewards[i]) * previousAmount) / previousBalance;
+          uint256 previousEarnedAmount = stEXA.earned(rewards[i], previous, previousAmount);
+          if (previousEarnedAmount > previousClaimableAmount + previousSaveAmount) {
+            previousSaveAmount = previousEarnedAmount - previousClaimableAmount - previousSaveAmount;
+            if (previousSaveAmount > contractBalance) continue;
+            contractBalance -= previousSaveAmount;
+          }
+        }
+      }
+
+      uint256 claimAmount = (stEXA.claimed(account, rewards[i]) * amount) / balance;
+      uint256 claimableAmount = stEXA.rawClaimable(rewards[i], account, amount);
+      if (claimableAmount < claimAmount) claimableAmount = claimAmount;
+      claimAmount = claimableAmount - claimAmount;
+
+      if (claimAmount > contractBalance) {
+        if (claimAmount - contractBalance == 1) {
+          return
+            abi.encodeWithSelector(
+              IERC20Errors.ERC20InsufficientBalance.selector,
+              address(stEXA),
+              contractBalance,
+              claimAmount
+            );
+        }
+        continue;
+      }
+
+      uint256 saveAmount = (stEXA.saved(account, rewards[i]) * amount) / balance;
+      uint256 earnedAmount = stEXA.earned(rewards[i], account, amount);
+      if (earnedAmount <= claimableAmount + saveAmount) continue;
+      saveAmount = earnedAmount - claimableAmount - saveAmount;
+
+      uint256 availableForSave = contractBalance - claimAmount;
+      if (saveAmount > availableForSave && saveAmount - availableForSave == 1) {
+        return
+          abi.encodeWithSelector(
+            IERC20Errors.ERC20InsufficientBalance.selector,
+            address(stEXA),
+            availableForSave,
+            saveAmount
+          );
+      }
+    }
+    return bytes("");
+  }
+
+  function hasDeficit(address account, uint256 amount) internal view returns (bool) {
+    if (amount == 0) return false;
+    uint256 balance = stEXA.balanceOf(account);
+    if (balance == 0) return false;
+
+    IERC20[] memory rewards = stEXA.allRewardsTokens();
+    for (uint256 i = 0; i < rewards.length; ++i) {
+      IERC20 reward = rewards[i];
+      uint256 claimedAmount = (stEXA.claimed(account, reward) * amount) / balance;
+      uint256 claimableAmount = stEXA.rawClaimable(reward, account, amount);
+      if (claimableAmount < claimedAmount) claimableAmount = claimedAmount;
+      uint256 claimAmount = claimableAmount - claimedAmount;
+      uint256 contractBalance = reward.balanceOf(address(stEXA));
+      if (claimAmount > contractBalance) return true;
+
+      uint256 savedAmount = (stEXA.saved(account, reward) * amount) / balance;
+      uint256 rawEarnedAmount = stEXA.earned(reward, account, amount);
+      if (
+        rawEarnedAmount > claimableAmount + savedAmount &&
+        rawEarnedAmount - claimableAmount - savedAmount > contractBalance - claimAmount
+      ) return true;
+    }
+    return false;
   }
 }
 
