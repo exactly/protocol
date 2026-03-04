@@ -19,6 +19,10 @@ contract EXA is ERC20VotesUpgradeable, AccessControlUpgradeable, IERC7802 {
   }
 
   function initialize() external initializer {
+    if (address(this).code.length > 0 && msg.sender != StorageSlotUpgradeable.getAddressSlot(ADMIN_SLOT).value) {
+      revert NotProxyAdmin();
+    }
+
     __ERC20_init("exactly", "EXA");
     __ERC20Permit_init("exactly");
     __ERC20Votes_init();

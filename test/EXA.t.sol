@@ -63,6 +63,38 @@ contract EXATest is Test {
     assertEq(exa_.totalSupply(), 0);
   }
 
+  function test_initialize_reverts_whenCalledByNotProxyAdmin() external {
+    EXA exa_ = EXA(address(new TransparentUpgradeableProxy(address(new EXA()), address(new ProxyAdmin()), "")));
+
+    vm.expectRevert(NotProxyAdmin.selector);
+    exa_.initialize();
+  }
+
+  function test_initialize_succeeds_whenProxyAlreadyDeployedAndUpgradedWithCall() external {
+    ProxyAdmin proxyAdmin_ = new ProxyAdmin();
+    ITransparentUpgradeableProxy proxy_ = ITransparentUpgradeableProxy(
+      payable(address(new TransparentUpgradeableProxy(address(new EXA()), address(proxyAdmin_), "")))
+    );
+
+    proxyAdmin_.upgradeAndCall(proxy_, address(new EXA()), abi.encodeCall(EXA.initialize, ()));
+
+    EXA exa_ = EXA(address(proxy_));
+    assertEq(exa_.name(), "exactly");
+    assertEq(exa_.symbol(), "EXA");
+  }
+
+  function test_initialize_reverts_whenCalledOnImplementation() external {
+    EXA implementation = new EXA();
+
+    vm.expectRevert();
+    implementation.initialize();
+  }
+
+  function test_initialize_reverts_whenCalledTwice() external {
+    vm.expectRevert();
+    exa.initialize();
+  }
+
   function test_initialize2_reverts_whenCalledByNotProxyAdmin() external {
     ProxyAdmin proxyAdmin_ = new ProxyAdmin();
     EXA exa_ = EXA(
