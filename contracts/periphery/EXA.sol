@@ -32,6 +32,7 @@ contract EXA is ERC20VotesUpgradeable, AccessControlUpgradeable, IERC7802 {
   function initialize2(address admin_) external reinitializer(2) {
     if (msg.sender != StorageSlotUpgradeable.getAddressSlot(ADMIN_SLOT).value) revert NotProxyAdmin();
     if (admin_ == address(0)) revert ZeroAddress();
+    if (bytes(symbol()).length == 0) revert NotInitialized();
 
     __AccessControl_init();
     _grantRole(DEFAULT_ADMIN_ROLE, admin_);
@@ -73,5 +74,6 @@ contract EXA is ERC20VotesUpgradeable, AccessControlUpgradeable, IERC7802 {
   }
 }
 
+error NotInitialized();
 error NotProxyAdmin();
 error ZeroAddress();

@@ -11,7 +11,7 @@ import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.so
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { IERC7802 } from "@openzeppelin/contracts/interfaces/draft-IERC7802.sol";
 
-import { EXA, NotProxyAdmin, ZeroAddress } from "../contracts/periphery/EXA.sol";
+import { EXA, NotInitialized, NotProxyAdmin, ZeroAddress } from "../contracts/periphery/EXA.sol";
 
 contract EXATest is Test {
   EXA internal exa;
@@ -125,6 +125,17 @@ contract EXATest is Test {
 
   function test_initialize2_grantsAdminRole() external view {
     assertTrue(exa.hasRole(exa.DEFAULT_ADMIN_ROLE(), admin));
+  }
+
+  function test_initialize2_reverts_whenCalledBeforeInitialize() external {
+    ProxyAdmin proxyAdmin_ = new ProxyAdmin();
+    address implementation = address(new EXA());
+    ITransparentUpgradeableProxy proxy_ = ITransparentUpgradeableProxy(
+      payable(address(new TransparentUpgradeableProxy(implementation, address(proxyAdmin_), "")))
+    );
+
+    vm.expectRevert(NotInitialized.selector);
+    proxyAdmin_.upgradeAndCall(proxy_, implementation, abi.encodeCall(EXA.initialize2, (admin)));
   }
 
   function test_initialize2_reverts_whenCalledTwice() external {
