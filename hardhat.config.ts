@@ -545,6 +545,7 @@ declare module "hardhat/types/config" {
   export interface MarketConfig {
     frozen?: boolean;
     adjustFactor: number;
+    liquidationIncentive?: { liquidator: number; lenders: number };
     priceFeed?: "double" | { wrapper: string; fn: string; baseUnit: bigint };
     penaltyRatePerDay: number;
     treasuryFeeRate: number;

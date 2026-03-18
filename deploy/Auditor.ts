@@ -53,7 +53,7 @@ const func: DeployFunction = async ({
     currentLiquidationIncentive.liquidator !== liquidationIncentive.liquidator ||
     currentLiquidationIncentive.lenders !== liquidationIncentive.lenders
   ) {
-    await executeOrPropose(auditor, "setLiquidationIncentive", [liquidationIncentive]);
+    await executeOrPropose(auditor, "setLiquidationIncentive((uint128,uint128))", [liquidationIncentive]);
   }
 };
 

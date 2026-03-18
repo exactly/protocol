@@ -41,6 +41,9 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @notice Liquidation incentive factors for the liquidator and the lenders of the market where the debt is repaid.
   LiquidationIncentive public liquidationIncentive;
 
+  /// @notice Per-market liquidation incentive overrides.
+  mapping(Market => LiquidationIncentive) public marketLiquidationIncentive;
+
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(uint256 priceDecimals_) {
     priceDecimals = priceDecimals_;
@@ -234,7 +237,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
       }
     }
 
-    return maxRepayAmount(base, repay, maxLiquidatorAssets, borrower);
+    LiquidationIncentive memory incentive = getLiquidationIncentive(seizeMarket);
+    return maxRepayAmount(base, repay, maxLiquidatorAssets, borrower, incentive);
   }
 
   /// @notice Calculates the maximum amount of assets the liquidator is allowed to repay.
@@ -247,26 +251,25 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     LiquidityVars memory base,
     MarketVars memory repay,
     uint256 maxLiquidatorAssets,
-    address
+    address,
+    LiquidationIncentive memory incentive
   ) internal view virtual returns (uint256 maxRepayAssets) {
     if (base.adjustedCollateral >= base.adjustedDebt) revert InsufficientShortfall();
-
-    LiquidationIncentive memory memIncentive = liquidationIncentive;
     uint256 adjustFactor = base.adjustedCollateral.mulWadDown(base.totalDebt).divWadUp(
       base.adjustedDebt.mulWadUp(base.totalCollateral)
     );
     uint256 closeFactor = (TARGET_HEALTH - base.adjustedCollateral.divWadUp(base.adjustedDebt)).divWadUp(
-      TARGET_HEALTH - adjustFactor.mulWadDown(1e18 + memIncentive.liquidator + memIncentive.lenders)
+      TARGET_HEALTH - adjustFactor.mulWadDown(1e18 + incentive.liquidator + incentive.lenders)
     );
     maxRepayAssets = Math.min(
       Math
         .min(
           base.totalDebt.mulWadUp(Math.min(1e18, closeFactor)),
-          base.seizeAvailable.divWadUp(1e18 + memIncentive.liquidator + memIncentive.lenders)
+          base.seizeAvailable.divWadUp(1e18 + incentive.liquidator + incentive.lenders)
         )
         .mulDivUp(repay.baseUnit, repay.price),
       maxLiquidatorAssets < ASSETS_THRESHOLD
-        ? maxLiquidatorAssets.divWadDown(1e18 + memIncentive.lenders)
+        ? maxLiquidatorAssets.divWadDown(1e18 + incentive.lenders)
         : maxLiquidatorAssets
     );
   }
@@ -298,7 +301,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     uint256 priceCollateral = assetPrice(markets[seizeMarket].priceFeed);
     uint256 baseAmount = actualRepayAssets.mulDivUp(priceBorrowed, 10 ** markets[repayMarket].decimals);
 
-    return computeSeize(seizeMarket, baseAmount, priceCollateral, borrower, actualRepayAssets);
+    LiquidationIncentive memory incentive = getLiquidationIncentive(seizeMarket);
+    return computeSeize(seizeMarket, baseAmount, priceCollateral, borrower, actualRepayAssets, incentive);
   }
 
   function computeSeize(
@@ -306,14 +310,14 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     uint256 baseAmount,
     uint256 priceCollateral,
     address borrower,
-    uint256 actualRepayAssets
+    uint256 actualRepayAssets,
+    LiquidationIncentive memory incentive
   ) internal view virtual returns (uint256 lendersAssets, uint256 seizeAssets) {
-    LiquidationIncentive memory memIncentive = liquidationIncentive;
-    lendersAssets = actualRepayAssets.mulWadDown(memIncentive.lenders);
+    lendersAssets = actualRepayAssets.mulWadDown(incentive.lenders);
 
     seizeAssets = Math.min(
       baseAmount.mulDivUp(10 ** markets[seizeMarket].decimals, priceCollateral).mulWadUp(
-        1e18 + memIncentive.liquidator + memIncentive.lenders
+        1e18 + incentive.liquidator + incentive.lenders
       ),
       seizeMarket.maxWithdraw(borrower)
     );
@@ -356,6 +360,15 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     int256 price = priceFeed.latestAnswer();
     if (price <= 0) revert InvalidPrice();
     return uint256(price) * baseFactor;
+  }
+
+  /// @notice Returns the liquidation incentive for a market, falling back to the global value if unset.
+  /// @param market market to get the liquidation incentive for.
+  /// @return The liquidation incentive for the market.
+  function getLiquidationIncentive(Market market) public view returns (LiquidationIncentive memory) {
+    LiquidationIncentive memory incentive = marketLiquidationIncentive[market];
+    if (incentive.liquidator == 0 && incentive.lenders == 0) return liquidationIncentive;
+    return incentive;
   }
 
   /// @notice Retrieves all markets.
@@ -421,6 +434,19 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     emit LiquidationIncentiveSet(liquidationIncentive_);
   }
 
+  /// @notice Sets liquidation incentive for a specific market.
+  /// @dev Set to zero to use the global fallback.
+  /// @param market market to set the liquidation incentive for.
+  /// @param liquidationIncentive_ new liquidation incentive for the market.
+  function setLiquidationIncentive(
+    Market market,
+    LiquidationIncentive memory liquidationIncentive_
+  ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (!markets[market].isListed) revert MarketNotListed();
+    marketLiquidationIncentive[market] = liquidationIncentive_;
+    emit LiquidationIncentiveSet(market, liquidationIncentive_);
+  }
+
   /// @notice Emitted when a new market is listed for borrow/lending.
   /// @param market address of the market that was listed.
   /// @param decimals decimals of the market's underlying asset.
@@ -445,6 +471,11 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @notice Emitted when a new liquidationIncentive has been set.
   /// @param liquidationIncentive represented with 18 decimals.
   event LiquidationIncentiveSet(LiquidationIncentive liquidationIncentive);
+
+  /// @notice Emitted when a market-specific liquidation incentive has been set.
+  /// @param market address of the market.
+  /// @param liquidationIncentive represented with 18 decimals.
+  event LiquidationIncentiveSet(Market indexed market, LiquidationIncentive liquidationIncentive);
 
   /// @notice Emitted when a market and prie feed is changed by admin.
   /// @param market address of the asset used to get the price.

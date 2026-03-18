@@ -48,8 +48,12 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to set liquidation incentive, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.setLiquidationIncentive({ liquidator: parseUnits("0.05"), lenders: parseUnits("0.01") })).to
-        .be.reverted;
+      await expect(
+        auditor["setLiquidationIncentive((uint128,uint128))"]({
+          liquidator: parseUnits("0.05"),
+          lenders: parseUnits("0.01"),
+        }),
+      ).to.be.reverted;
     });
 
     it("WHEN trying to set a new price feed, THEN the transaction should revert with Access Control", async () => {
@@ -106,7 +110,10 @@ describe("Auditor Admin", function () {
 
     it("WHEN setting a new liquidation incentive, THEN the auditor should emit LiquidationIncentiveSet event", async () => {
       const incentive = { liquidator: parseUnits("0.05"), lenders: parseUnits("0.01") };
-      await expect(auditor.setLiquidationIncentive(incentive)).to.emit(auditor, "LiquidationIncentiveSet");
+      await expect(auditor["setLiquidationIncentive((uint128,uint128))"](incentive)).to.emit(
+        auditor,
+        "LiquidationIncentiveSet((uint128,uint128))",
+      );
       expect(await auditor.liquidationIncentive()).to.deep.eq([incentive.liquidator, incentive.lenders]);
     });
 

@@ -12,6 +12,7 @@ import {
   RemainingDebt,
   AuditorMismatch,
   InvalidPriceFeed,
+  MarketNotListed,
   MarketAlreadyListed,
   InsufficientAccountLiquidity
 } from "../contracts/Auditor.sol";
@@ -159,12 +160,96 @@ contract AuditorTest is Test {
     MockMarket(address(markets[3])).setCollateral(1e9);
     auditor.checkLiquidation(markets[1], markets[3], BOB, type(uint256).max);
   }
+
+  function test_setLiquidationIncentive_setsAndEmits() external {
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18);
+    Auditor.LiquidationIncentive memory incentive = Auditor.LiquidationIncentive(0.15e18, 0.02e18);
+
+    vm.expectEmit(true, true, true, true, address(auditor));
+    emit LiquidationIncentiveSet(Market(address(market)), incentive);
+    auditor.setLiquidationIncentive(Market(address(market)), incentive);
+
+    (uint128 liquidator, uint128 lenders) = auditor.marketLiquidationIncentive(Market(address(market)));
+    assertEq(liquidator, 0.15e18);
+    assertEq(lenders, 0.02e18);
+  }
+
+  function test_setLiquidationIncentive_reverts_whenMarketNotListed() external {
+    vm.expectRevert(MarketNotListed.selector);
+    auditor.setLiquidationIncentive(Market(address(market)), Auditor.LiquidationIncentive(0.15e18, 0.02e18));
+  }
+
+  function test_getLiquidationIncentive_returnsGlobal_whenPerMarketUnset() external {
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18);
+    Auditor.LiquidationIncentive memory incentive = auditor.getLiquidationIncentive(Market(address(market)));
+    assertEq(incentive.liquidator, 0.09e18);
+    assertEq(incentive.lenders, 0.01e18);
+  }
+
+  function test_calculateSeize_usesSeizeMarketIncentive() external {
+    MockMarket repayMkt = new MockMarket(auditor, 18);
+    MockMarket seizeMkt = new MockMarket(auditor, 18);
+    auditor.enableMarket(Market(address(repayMkt)), priceFeed, 0.8e18);
+    auditor.enableMarket(Market(address(seizeMkt)), priceFeed, 0.8e18);
+
+    auditor.setLiquidationIncentive(Market(address(seizeMkt)), Auditor.LiquidationIncentive(0.15e18, 0.02e18));
+
+    vm.startPrank(BOB);
+    auditor.enterMarket(Market(address(repayMkt)));
+    auditor.enterMarket(Market(address(seizeMkt)));
+    vm.stopPrank();
+
+    repayMkt.setDebt(1 ether);
+    seizeMkt.setCollateral(2 ether);
+    seizeMkt.setMaxWithdraw(2 ether);
+
+    (uint256 lendersAssets, uint256 seizeAssets) = auditor.calculateSeize(
+      Market(address(repayMkt)),
+      Market(address(seizeMkt)),
+      BOB,
+      1 ether
+    );
+    assertEq(lendersAssets, 0.02e18);
+    assertEq(seizeAssets, 1.17e18);
+  }
+
+  function test_calculateSeize_ignoresRepayMarketIncentive() external {
+    MockMarket repayMkt = new MockMarket(auditor, 18);
+    MockMarket seizeMkt = new MockMarket(auditor, 18);
+    auditor.enableMarket(Market(address(repayMkt)), priceFeed, 0.8e18);
+    auditor.enableMarket(Market(address(seizeMkt)), priceFeed, 0.8e18);
+
+    // per-market incentive on the REPAY market — should be ignored
+    auditor.setLiquidationIncentive(Market(address(repayMkt)), Auditor.LiquidationIncentive(0.20e18, 0.05e18));
+
+    vm.startPrank(BOB);
+    auditor.enterMarket(Market(address(repayMkt)));
+    auditor.enterMarket(Market(address(seizeMkt)));
+    vm.stopPrank();
+
+    repayMkt.setDebt(1 ether);
+    seizeMkt.setCollateral(2 ether);
+    seizeMkt.setMaxWithdraw(2 ether);
+
+    (uint256 lendersAssets, uint256 seizeAssets) = auditor.calculateSeize(
+      Market(address(repayMkt)),
+      Market(address(seizeMkt)),
+      BOB,
+      1 ether
+    );
+    // seize market has no per-market incentive → falls back to global (0.09 + 0.01)
+    assertEq(lendersAssets, 0.01e18);
+    assertEq(seizeAssets, 1.1e18);
+  }
+
+  event LiquidationIncentiveSet(Market indexed market, Auditor.LiquidationIncentive liquidationIncentive);
 }
 
 contract MockMarket {
   Auditor public auditor;
   uint256 internal collateral;
   uint256 internal debt;
+  uint256 internal _maxWithdraw;
   uint8 public immutable decimals;
 
   constructor(Auditor auditor_, uint8 decimals_) {
@@ -184,7 +269,15 @@ contract MockMarket {
     debt = debt_;
   }
 
+  function setMaxWithdraw(uint256 maxWithdraw_) external {
+    _maxWithdraw = maxWithdraw_;
+  }
+
   function accountSnapshot(address) external view returns (uint256, uint256) {
     return (collateral, debt);
+  }
+
+  function maxWithdraw(address) external view returns (uint256) {
+    return _maxWithdraw;
   }
 }

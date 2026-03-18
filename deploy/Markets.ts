@@ -195,6 +195,19 @@ const func: DeployFunction = async ({
         await executeOrPropose(auditor, "setAdjustFactor", [market.target, adjustFactor]);
       }
     }
+    if (config.liquidationIncentive) {
+      const marketLiqIncentive = {
+        liquidator: parseUnits(String(config.liquidationIncentive.liquidator)),
+        lenders: parseUnits(String(config.liquidationIncentive.lenders)),
+      };
+      const current = await auditor.marketLiquidationIncentive(market.target);
+      if (current.liquidator !== marketLiqIncentive.liquidator || current.lenders !== marketLiqIncentive.lenders) {
+        await executeOrPropose(auditor, "setLiquidationIncentive(address,(uint128,uint128))", [
+          market.target,
+          marketLiqIncentive,
+        ]);
+      }
+    }
 
     const marketRewards = await market.rewardsController?.().catch(() => undefined);
     if (marketRewards) {

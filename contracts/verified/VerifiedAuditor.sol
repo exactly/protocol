@@ -88,9 +88,11 @@ contract VerifiedAuditor is Auditor {
     LiquidityVars memory base,
     MarketVars memory repay,
     uint256 maxLiquidatorAssets,
-    address borrower
+    address borrower,
+    LiquidationIncentive memory incentive
   ) internal view override returns (uint256) {
-    if (firewall.isAllowed(borrower)) return super.maxRepayAmount(base, repay, maxLiquidatorAssets, borrower);
+    if (firewall.isAllowed(borrower))
+      return super.maxRepayAmount(base, repay, maxLiquidatorAssets, borrower, incentive);
 
     return
       Math.min(
@@ -104,10 +106,11 @@ contract VerifiedAuditor is Auditor {
     uint256 baseAmount,
     uint256 priceCollateral,
     address borrower,
-    uint256 actualRepayAssets
+    uint256 actualRepayAssets,
+    LiquidationIncentive memory incentive
   ) internal view override returns (uint256 lendersAssets, uint256 seizeAssets) {
     if (firewall.isAllowed(borrower)) {
-      return super.computeSeize(seizeMarket, baseAmount, priceCollateral, borrower, actualRepayAssets);
+      return super.computeSeize(seizeMarket, baseAmount, priceCollateral, borrower, actualRepayAssets, incentive);
     }
 
     return (
