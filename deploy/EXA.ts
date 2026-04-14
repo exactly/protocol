@@ -7,7 +7,7 @@ import timelockPropose from "./.utils/timelockPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
 import grantRole from "./.utils/grantRole";
 import airdrop from "../scripts/airdrop.json";
-import { toUtf8Bytes } from "ethers";
+import { ZeroHash, toUtf8Bytes } from "ethers";
 
 const func: DeployFunction = async ({
   network: {
@@ -46,7 +46,7 @@ const func: DeployFunction = async ({
 
   const exa = await getContract<EXA>("EXA", await getSigner(deployer));
 
-  if (!(await exa.hasRole(await exa.DEFAULT_ADMIN_ROLE(), timelock))) {
+  if (!(await exa.hasRole(ZeroHash, timelock).catch(() => false))) {
     const proxyAdmin = await getContract<ProxyAdmin>("ProxyAdmin", await getSigner(deployer));
     await timelockPropose(proxyAdmin, "upgradeAndCall", [
       exa.target,
