@@ -3253,6 +3253,13 @@ contract MarketTest is Test {
     market.deposit(2 ether, address(this));
   }
 
+  function test_deposit_allowsDepositUpToMaxSupply() external {
+    market.setMaxSupply(10 ether);
+    market.deposit(5 ether, address(this));
+    market.deposit(5 ether, address(this));
+    assertEq(market.totalSupply(), 10 ether);
+  }
+
   event MarketUpdate(
     uint256 timestamp,
     uint256 floatingDepositShares,

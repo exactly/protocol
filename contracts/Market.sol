@@ -706,8 +706,8 @@ contract Market is MarketBase {
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be deposited to the floating pool.
-  function afterDeposit(uint256 assets, uint256 shares) internal override whenNotPaused whenNotFrozen {
-    if (shares + totalSupply > maxSupply) revert MaxSupplyExceeded();
+  function afterDeposit(uint256 assets, uint256) internal override whenNotPaused whenNotFrozen {
+    if (totalSupply > maxSupply) revert MaxSupplyExceeded();
 
     updateFloatingAssetsAverage();
     uint256 treasuryFee = updateFloatingDebt();
