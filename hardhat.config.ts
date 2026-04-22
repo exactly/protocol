@@ -396,7 +396,7 @@ const hardhatConfig: Config = {
       cbXRP: {
         networks: ["base", "base-sepolia"],
         adjustFactor: 0.6,
-        maxSupply: 420_000,
+        maxSupply: 1_100_000,
         interestRateModel: {
           minRate: 1.5e-2,
           naturalRate: 2e-1,
