@@ -68,9 +68,9 @@ const hardhatConfig: Config = {
   namedAccounts: {
     deployer: {
       default: 0,
-      ethereum: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
+      ethereum: "0xa48B91Ac2A2DdD690EC2Ad3185489E49af186fb7",
       optimism: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
-      base: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
+      base: "0xa48B91Ac2A2DdD690EC2Ad3185489E49af186fb7",
       "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
       "base-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
