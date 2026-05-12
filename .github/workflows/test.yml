@@ -10,9 +10,9 @@ jobs:
       OPTIMISM_NODE: ${{ secrets.OPTIMISM_NODE }}
       OP_SEPOLIA_NODE: ${{ secrets.OP_SEPOLIA_NODE }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with: { submodules: true }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with: { node-version: 24 }
       - uses: foundry-rs/foundry-toolchain@v1
         with: { version: v1.5.1 }
@@ -22,7 +22,7 @@ jobs:
       - run: rm -rf cache/fuzz cache/invariant
       - run: forge build
       - run: pnpm run coverage
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v6
         if: always()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
