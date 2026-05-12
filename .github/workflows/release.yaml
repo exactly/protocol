@@ -7,6 +7,7 @@ jobs:
   release:
     environment: version
     runs-on: ubuntu-latest
+    permissions: { contents: write, pull-requests: write, id-token: write }
     steps:
       - uses: actions/checkout@v4
         with: { submodules: true }
@@ -22,4 +23,3 @@ jobs:
           publish: pnpm changeset publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
