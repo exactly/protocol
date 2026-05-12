@@ -1,7 +1,5 @@
 on:
-  push:
-    branches:
-      - main
+  push: { branches: [main] }
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -11,19 +9,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - uses: pnpm/action-setup@v4
-        with:
-          version: latest
-          run_install: false
+        with: { submodules: true }
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+        with: { node-version: 24 }
       - uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: v1.5.1
+        with: { version: v1.5.1 }
+      - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - uses: changesets/action@v1
         with:

@@ -1,0 +1,5 @@
+allowBuilds:
+  keccak: true
+  secp256k1: true
+autoInstallPeers: false
+minimumReleaseAge: 1440
