@@ -83,6 +83,7 @@ const hardhatConfig: Config = {
     treasury: {
       default: 0,
       optimism: "0x23fD464e0b0eE21cEdEb929B19CABF9bD5215019",
+      base: "0x23fD464e0b0eE21cEdEb929B19CABF9bD5215019",
       "op-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
       "base-sepolia": "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
