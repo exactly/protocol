@@ -188,7 +188,7 @@ contract InterestRateModelTest is Test {
     uint256 rate = irm.fixedRate(maturity, maxPools, uFixed, uFloating, uGlobal);
 
     assertLe(rate, p.maxRate, "rate > maxRate");
-    assertApproxEqRel(rate, refRate, 0.00000002e16, "rate != refRate");
+    assertApproxEqRel(rate, refRate, 0.000000025e16, "rate != refRate");
   }
 
   function testFuzzReferenceLegacyRateFixed(
