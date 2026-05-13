@@ -17,9 +17,15 @@ jobs:
         with: { version: v1.5.1 }
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
+      - id: title
+        run: |
+          pnpm changeset status --output=status.json 2>/dev/null || echo '{"releases":[]}' > status.json
+          node -e 'const release = require("./status.json").releases.find(({ type }) => type !== "none");
+            console.log("title=" + (release ? "🔖 release: v" + release.newVersion : "🔖 release"))' >> $GITHUB_OUTPUT
+          rm status.json
       - uses: changesets/action@v1
         with:
-          title: 🔖 new release
+          title: ${{ steps.title.outputs.title }}
           publish: pnpm changeset publish
           prDraft: create
         env:
