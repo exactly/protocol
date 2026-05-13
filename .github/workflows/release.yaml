@@ -10,7 +10,7 @@ jobs:
     permissions: { contents: write, pull-requests: write, id-token: write }
     steps:
       - uses: actions/checkout@v6
-        with: { submodules: true }
+        with: { submodules: true, token: "${{ secrets.RELEASE_GITHUB_TOKEN }}" }
       - uses: actions/setup-node@v6
         with: { node-version: 24 }
       - uses: foundry-rs/foundry-toolchain@v1
@@ -29,5 +29,5 @@ jobs:
           publish: pnpm changeset publish
           prDraft: create
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
