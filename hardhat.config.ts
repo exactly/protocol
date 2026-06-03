@@ -95,6 +95,7 @@ const hardhatConfig: Config = {
     },
     hypernative: {
       optimism: "0xEa2127b14D05229CB3d4b75b42052e556AB7391F",
+      base: "0xEa2127b14D05229CB3d4b75b42052e556AB7391F",
     },
     allower: {
       base: "0xaF8Be39EA35498073f0fFBD8038Fd995D863Ae14",
