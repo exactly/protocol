@@ -349,6 +349,7 @@ contract StakedEXA is
     address memProvider = provider;
     uint256 shares = Math.min(memMarket.allowance(memProvider, address(this)), memMarket.maxRedeem(memProvider));
     uint256 sharesReward = shares.mulWadDown(providerRatio);
+    if (sharesReward == 0) return;
 
     memMarket.transferFrom(provider, address(this), sharesReward);
     uint256 save = shares - sharesReward;
