@@ -349,13 +349,12 @@ contract StakedEXA is
     address memProvider = provider;
     uint256 shares = Math.min(memMarket.allowance(memProvider, address(this)), memMarket.maxRedeem(memProvider));
     uint256 sharesReward = shares.mulWadDown(providerRatio);
-    if (sharesReward == 0) return;
 
     memMarket.transferFrom(provider, address(this), sharesReward);
     uint256 save = shares - sharesReward;
     if (save != 0) memMarket.transferFrom(memProvider, savings, save);
 
-    notifyRewardAmount(IERC20(address(memMarket)), sharesReward, address(this));
+    if (sharesReward != 0) notifyRewardAmount(IERC20(address(memMarket)), sharesReward, address(this));
   }
 
   /// @notice Returns all reward tokens.
