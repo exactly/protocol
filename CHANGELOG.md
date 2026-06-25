@@ -1,5 +1,17 @@
 # @exactly/protocol
 
+## 0.2.23
+
+### Patch Changes
+
+- [#803](https://github.com/exactly/protocol/pull/803) [`bf3066c`](https://github.com/exactly/protocol/commit/bf3066c31e4077d4f2bd0d7c22bab81f8b5db3b7) Thanks [@itofarina](https://github.com/itofarina)! - 🐛 market: fix double-count in max supply check
+
+- [#797](https://github.com/exactly/protocol/pull/797) [`08cd069`](https://github.com/exactly/protocol/commit/08cd0699b153881eda25b75bdb25188b30db4c59) Thanks [@itofarina](https://github.com/itofarina)! - ✨ exa: add crosschain mint and burn support
+
+- [#797](https://github.com/exactly/protocol/pull/797) [`95a3cb7`](https://github.com/exactly/protocol/commit/95a3cb7861845f4eb26470f661898efad820c87d) Thanks [@itofarina](https://github.com/itofarina)! - 🔒 exa: restrict initialize to proxy admin or construction
+
+- [`cf7567c`](https://github.com/exactly/protocol/commit/cf7567c9b1aaba467e2b31de9b526cb0e6850da8) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - 🚀 optimism: upgrade exa
+
 ## 0.2.22
 
 ### Patch Changes
