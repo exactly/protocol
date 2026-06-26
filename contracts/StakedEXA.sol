@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.17;
 
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 
@@ -354,7 +354,7 @@ contract StakedEXA is
     uint256 save = shares - sharesReward;
     if (save != 0) memMarket.transferFrom(memProvider, savings, save);
 
-    notifyRewardAmount(IERC20(address(memMarket)), sharesReward, address(this));
+    if (sharesReward != 0) notifyRewardAmount(IERC20(address(memMarket)), sharesReward, address(this));
   }
 
   /// @notice Returns all reward tokens.
