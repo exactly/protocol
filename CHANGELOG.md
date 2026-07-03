@@ -1,5 +1,11 @@
 # @exactly/protocol
 
+## 0.2.24
+
+### Patch Changes
+
+- [`104bca1`](https://github.com/exactly/protocol/commit/104bca17b6dece122e31ea0428ad71e4f192611b) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - 🚀 base: deploy exa token
+
 ## 0.2.23
 
 ### Patch Changes
