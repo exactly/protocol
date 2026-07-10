@@ -22,6 +22,9 @@ jobs:
       - run: rm -rf cache/fuzz cache/invariant
       - run: forge build
       - run: pnpm run coverage
+      - name: Gas Report
+        uses: saifyoussuf/foundry-gas-reporter-action@v1
+        if: always()
       - uses: codecov/codecov-action@v6
         if: always()
         with:
