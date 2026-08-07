@@ -99,7 +99,7 @@ contract DebtRoller is IFlashLoanRecipient, Initializable, AccessControlUpgradea
   }
 
   function _checkMarket(Market market) internal view {
-    (, , , bool listed, ) = auditor.markets(market);
+    (, , , bool listed, , ) = auditor.markets(market);
     if (!listed) revert NotMarket();
   }
 }

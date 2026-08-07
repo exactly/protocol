@@ -128,7 +128,7 @@ contract InstallmentsRouter {
   /// @notice Reverts if the Market is not listed by the Auditor.
   /// @param market The Market to check.
   function checkMarket(Market market) internal view {
-    (, , , bool listed, ) = auditor.markets(market);
+    (, , , bool listed, , ) = auditor.markets(market);
     if (!listed) revert MarketNotListed();
   }
 

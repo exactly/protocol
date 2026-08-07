@@ -65,8 +65,9 @@ contract DebtPreviewer {
   ) internal view returns (uint256) {
     MinDepositVars memory vars;
     Auditor auditor = debtManager.auditor();
-    (vars.adjustFactorIn, vars.decimalsIn, , , vars.priceFeedIn) = auditor.markets(marketDeposit);
-    (vars.adjustFactorOut, vars.decimalsOut, , , vars.priceFeedOut) = auditor.markets(marketBorrow);
+    (vars.adjustFactorIn, vars.decimalsIn, , , vars.priceFeedIn, vars.nonCollateral) = auditor.markets(marketDeposit);
+    if (vars.nonCollateral) return 0;
+    (vars.adjustFactorOut, vars.decimalsOut, , , vars.priceFeedOut, ) = auditor.markets(marketBorrow);
 
     return
       minHealthFactor
@@ -182,8 +183,8 @@ contract DebtPreviewer {
     uint256 amountIn
   ) internal view returns (uint256) {
     Auditor auditor = debtManager.auditor();
-    (, uint256 decimalsOut, , , IPriceFeed priceFeedOut) = auditor.markets(marketBorrow);
-    (, uint256 decimalsIn, , , IPriceFeed priceFeedIn) = auditor.markets(marketDeposit);
+    (, uint256 decimalsOut, , , IPriceFeed priceFeedOut, ) = auditor.markets(marketBorrow);
+    (, uint256 decimalsIn, , , IPriceFeed priceFeedIn, ) = auditor.markets(marketDeposit);
     return
       amountIn.mulDivDown(auditor.assetPrice(priceFeedIn), 10 ** decimalsIn).mulDivDown(
         10 ** decimalsOut,
@@ -206,8 +207,9 @@ contract DebtPreviewer {
   ) internal view returns (uint256) {
     Auditor auditor = debtManager.auditor();
     MaxRatioVars memory mr;
-    (mr.adjustFactorIn, , , , mr.priceFeedIn) = auditor.markets(marketDeposit);
-    (mr.adjustFactorOut, , , , ) = auditor.markets(marketBorrow);
+    (mr.adjustFactorIn, , , , mr.priceFeedIn, mr.nonCollateral) = auditor.markets(marketDeposit);
+    if (mr.nonCollateral) return 1e18;
+    (mr.adjustFactorOut, , , , , ) = auditor.markets(marketBorrow);
     uint256 isolatedMaxRatio = minHealthFactor.divWadDown(
       minHealthFactor - mr.adjustFactorIn.mulWadDown(mr.adjustFactorOut)
     );
@@ -220,7 +222,7 @@ contract DebtPreviewer {
         Auditor.MarketData memory md;
         Auditor.AccountLiquidity memory vars;
         mr.market = auditor.marketList(mr.i);
-        (md.adjustFactor, md.decimals, , , md.priceFeed) = auditor.markets(mr.market);
+        (md.adjustFactor, md.decimals, , , md.priceFeed, md.nonCollateral) = auditor.markets(mr.market);
         (vars.balance, vars.borrowBalance) = mr.market.accountSnapshot(account);
         vars.price = auditor.assetPrice(md.priceFeed);
         mr.baseUnit = 10 ** md.decimals;
@@ -232,7 +234,7 @@ contract DebtPreviewer {
         } else {
           mr.adjustedDebt += vars.borrowBalance.mulDivUp(vars.price, mr.baseUnit).divWadUp(md.adjustFactor);
         }
-        if (mr.market != marketDeposit) {
+        if (mr.market != marketDeposit && !md.nonCollateral) {
           mr.adjustedCollateral += vars.balance.mulDivDown(vars.price, mr.baseUnit).mulWadDown(md.adjustFactor);
         }
       }
@@ -241,14 +243,19 @@ contract DebtPreviewer {
       }
     }
 
+    uint256 collateral = mr.adjustedCollateral.mulWadDown(mr.adjustFactorOut) +
+      minHealthFactor.mulWadDown(mr.principalUSD);
+    uint256 debt = minHealthFactor.mulWadDown(mr.adjustedDebt.mulWadDown(mr.adjustFactorOut));
+    if (debt >= collateral) return 1e18;
     return
-      Math.min(
-        (mr.adjustedCollateral.mulWadDown(mr.adjustFactorOut) +
-          minHealthFactor.mulWadDown(mr.principalUSD) -
-          minHealthFactor.mulWadDown(mr.adjustedDebt.mulWadDown(mr.adjustFactorOut))).divWadDown(
+      Math.max(
+        Math.min(
+          (collateral - debt).divWadDown(
             mr.principalUSD.mulWadDown(minHealthFactor - mr.adjustFactorIn.mulWadDown(mr.adjustFactorOut))
           ),
-        isolatedMaxRatio
+          isolatedMaxRatio
+        ),
+        1e18
       );
   }
 
@@ -275,6 +282,8 @@ contract DebtPreviewer {
     if (mw.principal <= 0) return 0;
 
     mw.auditor = debtManager.auditor();
+    (, , , , , mw.nonCollateral) = mw.auditor.markets(marketDeposit);
+    if (mw.nonCollateral) return uint256(mw.principal);
     Auditor.MarketData memory md;
     Auditor.AccountLiquidity memory vars;
     mw.marketMap = mw.auditor.accountMarkets(account);
@@ -282,12 +291,14 @@ contract DebtPreviewer {
     for (mw.i = 0; mw.marketMap != 0; mw.marketMap >>= 1) {
       if (mw.marketMap & 1 != 0) {
         mw.market = mw.auditor.marketList(mw.i);
-        (md.adjustFactor, md.decimals, , , md.priceFeed) = mw.auditor.markets(mw.market);
+        (md.adjustFactor, md.decimals, , , md.priceFeed, md.nonCollateral) = mw.auditor.markets(mw.market);
         uint256 baseUnit = 10 ** md.decimals;
         (vars.balance, vars.borrowBalance) = mw.market.accountSnapshot(account);
         vars.price = mw.auditor.assetPrice(md.priceFeed);
         {
-          mw.memAdjColl = vars.balance.mulDivDown(vars.price, baseUnit).mulWadDown(md.adjustFactor);
+          mw.memAdjColl = md.nonCollateral
+            ? 0
+            : vars.balance.mulDivDown(vars.price, baseUnit).mulWadDown(md.adjustFactor);
           mw.memAdjDebt = vars.borrowBalance.mulDivDown(vars.price, baseUnit).divWadDown(md.adjustFactor);
           mw.adjustedCollateral += mw.memAdjColl;
 
@@ -312,13 +323,14 @@ contract DebtPreviewer {
       }
     }
     {
-      (mw.adjustFactorIn, , , , mw.priceFeedIn) = mw.auditor.markets(marketDeposit);
-      (mw.adjustFactorOut, , , , ) = mw.auditor.markets(marketBorrow);
+      (mw.adjustFactorIn, , , , mw.priceFeedIn, ) = mw.auditor.markets(marketDeposit);
+      (mw.adjustFactorOut, , , , , ) = mw.auditor.markets(marketBorrow);
       mw.memOtherDebt = mw.otherDebt.mulWadDown(mw.adjustFactorOut).mulWadDown(minHealthFactor);
       mw.memOtherCollateral = (mw.otherCollateral).mulWadDown(mw.adjustFactorOut);
     }
 
     if (mw.memOtherDebt <= mw.memOtherCollateral) {
+      if (mw.adjustedDebt + mw.adjPrincipalForRepay >= mw.adjustedCollateral + mw.adjustedRepay) return 0;
       return
         Math.min(
           Math
@@ -332,15 +344,14 @@ contract DebtPreviewer {
         );
     }
 
-    return
-      uint256(mw.principal) -
-      (mw.memOtherDebt - mw.memOtherCollateral)
-        .divWadDown(
-          mw.adjustFactorIn.mulWadDown(ratio).mulWadDown(mw.adjustFactorOut) +
-            minHealthFactor -
-            ratio.mulWadDown(minHealthFactor)
-        )
-        .mulDivDown(10 ** marketDeposit.decimals(), mw.auditor.assetPrice(mw.priceFeedIn));
+    uint256 support = mw.adjustFactorIn.mulWadDown(ratio).mulWadDown(mw.adjustFactorOut) + minHealthFactor;
+    uint256 ratioDebt = ratio.mulWadDown(minHealthFactor);
+    if (ratioDebt >= support) return 0;
+    uint256 requiredPrincipal = (mw.memOtherDebt - mw.memOtherCollateral).divWadDown(support - ratioDebt).mulDivDown(
+      10 ** marketDeposit.decimals(),
+      mw.auditor.assetPrice(mw.priceFeedIn)
+    );
+    return uint256(mw.principal) > requiredPrincipal ? uint256(mw.principal) - requiredPrincipal : 0;
   }
 
   /// @notice Calculates the crossed principal amount for a given `account` in the input and output markets.
@@ -353,8 +364,8 @@ contract DebtPreviewer {
     IPriceFeed priceFeedIn;
     IPriceFeed priceFeedOut;
     Auditor auditor = debtManager.auditor();
-    (, decimalsIn, , , priceFeedIn) = auditor.markets(marketDeposit);
-    (, decimalsOut, , , priceFeedOut) = auditor.markets(marketBorrow);
+    (, decimalsIn, , , priceFeedIn, ) = auditor.markets(marketDeposit);
+    (, decimalsOut, , , priceFeedOut, ) = auditor.markets(marketBorrow);
 
     return
       int256(marketDeposit.maxWithdraw(account)) -
@@ -469,7 +480,7 @@ contract DebtPreviewer {
     r.controller = market.rewardsController();
     Auditor auditor = debtManager.auditor();
     if (address(r.controller) != address(0)) {
-      (, r.underlyingDecimals, , , r.underlyingPriceFeed) = auditor.markets(market);
+      (, r.underlyingDecimals, , , r.underlyingPriceFeed, ) = auditor.markets(market);
       unchecked {
         r.underlyingBaseUnit = 10 ** r.underlyingDecimals;
       }
@@ -578,6 +589,7 @@ struct Limit {
 
 struct MaxRatioVars {
   uint256 i;
+  bool nonCollateral;
   uint256 baseUnit;
   uint256 marketMap;
   uint256 principalUSD;
@@ -592,6 +604,7 @@ struct MaxRatioVars {
 struct MaxWithdrawVars {
   uint256 i;
   int256 principal;
+  bool nonCollateral;
   uint256 marketMap;
   uint256 otherDebt;
   uint256 memAdjDebt;
@@ -619,6 +632,7 @@ struct MinDepositVars {
   IPriceFeed priceFeedIn;
   uint256 adjustFactorOut;
   IPriceFeed priceFeedOut;
+  bool nonCollateral;
 }
 
 struct Rates {

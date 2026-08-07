@@ -44,7 +44,7 @@ describe("Auditor Admin", function () {
 
   describe("GIVEN a regular account", () => {
     it("WHEN trying to enable a market, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.enableMarket(marketDAI.target, priceFeedDAI.target, 0)).to.be.revertedWithoutReason();
+      await expect(auditor.enableMarket(marketDAI.target, priceFeedDAI.target, 0, false)).to.be.revertedWithoutReason();
     });
 
     it("WHEN trying to set liquidation incentive, THEN the transaction should revert with Access Control", async () => {
@@ -72,7 +72,7 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to enable a market for the second time, THEN the transaction should revert with MarketAlreadyListed", async () => {
-      await expect(auditor.enableMarket(marketDAI.target, priceFeedDAI.target, 0)).to.be.revertedWithCustomError(
+      await expect(auditor.enableMarket(marketDAI.target, priceFeedDAI.target, 0, false)).to.be.revertedWithCustomError(
         auditor,
         "MarketAlreadyListed",
       );
@@ -85,7 +85,7 @@ describe("Auditor Admin", function () {
         newAuditor.target,
       );
       await expect(
-        auditor.enableMarket(market.target, priceFeedDAI.target, parseUnits("0.5")),
+        auditor.enableMarket(market.target, priceFeedDAI.target, parseUnits("0.5"), false),
       ).to.be.revertedWithCustomError(auditor, "AuditorMismatch");
     });
 
@@ -99,7 +99,7 @@ describe("Auditor Admin", function () {
 
     it("WHEN trying to set a new market, THEN the auditor should emit MarketListed event", async () => {
       const market = await ((await getContractFactory("Market")) as Market__factory).deploy(dai.target, auditor.target);
-      await expect(auditor.enableMarket(market.target, priceFeedDAI.target, parseUnits("0.5")))
+      await expect(auditor.enableMarket(market.target, priceFeedDAI.target, parseUnits("0.5"), false))
         .to.emit(auditor, "MarketListed")
         .withArgs(market.target, 18);
     });
