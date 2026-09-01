@@ -90,8 +90,8 @@ contract MarketTest is Test {
     );
     vm.label(address(marketWETH), "MarketWETH");
 
-    auditor.enableMarket(market, daiPriceFeed, 0.8e18);
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18);
+    auditor.enableMarket(market, daiPriceFeed, 0.8e18, false);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18, false);
     auditor.enterMarket(marketWETH);
 
     vm.label(BOB, "Bob");
@@ -569,7 +569,7 @@ contract MarketTest is Test {
     asset.mint(address(this), 50_000 ether);
     asset.approve(address(marketHarness), 50_000 ether);
     marketHarness.approve(BOB, 50_000 ether);
-    auditor.enableMarket(marketHarness, daiPriceFeed, 0.8e18);
+    auditor.enableMarket(marketHarness, daiPriceFeed, 0.8e18, false);
 
     marketHarness.setFloatingAssets(500 ether);
     marketHarness.setSupply(2000 ether);
@@ -602,7 +602,7 @@ contract MarketTest is Test {
     uint256 maturity = FixedLib.INTERVAL * 2;
     asset.mint(address(this), 50_000 ether);
     asset.approve(address(marketHarness), 50_000 ether);
-    auditor.enableMarket(marketHarness, daiPriceFeed, 0.8e18);
+    auditor.enableMarket(marketHarness, daiPriceFeed, 0.8e18, false);
 
     marketHarness.setFloatingAssets(500 ether);
     marketHarness.setSupply(2000 ether);
@@ -625,7 +625,7 @@ contract MarketTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL, 100 ether, 100 ether, address(this), address(this));
 
     (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
-    (uint256 adjustFactor, , , , ) = auditor.markets(market);
+    (uint256 adjustFactor, , , , , ) = auditor.markets(market);
 
     assertEq(collateral, uint256(1_000 ether).mulDivDown(1e18, 10 ** 18).mulWadDown(adjustFactor));
     assertEq(collateral, 800 ether);
@@ -761,7 +761,7 @@ contract MarketTest is Test {
     );
     vm.label(address(marketUSDC), "MarketUSDC");
     MockPriceFeed usdcPriceFeed = new MockPriceFeed(18, 1e18);
-    auditor.enableMarket(marketUSDC, usdcPriceFeed, 0.8e18);
+    auditor.enableMarket(marketUSDC, usdcPriceFeed, 0.8e18, false);
     usdc.mint(address(this), 1_000_000e6);
     usdc.approve(address(marketUSDC), type(uint256).max);
     marketUSDC.deposit(10_000e6, address(this));
@@ -784,6 +784,171 @@ contract MarketTest is Test {
 
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
+  }
+
+  function testNonCollateralMarketAddsNoBorrowingPower() external {
+    auditor.enterMarket(market);
+    market.deposit(1_000 ether, address(this));
+
+    (uint256 collateral, ) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertEq(collateral, uint256(1_000 ether).mulWadDown(0.8e18));
+
+    auditor.setNonCollateral(market, true);
+    (collateral, ) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertEq(collateral, 0);
+
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
+    market.borrow(1 ether, address(this), address(this));
+
+    auditor.setNonCollateral(market, false);
+    (collateral, ) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertEq(collateral, uint256(1_000 ether).mulWadDown(0.8e18));
+    market.borrow(1 ether, address(this), address(this));
+  }
+
+  function testDepositBorrowRepayWithdrawOnNonCollateralMarket() external {
+    auditor.setNonCollateral(market, true);
+    vm.prank(ALICE);
+    market.deposit(10_000 ether, ALICE);
+    marketWETH.deposit(10 ether, address(this));
+
+    // depositing on a non-collateral market works but adds no borrowing power
+    market.deposit(1_000 ether, address(this));
+    (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertEq(collateral, uint256(10 ether).mulWadDown(0.9e18));
+    assertEq(debt, 0);
+
+    // floating borrow auto-enters the market, setting the bit without adding collateral
+    market.borrow(2 ether, address(this), address(this));
+    assertEq(auditor.accountMarkets(address(this)) & 1, 1);
+    (collateral, debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertEq(collateral, uint256(10 ether).mulWadDown(0.9e18));
+    assertGt(debt, 0);
+
+    // fixed pool operations still work
+    market.depositAtMaturity(FixedLib.INTERVAL, 2 ether, 0, address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 2 ether, type(uint256).max, address(this), address(this));
+
+    // repay everything and withdraw both floating and fixed deposits
+    (, , uint256 floatingBorrowShares) = market.accounts(address(this));
+    market.refund(floatingBorrowShares, address(this));
+    market.repayAtMaturity(FixedLib.INTERVAL, type(uint256).max, type(uint256).max, address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 2 ether, 0, address(this), address(this));
+    market.withdraw(1_000 ether, address(this), address(this));
+    (, debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertEq(debt, 0);
+  }
+
+  function setUpUnderwaterWithNonCollateralMarket(uint256 wethDeposit) internal {
+    auditor.enterMarket(market);
+    market.deposit(1_000 ether, address(this));
+    if (wethDeposit > 0) marketWETH.deposit(wethDeposit, address(this));
+    weth.mint(BOB, 500 ether);
+    vm.prank(BOB);
+    marketWETH.deposit(500 ether, BOB);
+    marketWETH.borrow(400 ether, address(this), address(this));
+
+    auditor.setNonCollateral(market, true);
+    (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertLt(collateral, debt);
+  }
+
+  function testWithdrawNonCollateralMarketWithBadHealthFactor() external {
+    setUpUnderwaterWithNonCollateralMarket(1 ether);
+
+    // non-collateral supply stays freely withdrawable while underwater
+    market.withdraw(100 ether, address(this), address(this));
+    market.redeem(100 ether, address(this), address(this));
+
+    // withdrawing actual collateral is still blocked
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
+    marketWETH.withdraw(0.1 ether, address(this), address(this));
+  }
+
+  function testTransferNonCollateralMarketWithBadHealthFactor() external {
+    setUpUnderwaterWithNonCollateralMarket(1 ether);
+
+    // non-collateral shares stay freely transferable while underwater
+    market.transfer(BOB, 100 ether);
+    market.approve(ALICE, type(uint256).max);
+    vm.prank(ALICE);
+    market.transferFrom(address(this), ALICE, 100 ether);
+    assertEq(market.balanceOf(BOB), 100 ether);
+    assertEq(market.balanceOf(ALICE), 100 ether);
+
+    // transferring actual collateral is still blocked
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
+    marketWETH.transfer(BOB, 0.1 ether);
+  }
+
+  function testExitNonCollateralMarketWithBadHealthFactor() external {
+    setUpUnderwaterWithNonCollateralMarket(1 ether);
+
+    auditor.exitMarket(market);
+    assertEq(auditor.accountMarkets(address(this)) & 1, 0);
+  }
+
+  function testNonCollateralMarketShouldNotBeSeized() external {
+    setUpUnderwaterWithNonCollateralMarket(1 ether);
+    uint256 shares = market.balanceOf(address(this));
+
+    weth.mint(liquidator, 1_000 ether);
+    vm.startPrank(liquidator);
+    weth.approve(address(marketWETH), type(uint256).max);
+
+    // seizing from the non-collateral market is not allowed
+    vm.expectRevert(ZeroRepay.selector);
+    marketWETH.liquidate(address(this), type(uint256).max, market);
+
+    // seizing from the enabled collateral market still works
+    marketWETH.liquidate(address(this), type(uint256).max, marketWETH);
+    vm.stopPrank();
+
+    assertEq(market.balanceOf(address(this)), shares);
+    assertLt(marketWETH.maxWithdraw(address(this)), 1 ether);
+  }
+
+  function testLiquidateAccountWithOnlyNonCollateralSupply() external {
+    setUpUnderwaterWithNonCollateralMarket(0);
+
+    weth.mint(liquidator, 1_000 ether);
+    vm.startPrank(liquidator);
+    weth.approve(address(marketWETH), type(uint256).max);
+
+    // with no eligible collateral at all the liquidation can't be performed
+    vm.expectRevert(bytes(""));
+    marketWETH.liquidate(address(this), type(uint256).max, market);
+    vm.stopPrank();
+  }
+
+  function testHandleBadDebtWithNonCollateralMarketSupply() external {
+    auditor.enterMarket(market);
+    market.deposit(1_000 ether, address(this));
+    weth.mint(BOB, 500 ether);
+    vm.prank(BOB);
+    marketWETH.deposit(500 ether, BOB);
+
+    // route fixed fees to the earnings accumulator so it can cover the bad debt later
+    marketWETH.setBackupFeeRate(1e18);
+    marketWETH.setInterestRateModel(InterestRateModel(address(new MockBorrowRate(1e18))));
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 250 ether, 500 ether, address(this), address(this));
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 250 ether, 250 ether, address(this));
+    marketWETH.repayAtMaturity(FixedLib.INTERVAL, type(uint256).max, type(uint256).max, address(this));
+
+    marketWETH.borrow(200 ether, address(this), address(this));
+    auditor.setNonCollateral(market, true);
+    (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertLt(collateral, debt);
+
+    // non-collateral supply doesn't block bad debt clearing and is not consumed by it
+    uint256 shares = market.balanceOf(address(this));
+    auditor.handleBadDebt(address(this));
+
+    (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
+    assertEq(floatingBorrowShares, 0);
+    (, debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertEq(debt, 0);
+    assertEq(market.balanceOf(address(this)), shares);
   }
 
   function testLiquidateLeavingDustAsCollateral() external {
@@ -1182,7 +1347,7 @@ contract MarketTest is Test {
     market.deposit(1_000 ether, BOB);
     market.borrow(500 ether, address(this), address(this));
     daiPriceFeed.setPrice(1);
-    (uint256 adjustFactor, uint8 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
+    (uint256 adjustFactor, uint8 decimals, , , IPriceFeed priceFeed, ) = auditor.markets(market);
     uint256 floatingAssetsBefore = market.floatingAssets();
     assertEq(
       market.maxWithdraw(address(this)).mulDivDown(auditor.assetPrice(priceFeed), 10 ** decimals).mulWadDown(
@@ -2715,7 +2880,7 @@ contract MarketTest is Test {
       MockStETH.getPooledEthByShares.selector,
       1e18
     );
-    auditor.enableMarket(marketStETH, priceFeedWrapper, 0.8e18);
+    auditor.enableMarket(marketStETH, priceFeedWrapper, 0.8e18, false);
 
     stETH.mint(address(this), 50_000 ether);
     stETH.approve(address(marketStETH), type(uint256).max);
@@ -2748,7 +2913,7 @@ contract MarketTest is Test {
       new MockPriceFeed(18, 14 ether),
       new MockPriceFeed(8, 99000000)
     );
-    auditor.enableMarket(marketWBTC, priceFeedDouble, 0.8e18);
+    auditor.enableMarket(marketWBTC, priceFeedDouble, 0.8e18, false);
 
     wbtc.mint(address(this), 50_000e8);
     wbtc.approve(address(marketWBTC), type(uint256).max);
@@ -2783,7 +2948,7 @@ contract MarketTest is Test {
         0.42e18
       );
 
-      auditor.enableMarket(markets[i], daiPriceFeed, 0.8e18);
+      auditor.enableMarket(markets[i], daiPriceFeed, 0.8e18, false);
       asset_.mint(BOB, 50_000 ether);
       asset_.mint(address(this), 50_000 ether);
       vm.prank(BOB);

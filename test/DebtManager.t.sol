@@ -15,7 +15,7 @@ import {
   InvalidOperation,
   AllowanceSurplus
 } from "../contracts/periphery/DebtManager.sol";
-import { Auditor, InsufficientAccountLiquidity, MarketNotListed, IPriceFeed } from "../contracts/Auditor.sol";
+import { Auditor, IPriceFeed, MarketNotListed, InsufficientAccountLiquidity } from "../contracts/Auditor.sol";
 import { FixedLib, UnmatchedPoolState } from "../contracts/utils/FixedLib.sol";
 import { MockBalancerVault } from "../contracts/mocks/MockBalancerVault.sol";
 import { Market, Disagreement, ZeroRepay } from "../contracts/Market.sol";
@@ -56,6 +56,7 @@ contract DebtManagerTest is ForkTest {
     marketWETH = Market(deployment("MarketWETH"));
     marketwstETH = Market(deployment("MarketwstETH"));
     auditor = Auditor(deployment("Auditor"));
+    upgrade(address(auditor), address(new Auditor(auditor.priceDecimals())));
     permit2 = IPermit2(deployment("Permit2"));
     debtManager = DebtManager(
       address(
@@ -182,6 +183,61 @@ contract DebtManagerTest is ForkTest {
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 1);
     assertApproxEqAbs(marketUSDC.previewRefund(floatingBorrowShares), principal.mulWadDown(ratio - 1e18), 1);
+  }
+
+  function testLeverageWithNonCollateralMarket() external _checkBalances {
+    vm.prank(deployment("TimelockController"));
+    auditor.setNonCollateral(marketUSDC, true);
+
+    // the deposit provides no borrowing power, so the borrow leg reverts in the auditor
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
+    debtManager.leverage(marketUSDC, 100_000e6, 4e18);
+  }
+
+  function testDeleverageWithNonCollateralMarket() external _checkBalances {
+    uint256 principal = 100_000e6;
+    debtManager.leverage(marketUSDC, principal, 4e18);
+
+    vm.prank(deployment("TimelockController"));
+    auditor.setNonCollateral(marketUSDC, true);
+
+    // partial deleverage leaves debt unbacked by the non-collateral deposit and still succeeds
+    debtManager.deleverage(marketUSDC, 0, 2e18);
+    (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
+    assertApproxEqAbs(marketUSDC.previewRefund(floatingBorrowShares), principal, 3);
+    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(2e18), 9);
+
+    debtManager.deleverage(marketUSDC, 0, 1e18);
+    (, , floatingBorrowShares) = marketUSDC.accounts(address(this));
+    assertEq(marketUSDC.previewRefund(floatingBorrowShares), 0);
+    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal, 7);
+
+    // non-collateral supply is freely withdrawable once the debt is repaid
+    marketUSDC.withdraw(marketUSDC.maxWithdraw(address(this)), address(this), address(this));
+    assertEq(marketUSDC.maxWithdraw(address(this)), 0);
+  }
+
+  function testRollBorrowFromNonCollateralMarket() external _checkBalances {
+    weth.approve(address(marketWETH), type(uint256).max);
+    marketWETH.deposit(100 ether, address(this));
+    auditor.enterMarket(marketWETH);
+    marketUSDC.borrow(50_000e6, address(this), address(this));
+
+    vm.prank(deployment("TimelockController"));
+    auditor.setNonCollateral(marketUSDC, true);
+
+    // roll operations are debt-side only and stay available on non-collateral markets
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, type(uint256).max, 1e18);
+    (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+    assertGt(principal, 0);
+
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, 1e18);
+    (principal, ) = marketUSDC.fixedBorrowPositions(targetMaturity, address(this));
+    assertGt(principal, 0);
+
+    debtManager.rollFixedToFloating(marketUSDC, targetMaturity, type(uint256).max, 1e18);
+    (principal, ) = marketUSDC.fixedBorrowPositions(targetMaturity, address(this));
+    assertEq(principal, 0);
   }
 
   function testLeverageWithNegativePrincipal() external _checkBalances {
@@ -1074,8 +1130,8 @@ contract DebtManagerTest is ForkTest {
   }
 
   function crossPrincipal(Market marketIn, Market marketOut, address sender) internal view returns (uint256) {
-    (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
-    (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
+    (, , , , IPriceFeed priceFeedIn, ) = auditor.markets(marketIn);
+    (, , , , IPriceFeed priceFeedOut, ) = auditor.markets(marketOut);
     (, , uint256 floatingBorrowShares) = marketOut.accounts(sender);
 
     uint256 collateral = marketIn.maxWithdraw(sender);
@@ -1087,8 +1143,8 @@ contract DebtManagerTest is ForkTest {
   }
 
   function previewAssetsOut(Market marketIn, Market marketOut, uint256 amountIn) internal view returns (uint256) {
-    (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
-    (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
+    (, , , , IPriceFeed priceFeedIn, ) = auditor.markets(marketIn);
+    (, , , , IPriceFeed priceFeedOut, ) = auditor.markets(marketOut);
 
     return
       amountIn.mulDivDown(auditor.assetPrice(priceFeedIn), 10 ** marketIn.decimals()).mulDivDown(

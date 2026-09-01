@@ -129,7 +129,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         vars.price = assetPrice(m.priceFeed);
 
         // sum all the collateral prices
-        sumCollateral += vars.balance.mulDivDown(vars.price, baseUnit).mulWadDown(adjustFactor);
+        if (!m.nonCollateral) sumCollateral += vars.balance.mulDivDown(vars.price, baseUnit).mulWadDown(adjustFactor);
 
         // sum all the debt
         sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.price, baseUnit).divWadUp(adjustFactor);
@@ -138,7 +138,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         if (market == marketToSimulate) {
           // calculate the effects of redeeming markets
           // (having less collateral is the same as having more debt for this calculation)
-          if (withdrawAmount != 0) {
+          if (withdrawAmount != 0 && !m.nonCollateral) {
             sumDebtPlusEffects += withdrawAmount.mulDivDown(vars.price, baseUnit).mulWadDown(adjustFactor);
           }
         }
@@ -179,8 +179,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param account address of the account to check for possible shortfall.
   /// @param amount amount that the account wants to withdraw or transfer.
   function checkShortfall(Market market, address account, uint256 amount) public view virtual {
-    // if the account is not 'in' the market, bypass the liquidity check
-    if ((accountMarkets[account] & (1 << markets[market].index)) == 0) return;
+    // bypass the liquidity check if the account is not 'in' the market or it is disabled as collateral
+    if (accountMarkets[account] & (1 << markets[market].index) == 0 || markets[market].nonCollateral) return;
 
     // otherwise, perform a hypothetical liquidity check to guard against shortfall
     (uint256 collateral, uint256 debt) = accountLiquidity(account, market, amount);
@@ -224,10 +224,12 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         base.totalDebt += value;
         base.adjustedDebt += value.divWadUp(m.adjustFactor);
 
-        value = collateral.mulDivDown(m.price, m.baseUnit);
-        base.totalCollateral += value;
-        base.adjustedCollateral += value.mulWadDown(m.adjustFactor);
-        if (market == seizeMarket) base.seizeAvailable = value;
+        if (!marketData.nonCollateral) {
+          value = collateral.mulDivDown(m.price, m.baseUnit);
+          base.totalCollateral += value;
+          base.adjustedCollateral += value.mulWadDown(m.adjustFactor);
+          if (market == seizeMarket) base.seizeAvailable = value;
+        }
       }
       unchecked {
         ++i;
@@ -329,8 +331,10 @@ contract Auditor is Initializable, AccessControlUpgradeable {
       if (marketMap & 1 != 0) {
         Market market = marketList[i];
         MarketData storage m = markets[market];
-        uint256 assets = market.maxWithdraw(account);
-        if (assets.mulDivDown(assetPrice(m.priceFeed), 10 ** m.decimals).mulWadDown(m.adjustFactor) > 0) return;
+        if (!m.nonCollateral) {
+          uint256 assets = market.maxWithdraw(account);
+          if (assets.mulDivDown(assetPrice(m.priceFeed), 10 ** m.decimals).mulWadDown(m.adjustFactor) > 0) return;
+        }
       }
       unchecked {
         ++i;
@@ -368,10 +372,12 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param market market to add to the protocol.
   /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price in base.
   /// @param adjustFactor market's adjust factor for the underlying asset.
+  /// @param nonCollateral true to list the market as ineligible as collateral.
   function enableMarket(
     Market market,
     IPriceFeed priceFeed,
-    uint128 adjustFactor
+    uint128 adjustFactor,
+    bool nonCollateral
   ) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (market.auditor() != this) revert AuditorMismatch();
     if (markets[market].isListed) revert MarketAlreadyListed();
@@ -383,7 +389,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
       adjustFactor: adjustFactor,
       decimals: decimals,
       index: uint8(marketList.length),
-      priceFeed: priceFeed
+      priceFeed: priceFeed,
+      nonCollateral: nonCollateral
     });
 
     marketList.push(market);
@@ -391,6 +398,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     emit MarketListed(market, decimals);
     emit PriceFeedSet(market, priceFeed);
     emit AdjustFactorSet(market, adjustFactor);
+    if (nonCollateral) emit NonCollateralSet(market, true);
   }
 
   /// @notice Sets the adjust factor for a certain market.
@@ -401,6 +409,17 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
     markets[market].adjustFactor = adjustFactor;
     emit AdjustFactorSet(market, adjustFactor);
+  }
+
+  /// @notice Sets whether a market's floating supply is ineligible as collateral.
+  /// @dev Making a market that accounts use as collateral non-collateral may leave their positions liquidatable.
+  /// @param market address of the market to change collateral eligibility for.
+  /// @param nonCollateral true to make the market ineligible as collateral.
+  function setNonCollateral(Market market, bool nonCollateral) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (!markets[market].isListed) revert MarketNotListed();
+
+    markets[market].nonCollateral = nonCollateral;
+    emit NonCollateralSet(market, nonCollateral);
   }
 
   /// @notice Sets the Chainlink Price Feed Aggregator source for a market.
@@ -437,6 +456,11 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param account address of the account that just left a market.
   event MarketExited(Market indexed market, address indexed account);
 
+  /// @notice Emitted when a market's collateral eligibility is changed by admin.
+  /// @param market address of the market whose collateral eligibility changed.
+  /// @param nonCollateral true if the market is now ineligible as collateral.
+  event NonCollateralSet(Market indexed market, bool nonCollateral);
+
   /// @notice Emitted when a adjust factor is changed by admin.
   /// @param market address of the market that has a new adjust factor.
   /// @param adjustFactor adjust factor for the underlying asset.
@@ -457,12 +481,15 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param index index of the market in the `marketList`.
   /// @param isListed true if the market is enabled.
   /// @param priceFeed address of the price feed used to query the asset's price.
+  /// @param nonCollateral true if the market's floating supply is ineligible as collateral.
+  // solhint-disable-next-line gas-struct-packing
   struct MarketData {
     uint128 adjustFactor;
     uint8 decimals;
     uint8 index;
     bool isListed;
     IPriceFeed priceFeed;
+    bool nonCollateral;
   }
 
   /// @notice Stores the liquidator and lenders factors used in liquidations to calculate the amount to seize.

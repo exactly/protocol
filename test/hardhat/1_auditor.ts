@@ -151,4 +151,49 @@ describe("Auditor from Account Space", function () {
     expect(isListed).to.equal(true);
     expect(decimals).to.equal(18);
   });
+
+  it("Get market data through the legacy markets getter ABI", async () => {
+    // integrators compiled before `nonCollateral` was appended keep decoding the getter
+    const legacyAuditor = new ethers.Contract(
+      auditor.target,
+      [
+        "function markets(address market) view returns (uint128 adjustFactor, uint8 decimals, uint8 index, bool isListed, address priceFeed)",
+      ],
+      account,
+    );
+    const { index: marketIndex } = await auditor.markets(marketDAI.target);
+    // the updated ABI reads the same values plus the new `nonCollateral` field
+    const expectMarketData = async (nonCollateral: boolean) => {
+      const market = await auditor.markets(marketDAI.target);
+      expect(market.adjustFactor).to.equal(parseUnits("0.95"));
+      expect(market.decimals).to.equal(18);
+      expect(market.index).to.equal(marketIndex);
+      expect(market.isListed).to.equal(true);
+      expect(market.priceFeed).to.equal(priceFeedDAI.target);
+      expect(market.nonCollateral).to.equal(nonCollateral);
+    };
+
+    const [adjustFactor, decimals, index, isListed, priceFeed] = await legacyAuditor.markets(marketDAI.target);
+    expect(adjustFactor).to.equal(parseUnits("0.95"));
+    expect(decimals).to.equal(18);
+    expect(index).to.equal(marketIndex);
+    expect(isListed).to.equal(true);
+    expect(priceFeed).to.equal(priceFeedDAI.target);
+    await expectMarketData(false);
+
+    // decoding is unaffected by the appended `nonCollateral` flag being set
+    await timelockExecute(owner, auditor, "setNonCollateral", [marketDAI.target, true]);
+    const [adjustFactorDisabled, decimalsDisabled, indexDisabled, isListedDisabled, priceFeedDisabled] =
+      await legacyAuditor.markets(marketDAI.target);
+    expect(adjustFactorDisabled).to.equal(parseUnits("0.95"));
+    expect(decimalsDisabled).to.equal(18);
+    expect(indexDisabled).to.equal(marketIndex);
+    expect(isListedDisabled).to.equal(true);
+    expect(priceFeedDisabled).to.equal(priceFeedDAI.target);
+    await expectMarketData(true);
+
+    // toggling the flag back off restores the unset reading with every other field untouched
+    await timelockExecute(owner, auditor, "setNonCollateral", [marketDAI.target, false]);
+    await expectMarketData(false);
+  });
 });

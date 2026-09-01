@@ -18,7 +18,7 @@ import {
 import { InterestRateModel, UtilizationExceeded, Parameters } from "../contracts/InterestRateModel.sol";
 import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
-import { Auditor, InsufficientAccountLiquidity, InsufficientShortfall, RemainingDebt } from "../contracts/Auditor.sol";
+import { Auditor, RemainingDebt, InsufficientShortfall, InsufficientAccountLiquidity } from "../contracts/Auditor.sol";
 import { RewardsController } from "../contracts/RewardsController.sol";
 
 contract ProtocolTest is Test {
@@ -89,7 +89,7 @@ contract ProtocolTest is Test {
       vm.label(address(market), string.concat("Market", i.toString()));
       MockPriceFeed priceFeed = new MockPriceFeed(18, 1e18);
       // market.setTreasury(address(this), 0.1e18);
-      auditor.enableMarket(market, priceFeed, 0.9e18);
+      auditor.enableMarket(market, priceFeed, 0.9e18, false);
 
       asset.approve(address(market), type(uint256).max);
       for (uint256 j = 0; j < accounts.length; ++j) {
@@ -141,6 +141,7 @@ contract ProtocolTest is Test {
     for (uint256 i = 0; i < N * 2; ++i) {
       if (values[i * K + 0] % 2 == 0) enterMarket(i);
       if (values[i * K + 0] % 2 == 1) exitMarket(i);
+      if (values[i * K + 1] % 4 == 0) setNonCollateral(i);
 
       vm.warp(block.timestamp + timing[i * K + 0]);
       deposit(i, values[i * K + 0]);
@@ -218,17 +219,7 @@ contract ProtocolTest is Test {
 
     if (assets == 0) {
       vm.expectRevert(ZeroWithdraw.selector);
-    } else if (block.timestamp < maturity && supplied + backupAssets == 0) {
-      vm.expectRevert(bytes(""));
-    } else if (
-      (block.timestamp < maturity && positionAssets > backupAssets + supplied) ||
-      (borrowed + positionAssets).divWadUp(backupAssets + supplied) > 1e18
-    ) {
-      vm.expectRevert(UtilizationExceeded.selector);
-    } else if (
-      block.timestamp < maturity &&
-      ((supplied + previewFloatingAssetsAverage(market, maturity) == 0) || principal + fee == 0)
-    ) {
+    } else if (principal + fee == 0) {
       vm.expectRevert(bytes(""));
     } else if (
       market.floatingBackupBorrowed() +
@@ -238,6 +229,13 @@ contract ProtocolTest is Test {
       market.floatingAssets() + previewNewFloatingDebt(market)
     ) {
       vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    } else if (block.timestamp < maturity && supplied + backupAssets == 0) {
+      vm.expectRevert(bytes(""));
+    } else if (
+      (block.timestamp < maturity && positionAssets > backupAssets + supplied) ||
+      (borrowed + positionAssets).divWadUp(backupAssets + supplied) > 1e18
+    ) {
+      vm.expectRevert(UtilizationExceeded.selector);
     } else if (
       (
         block.timestamp < maturity
@@ -298,18 +296,18 @@ contract ProtocolTest is Test {
 
     if (assets == 0) {
       vm.expectRevert(ZeroBorrow.selector);
-    } else if (supplied + backupAssets == 0) {
-      vm.expectRevert(bytes(""));
-    } else if (assets > backupAssets + supplied || (borrowed + assets).divWadUp(backupAssets + supplied) > 1e18) {
-      vm.expectRevert(UtilizationExceeded.selector);
     } else if (
       backupDebtAddition > 0 &&
       market.floatingBackupBorrowed() + backupDebtAddition + market.totalFloatingBorrowAssets() >
       (market.floatingAssets() + previewNewFloatingDebt(market)).mulWadDown(1e18 - RESERVE_FACTOR)
     ) {
       vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    } else if (supplied + backupAssets == 0) {
+      vm.expectRevert(bytes(""));
+    } else if (assets > backupAssets + supplied || (borrowed + assets).divWadUp(backupAssets + supplied) > 1e18) {
+      vm.expectRevert(UtilizationExceeded.selector);
     } else {
-      uint256 fees = assets.mulWadDown(
+      uint256 fees = assets.mulWadUp(
         market.interestRateModel().fixedBorrowRate(maturity, assets, borrowed, supplied, backupAssets)
       );
       (uint256 collateral, uint256 debt) = accountLiquidity(account, market, assets + fees, 0);
@@ -372,10 +370,20 @@ contract ProtocolTest is Test {
     assertEq(rewardAsset.balanceOf(account), balanceBefore + accumulatedRewards);
   }
 
+  function setNonCollateral(uint256 i) internal {
+    Market market = markets[(i / 2) % markets.length];
+    (, , , , , bool nonCollateral) = auditor.markets(market);
+    bool disabled = !nonCollateral;
+
+    vm.expectEmit(true, true, true, true, address(auditor));
+    emit NonCollateralSet(market, disabled);
+    auditor.setNonCollateral(market, disabled);
+  }
+
   function enterMarket(uint256 i) internal {
     Market market = markets[(i / 2) % markets.length];
     address account = accounts[i % accounts.length];
-    (, , uint256 index, , ) = auditor.markets(market);
+    (, , uint256 index, , , ) = auditor.markets(market);
 
     if ((auditor.accountMarkets(account) & (1 << index)) == 0) {
       vm.expectEmit(true, true, true, true, address(auditor));
@@ -388,7 +396,7 @@ contract ProtocolTest is Test {
   function exitMarket(uint256 i) internal {
     Market market = markets[(i / 2) % markets.length];
     address account = accounts[i % accounts.length];
-    (, , uint256 index, , ) = auditor.markets(market);
+    (, , uint256 index, , , bool disabled) = auditor.markets(market);
     (uint256 balance, uint256 debt) = market.accountSnapshot(account);
     (uint256 adjustedCollateral, uint256 adjustedDebt) = accountLiquidity(account, market, 0, balance);
     uint256 marketMap = auditor.accountMarkets(account);
@@ -396,7 +404,7 @@ contract ProtocolTest is Test {
     if ((marketMap & (1 << index)) != 0) {
       if (debt > 0) {
         vm.expectRevert(RemainingDebt.selector);
-      } else if (adjustedCollateral < adjustedDebt) {
+      } else if (adjustedCollateral < adjustedDebt && !disabled) {
         vm.expectRevert(InsufficientAccountLiquidity.selector);
       } else {
         vm.expectEmit(true, true, true, true, address(auditor));
@@ -477,12 +485,12 @@ contract ProtocolTest is Test {
     Market market = markets[(i / 2) % markets.length];
     uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
-    (, , uint256 index, , ) = auditor.markets(market);
+    (, , uint256 index, , , bool disabled) = auditor.markets(market);
     uint256 expectedShares = market.totalAssets() != 0 ? market.previewWithdraw(assets) : 0;
     (uint256 collateral, uint256 debt) = accountLiquidity(account, market, 0, assets);
     uint256 earnings = previewAccumulatedEarnings(market);
 
-    if ((auditor.accountMarkets(account) & (1 << index)) != 0 && debt > collateral) {
+    if (!disabled && (auditor.accountMarkets(account) & (1 << index)) != 0 && debt > collateral) {
       vm.expectRevert(InsufficientAccountLiquidity.selector);
     } else if (market.totalSupply() > 0 && market.totalAssets() == 0) {
       vm.expectRevert(bytes(""));
@@ -510,14 +518,15 @@ contract ProtocolTest is Test {
     Market market = markets[(i / 2) % markets.length];
     uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
-    (, , uint256 index, , ) = auditor.markets(market);
+    (, , uint256 index, , , bool disabled) = auditor.markets(market);
     uint256 expectedAssets = market.previewRedeem(shares);
     (uint256 collateral, uint256 debt) = accountLiquidity(account, market, 0, expectedAssets);
     uint256 earnings = previewAccumulatedEarnings(market);
 
-    if (expectedAssets == 0 && ((auditor.accountMarkets(account) & (1 << index)) == 0 || collateral >= debt)) {
+    bool inMarket = !disabled && (auditor.accountMarkets(account) & (1 << index)) != 0;
+    if (expectedAssets == 0 && (!inMarket || collateral >= debt)) {
       vm.expectRevert(bytes(""));
-    } else if ((auditor.accountMarkets(account) & (1 << index)) != 0 && debt > collateral) {
+    } else if (inMarket && debt > collateral) {
       vm.expectRevert(InsufficientAccountLiquidity.selector);
     } else if (market.totalSupply() > 0 && market.totalAssets() == 0) {
       vm.expectRevert(bytes(""));
@@ -546,11 +555,11 @@ contract ProtocolTest is Test {
     uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
     address otherAccount = accounts[(i + 1) % accounts.length];
-    (, , uint256 index, , ) = auditor.markets(market);
+    (, , uint256 index, , , bool disabled) = auditor.markets(market);
     uint256 withdrawAssets = market.previewRedeem(shares);
     (uint256 collateral, uint256 debt) = accountLiquidity(account, market, 0, withdrawAssets);
 
-    if ((auditor.accountMarkets(account) & (1 << index)) != 0 && debt > collateral) {
+    if (!disabled && (auditor.accountMarkets(account) & (1 << index)) != 0 && debt > collateral) {
       vm.expectRevert(InsufficientAccountLiquidity.selector);
     } else if (shares > market.balanceOf(account)) {
       vm.expectRevert(stdError.arithmeticError);
@@ -567,8 +576,8 @@ contract ProtocolTest is Test {
     Market market = markets[i];
     Market collateralMarket = markets[(i + 1) % MARKET_COUNT];
     uint256 shareValue = collateralMarket.totalSupply() > 0 ? collateralMarket.previewMint(1e18) : 0;
-    (, , uint256 index, , ) = auditor.markets(market);
-    (, , uint256 collateralIndex, , ) = auditor.markets(collateralMarket);
+    (, , uint256 index, , , ) = auditor.markets(market);
+    (, , uint256 collateralIndex, , , ) = auditor.markets(collateralMarket);
     (uint256 collateral, uint256 debt) = accountLiquidity(BOB, Market(address(0)), 0, 0);
 
     if (collateral >= debt) {
@@ -610,13 +619,13 @@ contract ProtocolTest is Test {
     if (collateralMarket.totalSupply() > 0) assertGe(collateralMarket.previewMint(1e18), shareValue);
     if (repaidAssets > 0) {
       BadDebtVars memory b;
-      (b.adjustFactor, b.decimals, , , ) = auditor.markets(market);
+      (b.adjustFactor, b.decimals, , , , ) = auditor.markets(market);
       (b.balance, b.repayMarketDebt) = market.accountSnapshot(BOB);
       b.adjustedCollateral = b
         .balance
         .mulDivDown(uint256(priceFeeds[market].latestAnswer()), 10 ** b.decimals)
         .mulWadDown(b.adjustFactor);
-      (b.adjustFactor, b.decimals, , , ) = auditor.markets(market);
+      (b.adjustFactor, b.decimals, , , , ) = auditor.markets(market);
       (b.balance, b.collateralMarketDebt) = collateralMarket.accountSnapshot(BOB);
       b.adjustedCollateral += b
         .balance
@@ -825,18 +834,25 @@ contract ProtocolTest is Test {
     for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
       Market market = auditor.marketList(i);
       if ((marketMap & (1 << i)) != 0) {
-        (, uint8 decimals, , , ) = auditor.markets(market);
-        (uint256 balance, ) = market.accountSnapshot(account);
-        sumCollateral += balance.mulDivDown(uint256(priceFeeds[market].latestAnswer()), 10 ** decimals);
+        (, uint8 decimals, , , , bool disabled) = auditor.markets(market);
+        if (!disabled) {
+          (uint256 balance, ) = market.accountSnapshot(account);
+          sumCollateral += balance.mulDivDown(uint256(priceFeeds[market].latestAnswer()), 10 ** decimals);
+        }
       }
       if ((1 << i) > marketMap) break;
     }
   }
 
   function seizeAvailable(address account, Market market) internal view returns (uint256) {
+    (, uint8 decimals, , , , bool disabled) = auditor.markets(market);
+    if (disabled) return 0;
     uint256 collateral = market.convertToAssets(market.balanceOf(account));
-    (, uint8 decimals, , , ) = auditor.markets(market);
     return collateral.mulDivDown(uint256(priceFeeds[market].latestAnswer()), 10 ** decimals);
+  }
+
+  function isDisabled(Market market) internal view returns (bool disabled) {
+    (, , , , , disabled) = auditor.markets(market);
   }
 
   function accountLiquidity(
@@ -850,20 +866,22 @@ contract ProtocolTest is Test {
     uint256 marketMap = auditor.accountMarkets(account);
     // if simulating a borrow, add the market to the account's map
     if (borrowAssets > 0) {
-      (, , uint256 index, , ) = auditor.markets(marketToSimulate);
+      (, , uint256 index, , , ) = auditor.markets(marketToSimulate);
       if ((marketMap & (1 << index)) == 0) marketMap = marketMap | (1 << index);
     }
     for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
       Market market = auditor.marketList(i);
       if ((marketMap & (1 << i)) != 0) {
-        (uint128 adjustFactor, uint8 decimals, , , ) = auditor.markets(market);
+        (uint128 adjustFactor, uint8 decimals, , , , ) = auditor.markets(market);
         (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
         vars.price = uint256(priceFeeds[market].latestAnswer());
-        sumCollateral += vars.balance.mulDivDown(vars.price, 10 ** decimals).mulWadDown(adjustFactor);
+        if (!isDisabled(market)) {
+          sumCollateral += vars.balance.mulDivDown(vars.price, 10 ** decimals).mulWadDown(adjustFactor);
+        }
         sumDebtPlusEffects += (vars.borrowBalance + (market == marketToSimulate ? borrowAssets : 0))
           .mulDivUp(vars.price, 10 ** decimals)
           .divWadUp(adjustFactor);
-        if (market == marketToSimulate && withdrawAssets != 0) {
+        if (market == marketToSimulate && withdrawAssets != 0 && !isDisabled(market)) {
           sumDebtPlusEffects += withdrawAssets.mulDivDown(vars.price, 10 ** decimals).mulWadDown(adjustFactor);
         }
       }
@@ -881,17 +899,19 @@ contract ProtocolTest is Test {
 
     uint256 marketMap = auditor.accountMarkets(account);
     // if simulating a borrow, add the market to the account's map
-    (, , uint256 index, , ) = auditor.markets(marketToSimulate);
+    (, , uint256 index, , , ) = auditor.markets(marketToSimulate);
     if ((marketMap & (1 << index)) == 0) marketMap = marketMap | (1 << index);
     for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
       Market market = auditor.marketList(i);
       if ((marketMap & (1 << i)) != 0) {
-        (uint128 adjustFactor, uint8 decimals, , , ) = auditor.markets(market);
+        (uint128 adjustFactor, uint8 decimals, , , , bool disabled) = auditor.markets(market);
         if (market == marketToSimulate) {
           (vars.balance, vars.borrowBalance) = previewAccountSnapshot(market, account, borrowAssets, borrowShares);
         } else (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
         vars.price = uint256(priceFeeds[market].latestAnswer());
-        sumCollateral += vars.balance.mulDivDown(vars.price, 10 ** decimals).mulWadDown(adjustFactor);
+        if (!disabled) {
+          sumCollateral += vars.balance.mulDivDown(vars.price, 10 ** decimals).mulWadDown(adjustFactor);
+        }
         sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.price, 10 ** decimals).divWadUp(adjustFactor);
       }
       if ((1 << i) > marketMap) break;
@@ -1050,6 +1070,7 @@ contract ProtocolTest is Test {
   event Transfer(address indexed from, address indexed to, uint256 amount);
   event MarketExited(Market indexed market, address indexed account);
   event MarketEntered(Market indexed market, address indexed account);
+  event NonCollateralSet(Market indexed market, bool disabled);
   event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
   event Borrow(
     address indexed caller,
