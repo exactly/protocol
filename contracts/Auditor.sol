@@ -180,7 +180,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param amount amount that the account wants to withdraw or transfer.
   function checkShortfall(Market market, address account, uint256 amount) public view virtual {
     // bypass the liquidity check if the account is not 'in' the market or it is disabled as collateral
-    if (accountMarkets[account] & (1 << markets[market].index) == 0 || markets[market].nonCollateral) return;
+    MarketData storage m = markets[market];
+    if ((accountMarkets[account] & (1 << m.index)) == 0 || m.nonCollateral) return;
 
     // otherwise, perform a hypothetical liquidity check to guard against shortfall
     (uint256 collateral, uint256 debt) = accountLiquidity(account, market, amount);
