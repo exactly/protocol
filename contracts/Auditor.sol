@@ -477,7 +477,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   event PriceFeedSet(Market indexed market, IPriceFeed indexed priceFeed);
 
   /// @notice Stores the market parameters used for liquidity calculations.
-  /// @param adjustFactor used to asses the lending power of the market's underlying asset.
+  /// @param adjustFactor used to assess the borrowing and lending power of the market's underlying asset.
   /// @param decimals number of decimals of the market's underlying asset.
   /// @param index index of the market in the `marketList`.
   /// @param isListed true if the market is enabled.
