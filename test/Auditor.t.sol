@@ -48,7 +48,7 @@ contract AuditorTest is ForkTest {
   event MarketListed(Market indexed market, uint8 decimals);
   event MarketEntered(Market indexed market, address indexed account);
   event MarketExited(Market indexed market, address indexed account);
-  event NonCollateralSet(Market indexed market, bool disabled);
+  event NonCollateralSet(Market indexed market, bool nonCollateral);
 
   function setUp() external {
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
@@ -94,6 +94,8 @@ contract AuditorTest is ForkTest {
   function testEnableMarket() external {
     vm.expectEmit(true, true, true, true, address(auditor));
     emit MarketListed(Market(address(market)), 18);
+    vm.expectEmit(true, true, true, true, address(auditor));
+    emit NonCollateralSet(Market(address(market)), false);
 
     auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, false);
 

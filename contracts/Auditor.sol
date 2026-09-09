@@ -399,7 +399,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     emit MarketListed(market, decimals);
     emit PriceFeedSet(market, priceFeed);
     emit AdjustFactorSet(market, adjustFactor);
-    if (nonCollateral) emit NonCollateralSet(market, true);
+    emit NonCollateralSet(market, nonCollateral);
   }
 
   /// @notice Sets the adjust factor for a certain market.

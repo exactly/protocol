@@ -1070,7 +1070,7 @@ contract ProtocolTest is Test {
   event Transfer(address indexed from, address indexed to, uint256 amount);
   event MarketExited(Market indexed market, address indexed account);
   event MarketEntered(Market indexed market, address indexed account);
-  event NonCollateralSet(Market indexed market, bool disabled);
+  event NonCollateralSet(Market indexed market, bool nonCollateral);
   event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
   event Borrow(
     address indexed caller,
