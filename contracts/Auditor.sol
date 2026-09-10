@@ -413,7 +413,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   }
 
   /// @notice Sets whether a market's floating supply is ineligible as collateral.
-  /// @dev Making a market that accounts use as collateral non-collateral may leave their positions liquidatable.
+  /// @dev Disabling a market as collateral may leave positions that rely on it liquidatable or generate bad debt.
   /// @param market address of the market to change collateral eligibility for.
   /// @param nonCollateral true to make the market ineligible as collateral.
   function setNonCollateral(Market market, bool nonCollateral) external onlyRole(DEFAULT_ADMIN_ROLE) {
