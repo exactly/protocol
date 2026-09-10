@@ -42,7 +42,7 @@ contract PauserTest is Test {
     );
     marketA.grantRole(keccak256("PAUSER_ROLE"), address(this));
     marketA.grantRole(keccak256("PAUSER_ROLE"), address(pauser));
-    auditor.enableMarket(marketA, new MockPriceFeed(18, 1e18), 0.8e18);
+    auditor.enableMarket(marketA, new MockPriceFeed(18, 1e18), 0.8e18, false);
     vm.label(address(marketA), "MarketA");
 
     marketB = Market(address(new ERC1967Proxy(address(new Market(new MockERC20("B", "B", 18), auditor)), "")));
@@ -60,7 +60,7 @@ contract PauserTest is Test {
     );
     marketB.grantRole(keccak256("PAUSER_ROLE"), address(this));
     marketB.grantRole(keccak256("PAUSER_ROLE"), address(pauser));
-    auditor.enableMarket(marketB, new MockPriceFeed(18, 1e18), 0.8e18);
+    auditor.enableMarket(marketB, new MockPriceFeed(18, 1e18), 0.8e18, false);
     vm.label(address(marketB), "MarketB");
 
     vm.label(BOB, "bob");

@@ -109,6 +109,28 @@ contract IntegrationPreviewerTest is ForkTest {
     exaUSDC.repayAtMaturity(MATURITY, assets, type(uint256).max, USER);
     assertEq(healthFactor, previewer.healthFactor(USER), "bad health factor after fixed repay");
   }
+  function test_previewHealthFactor_nonCollateralMarket() external {
+    vm.prank(timelock);
+    auditor.setNonCollateral(exaUSDC, true);
+
+    uint256 assets = 10e6;
+    deal(address(usdc), USER, 1_000_000e6);
+    vm.startPrank(USER);
+    usdc.approve(address(exaUSDC), type(uint256).max);
+
+    // the collateral delta of a non-collateral market is ignored, the preview must match the actual health factor
+    uint256 healthFactor = previewer.healthFactor(USER);
+    assertEq(previewer.previewHealthFactor(USER, exaUSDC, int256(assets), 0), healthFactor);
+    exaUSDC.deposit(assets, USER);
+    assertEq(previewer.healthFactor(USER), healthFactor, "bad health factor after deposit");
+
+    assertEq(previewer.previewHealthFactor(USER, exaUSDC, -int256(assets), 0), healthFactor);
+    exaUSDC.withdraw(assets, USER, USER);
+    assertEq(previewer.healthFactor(USER), healthFactor, "bad health factor after withdraw");
+
+    // the debt delta is still accounted with the ordinary factor
+    assertLt(previewer.previewHealthFactor(USER, exaUSDC, 0, int256(assets)), healthFactor);
+  }
   // #endregion
 
   // #region preview operations

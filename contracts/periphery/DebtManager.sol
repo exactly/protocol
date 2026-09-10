@@ -496,7 +496,7 @@ contract DebtManager is Initializable {
   }
 
   function checkMarket(Market market) internal view {
-    (, , , bool listed, ) = auditor.markets(market);
+    (, , , bool listed, , ) = auditor.markets(market);
     if (!listed) revert MarketNotListed();
   }
 

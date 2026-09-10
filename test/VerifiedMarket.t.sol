@@ -8,7 +8,8 @@ import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { MarketTest } from "./Market.t.sol";
 import { Auditor } from "../contracts/Auditor.sol";
 import { InterestRateModel } from "../contracts/InterestRateModel.sol";
-import { Market } from "../contracts/Market.sol";
+import { Market, ZeroRepay } from "../contracts/Market.sol";
+import { MockBorrowRate } from "../contracts/mocks/MockBorrowRate.sol";
 import { Firewall } from "../contracts/verified/Firewall.sol";
 import { NotAllowed, RemainingDebt, VerifiedAuditor } from "../contracts/verified/VerifiedAuditor.sol";
 import { Locked, NotAuditor, Unlocked, VerifiedMarket } from "../contracts/verified/VerifiedMarket.sol";
@@ -82,8 +83,8 @@ contract VerifiedMarketTest is MarketTest {
     marketWETHPriceFeed = MockPriceFeed(address(auditor.BASE_FEED()));
     daiPriceFeed = new MockPriceFeed(18, 1e18);
 
-    auditor.enableMarket(market, daiPriceFeed, 0.8e18);
-    auditor.enableMarket(marketWETH, marketWETHPriceFeed, 0.9e18);
+    auditor.enableMarket(market, daiPriceFeed, 0.8e18, false);
+    auditor.enableMarket(marketWETH, marketWETHPriceFeed, 0.9e18, false);
     auditor.enterMarket(marketWETH);
 
     weth.mint(address(this), 1_000_000 ether);
@@ -723,6 +724,206 @@ contract VerifiedMarketTest is MarketTest {
     vm.expectEmit(true, true, true, true);
     emit Unlocked(BOB, 10 ether);
     VerifiedAuditor(address(auditor)).unlock(BOB);
+  }
+
+  function seedAccumulator(Market market_, uint256 assets) internal {
+    market_.setBackupFeeRate(1e18);
+    market_.setInterestRateModel(InterestRateModel(address(new MockBorrowRate(1e18))));
+    market_.borrowAtMaturity(FixedLib.INTERVAL, assets, type(uint256).max, address(this), address(this));
+    market_.depositAtMaturity(FixedLib.INTERVAL, assets, 0, address(this));
+    market_.repayAtMaturity(FixedLib.INTERVAL, type(uint256).max, type(uint256).max, address(this));
+  }
+
+  function test_unwind_liquidatesAndLocks_whenDisallowedIsHealthyWithCollateralOnly() external {
+    marketWETHPriceFeed = new MockPriceFeed(18, 1_000e18);
+    auditor.setPriceFeed(marketWETH, marketWETHPriceFeed);
+    marketWETH.deposit(10 ether, address(this));
+
+    market.deposit(5_000e18, BOB);
+    vm.startPrank(BOB);
+    auditor.enterMarket(market);
+    marketWETH.borrow(1 ether, BOB, BOB);
+    vm.stopPrank();
+
+    firewall.allow(BOB, false);
+
+    // position is healthy, yet the disallowed branch lets it be fully repaid by liquidation
+    (uint256 collateral, uint256 debt) = auditor.accountLiquidity(BOB, Market(address(0)), 0);
+    assertGt(collateral, debt, "position should be healthy");
+
+    uint256 repaid = marketWETH.liquidate(BOB, type(uint256).max, market);
+    assertEq(repaid, 1 ether, "debt not fully repaid");
+    assertEq(marketWETH.previewDebt(BOB), 0, "debt left");
+    assertEq(marketWETH.earningsAccumulator(), 0, "incentives were charged");
+
+    VerifiedAuditor(address(auditor)).lock(BOB);
+    assertEq(market.balanceOf(BOB), 0, "shares left");
+    assertEq(VerifiedMarket(address(market)).lockedAssets(BOB), 4_000e18, "wrong locked assets");
+  }
+
+  function test_unwind_liquidatesClearsBadDebtAndLocks_whenDisallowedIsUnderwaterWithCollateralOnly() external {
+    marketWETHPriceFeed = new MockPriceFeed(18, 1_000e18);
+    auditor.setPriceFeed(marketWETH, marketWETHPriceFeed);
+    marketWETH.deposit(10 ether, address(this));
+
+    market.deposit(5_000e18, BOB);
+    vm.startPrank(BOB);
+    auditor.enterMarket(market);
+    marketWETH.borrow(1 ether, BOB, BOB);
+    vm.stopPrank();
+
+    // bad debt can only be cleared against the accumulator, so it must have funds
+    seedAccumulator(marketWETH, 1 ether);
+    assertGe(marketWETH.earningsAccumulator(), 0.2 ether, "accumulator not seeded");
+
+    marketWETHPriceFeed = new MockPriceFeed(18, 6_000e18);
+    auditor.setPriceFeed(marketWETH, marketWETHPriceFeed);
+    (uint256 collateral, uint256 debt) = auditor.accountLiquidity(BOB, Market(address(0)), 0);
+    assertLt(collateral, debt, "position should be underwater");
+
+    firewall.allow(BOB, false);
+
+    // seizes all collateral and clears the remainder as bad debt within the same call
+    marketWETH.liquidate(BOB, type(uint256).max, market);
+    assertEq(market.balanceOf(BOB), 0, "collateral left");
+    assertEq(marketWETH.previewDebt(BOB), 0, "debt left");
+
+    VerifiedAuditor(address(auditor)).lock(BOB);
+    assertEq(VerifiedMarket(address(market)).lockedAssets(BOB), 0, "nothing should be left to lock");
+    assertEq(VerifiedMarket(address(marketWETH)).lockedAssets(BOB), 0, "nothing should be left to lock");
+  }
+
+  function test_unwind_liquidatesAndLocks_whenDisallowedIsHealthyWithMixedSupply() external {
+    auditor.setNonCollateral(market, true);
+
+    vm.prank(BOB);
+    auditor.enterMarket(marketWETH);
+    marketWETH.deposit(10 ether, BOB);
+    market.deposit(1_000e18, BOB);
+    vm.prank(BOB);
+    marketWETH.borrow(1 ether, BOB, BOB);
+
+    firewall.allow(BOB, false);
+
+    // seizing from the enabled collateral market still works and repays the whole debt
+    uint256 repaid = marketWETH.liquidate(BOB, type(uint256).max, marketWETH);
+    assertEq(repaid, 1 ether, "debt not fully repaid");
+    assertEq(marketWETH.previewDebt(BOB), 0, "debt left");
+
+    // lock seizes the remaining collateral and the non-collateral supply
+    VerifiedAuditor(address(auditor)).lock(BOB);
+    assertEq(marketWETH.balanceOf(BOB), 0, "collateral shares left");
+    assertEq(market.balanceOf(BOB), 0, "non-collateral shares left");
+    assertEq(VerifiedMarket(address(marketWETH)).lockedAssets(BOB), 9 ether, "wrong locked collateral");
+    assertEq(VerifiedMarket(address(market)).lockedAssets(BOB), 1_000e18, "wrong locked non-collateral supply");
+  }
+
+  function test_unwind_liquidatesClearsBadDebtAndLocks_whenDisallowedIsUnderwaterWithMixedSupply() external {
+    marketWETHPriceFeed = new MockPriceFeed(18, 1_000e18);
+    auditor.setPriceFeed(marketWETH, marketWETHPriceFeed);
+    auditor.setNonCollateral(market, true);
+
+    marketWETH.deposit(1 ether, address(this));
+    marketWETH.deposit(1 ether, BOB);
+    market.deposit(1_000e18, BOB);
+    vm.startPrank(BOB);
+    auditor.enterMarket(marketWETH);
+    market.borrow(500e18, BOB, BOB);
+    vm.stopPrank();
+
+    seedAccumulator(market, 200e18);
+    assertGe(market.earningsAccumulator(), 150e18, "accumulator not seeded");
+
+    marketWETHPriceFeed = new MockPriceFeed(18, 400e18);
+    auditor.setPriceFeed(marketWETH, marketWETHPriceFeed);
+    (uint256 collateral, uint256 debt) = auditor.accountLiquidity(BOB, Market(address(0)), 0);
+    assertLt(collateral, debt, "position should be underwater");
+
+    firewall.allow(BOB, false);
+
+    // seizes all weth collateral and clears the remainder as bad debt, non-collateral supply stays untouched
+    uint256 repaid = market.liquidate(BOB, type(uint256).max, marketWETH);
+    assertEq(repaid, 400e18, "wrong repaid amount");
+    assertEq(marketWETH.balanceOf(BOB), 0, "collateral left");
+    assertEq(market.previewDebt(BOB), 0, "debt left");
+    assertEq(market.balanceOf(BOB), 1_000e18, "non-collateral supply was consumed");
+
+    VerifiedAuditor(address(auditor)).lock(BOB);
+    assertEq(market.balanceOf(BOB), 0, "non-collateral shares left");
+    assertEq(VerifiedMarket(address(market)).lockedAssets(BOB), 1_000e18, "wrong locked non-collateral supply");
+  }
+
+  function test_unwind_locks_whenDisallowedHasOnlyNonCollateralSupplyAndNoDebt() external {
+    auditor.setNonCollateral(market, true);
+    market.deposit(500e18, BOB);
+    market.depositAtMaturity(FixedLib.INTERVAL, 100e18, 0, BOB);
+
+    firewall.allow(BOB, false);
+    VerifiedAuditor(address(auditor)).lock(BOB);
+
+    assertEq(market.balanceOf(BOB), 0, "shares left");
+    (uint256 principal, ) = market.fixedDepositPositions(FixedLib.INTERVAL, BOB);
+    assertEq(principal, 0, "fixed deposit left");
+    assertGt(VerifiedMarket(address(market)).lockedAssets(BOB), 500e18, "wrong locked assets");
+  }
+
+  function test_unwind_isStranded_whenDisallowedHasDebtAndOnlyNonCollateralSupply() external {
+    marketWETH.deposit(10 ether, address(this));
+
+    market.deposit(1_000e18, BOB);
+    vm.startPrank(BOB);
+    auditor.enterMarket(market);
+    marketWETH.borrow(1 ether, BOB, BOB);
+    vm.stopPrank();
+
+    auditor.setNonCollateral(market, true);
+    firewall.allow(BOB, false);
+
+    // liquidation cannot seize the non-collateral supply: seizeAvailable == 0 -> maxRepayAssets == 0
+    vm.expectRevert(ZeroRepay.selector);
+    marketWETH.liquidate(BOB, type(uint256).max, market);
+
+    // nor seize from a market where the account holds nothing
+    vm.expectRevert(ZeroRepay.selector);
+    marketWETH.liquidate(BOB, type(uint256).max, marketWETH);
+
+    // debt cannot be repaid on behalf of a disallowed borrower
+    vm.expectRevert(abi.encodeWithSelector(NotAllowed.selector, BOB));
+    marketWETH.repay(1 ether, BOB);
+
+    // bad debt cannot be cleared while the accumulator is empty
+    auditor.handleBadDebt(BOB);
+    assertEq(marketWETH.previewDebt(BOB), 1 ether, "debt should remain");
+
+    // so the account cannot be locked either
+    vm.expectRevert(RemainingDebt.selector);
+    VerifiedAuditor(address(auditor)).lock(BOB);
+  }
+
+  function test_unwind_socializesDebt_whenDisallowedHasDebtAndOnlyNonCollateralSupply() external {
+    marketWETH.deposit(10 ether, address(this));
+
+    market.deposit(1_000e18, BOB);
+    vm.startPrank(BOB);
+    auditor.enterMarket(market);
+    marketWETH.borrow(1 ether, BOB, BOB);
+    vm.stopPrank();
+
+    auditor.setNonCollateral(market, true);
+    firewall.allow(BOB, false);
+
+    seedAccumulator(marketWETH, 2 ether);
+    uint256 accumulatorBefore = marketWETH.earningsAccumulator();
+    assertGe(accumulatorBefore, 1 ether, "accumulator can't cover the debt");
+
+    // the only way out: socialize the full debt to weth lenders even though BOB holds 1_000 dai
+    auditor.handleBadDebt(BOB);
+    assertEq(marketWETH.previewDebt(BOB), 0, "debt left");
+    assertEq(accumulatorBefore - marketWETH.earningsAccumulator(), 1 ether, "lenders didn't absorb the debt");
+    assertEq(market.maxWithdraw(BOB), 1_000e18, "non-collateral supply was consumed");
+
+    VerifiedAuditor(address(auditor)).lock(BOB);
+    assertEq(VerifiedMarket(address(market)).lockedAssets(BOB), 1_000e18, "supply not locked");
   }
 
   function test_unlock_afterOperating_unlocks() external {

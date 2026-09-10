@@ -130,7 +130,7 @@ contract Previewer {
       Market.Account memory a;
       Auditor.MarketData memory m;
       (a.fixedDeposits, a.fixedBorrows, a.floatingBorrowShares) = market.accounts(account);
-      (m.adjustFactor, m.decimals, m.index, m.isListed, m.priceFeed) = auditor.markets(market);
+      (m.adjustFactor, m.decimals, m.index, m.isListed, m.priceFeed, m.nonCollateral) = auditor.markets(market);
       IRM irm = market.interestRateModel();
       data[i] = MarketAccount({
         // market
@@ -161,7 +161,7 @@ contract Previewer {
         totalFloatingBorrowShares: market.totalFloatingBorrowShares(),
         totalFloatingDepositShares: market.totalSupply(),
         // account
-        isCollateral: markets & (1 << i) != 0 ? true : false,
+        isCollateral: markets & (1 << i) != 0 && !m.nonCollateral,
         maxBorrowAssets: adjustedCollateral >= adjustedDebt
           ? (adjustedCollateral - adjustedDebt).mulDivUp(10 ** m.decimals, auditor.assetPrice(m.priceFeed)).mulWadUp(
             m.adjustFactor
@@ -462,7 +462,7 @@ contract Previewer {
     RewardsVars memory r;
     r.controller = market.rewardsController();
     if (address(r.controller) != address(0)) {
-      (, r.underlyingDecimals, , , r.underlyingPriceFeed) = auditor.markets(market);
+      (, r.underlyingDecimals, , , r.underlyingPriceFeed, ) = auditor.markets(market);
       unchecked {
         r.underlyingBaseUnit = 10 ** r.underlyingDecimals;
       }

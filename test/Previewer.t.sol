@@ -62,7 +62,7 @@ contract PreviewerTest is Test {
     );
     market.initialize("", 12, type(uint256).max, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
     vm.label(address(market), "MarketDAI");
-    auditor.enableMarket(market, daiPriceFeed, 0.8e18);
+    auditor.enableMarket(market, daiPriceFeed, 0.8e18, false);
 
     vm.label(BOB, "Bob");
     vm.label(ALICE, "Alice");
@@ -471,7 +471,7 @@ contract PreviewerTest is Test {
       0.0046e18,
       0.42e18
     );
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, false);
     ethPriceFeed.setPrice(2800e18);
     daiPriceFeed.setPrice(0.0003571428571e18);
     weth.mint(address(this), 50_000 ether);
@@ -586,7 +586,7 @@ contract PreviewerTest is Test {
       0.0046e18,
       0.42e18
     );
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, false);
     ethPriceFeed.setPrice(2800e18);
     daiPriceFeed.setPrice(0.0003571428571e18);
     weth.mint(address(this), 50_000 ether);
@@ -738,7 +738,7 @@ contract PreviewerTest is Test {
       0.0046e18,
       0.42e18
     );
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, false);
     weth.approve(address(marketWETH), type(uint256).max);
 
     RewardsController rewardsController = RewardsController(
@@ -964,7 +964,7 @@ contract PreviewerTest is Test {
       0.42e18
     );
     ethPriceFeed = new MockPriceFeed(18, 1_000e18);
-    auditor.enableMarket(marketWETH, ethPriceFeed, 0.7e18);
+    auditor.enableMarket(marketWETH, ethPriceFeed, 0.7e18, false);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
     RewardsController rewardsController = RewardsController(
@@ -1299,7 +1299,7 @@ contract PreviewerTest is Test {
       0.0046e18,
       0.42e18
     );
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, false);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
     weth.mint(address(this), 50_000 ether);
@@ -1381,7 +1381,7 @@ contract PreviewerTest is Test {
       0.0046e18,
       0.42e18
     );
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, false);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
     weth.mint(address(this), 50_000 ether);
@@ -1435,7 +1435,7 @@ contract PreviewerTest is Test {
       0.0046e18,
       0.42e18
     );
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, false);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
     weth.mint(address(this), 50_000 ether);
@@ -1501,7 +1501,7 @@ contract PreviewerTest is Test {
       0.0046e18,
       0.42e18
     );
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, false);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
     weth.mint(address(this), 50_000 ether);
@@ -1622,7 +1622,7 @@ contract PreviewerTest is Test {
       0.0046e18,
       0.42e18
     );
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, false);
     ethPriceFeed.setPrice(1_000e8);
     daiPriceFeed.setPrice(0.001e18);
     weth.mint(address(this), 1 ether);
@@ -1673,7 +1673,7 @@ contract PreviewerTest is Test {
       0.0046e18,
       0.42e18
     );
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, false);
     ethPriceFeed.setPrice(1_000e8);
     daiPriceFeed.setPrice(0.001e18);
     weth.mint(address(this), 1 ether);
@@ -1996,7 +1996,7 @@ contract PreviewerTest is Test {
       0.0046e18,
       0.42e18
     );
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, false);
     ethPriceFeed.setPrice(2_000e8);
     daiPriceFeed.setPrice(0.0005e18);
 
@@ -2036,7 +2036,7 @@ contract PreviewerTest is Test {
       0.0046e18,
       0.42e18
     );
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, false);
     ethPriceFeed.setPrice(2_000e8);
     daiPriceFeed.setPrice(0.0005e18);
     weth.mint(address(this), 50_000 ether);
@@ -2249,6 +2249,68 @@ contract PreviewerTest is Test {
     assertEq(data[0].maxFuturePools, 12);
     assertEq(data[0].penaltyRate, market.penaltyRate());
     assertEq(data[0].isCollateral, false);
+  }
+
+  function testExactlyIsCollateralWithNonCollateralMarket() external {
+    market.deposit(10 ether, address(this));
+    auditor.enterMarket(market);
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].isCollateral, true);
+
+    auditor.setNonCollateral(market, true);
+    data = previewer.exactly(address(this));
+    assertEq(data[0].isCollateral, false);
+
+    auditor.setNonCollateral(market, false);
+    data = previewer.exactly(address(this));
+    assertEq(data[0].isCollateral, true);
+  }
+
+  function testExactlyIsCollateralFalseWhenBorrowingFromNonCollateralMarket() external {
+    MockERC20 weth = new MockERC20("WETH", "WETH", 18);
+    Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(
+      "WETH",
+      12,
+      type(uint256).max,
+      1e18,
+      new InterestRateModel(
+        Parameters({
+          minRate: 3.5e16,
+          naturalRate: 8e16,
+          maxUtilization: 1.1e18,
+          naturalUtilization: 0.75e18,
+          growthSpeed: 1.1e18,
+          sigmoidSpeed: 2.5e18,
+          spreadFactor: 0.2e18,
+          maturitySpeed: 0.5e18,
+          timePreference: 0.01e18,
+          fixedAllocation: 0.6e18,
+          maxRate: 15_000e16
+        }),
+        marketWETH
+      ),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0,
+      0.0046e18,
+      0.42e18
+    );
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, false);
+    weth.mint(address(this), 100 ether);
+    weth.approve(address(marketWETH), 100 ether);
+    marketWETH.deposit(100 ether, address(this));
+    auditor.enterMarket(marketWETH);
+
+    auditor.setNonCollateral(market, true);
+    market.deposit(100 ether, address(this));
+    market.borrow(10 ether, address(this), address(this));
+    assertEq(auditor.accountMarkets(address(this)) & 1, 1);
+
+    // the bit set by borrowing must not be reported as collateral
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].isCollateral, false);
+    assertEq(data[1].isCollateral, true);
   }
 
   function testReserveFactor() external {

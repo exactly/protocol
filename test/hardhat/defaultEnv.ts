@@ -167,7 +167,7 @@ export class DefaultEnv {
         const mockPriceFeed = await MockPriceFeed.deploy(8, usdPrice);
         await mockPriceFeed.waitForDeployment();
         // Enable Market for MarketASSET by setting the collateral rates
-        await auditor.enableMarket(market.target, mockPriceFeed.target, adjustFactor);
+        await auditor.enableMarket(market.target, mockPriceFeed.target, adjustFactor, false);
 
         // Handy maps with all the markets and underlying assets
         priceFeeds[market.target as string] = mockPriceFeed;
