@@ -413,7 +413,11 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   }
 
   /// @notice Sets whether a market's floating supply is ineligible as collateral.
-  /// @dev Disabling a market as collateral may leave positions that rely on it liquidatable or generate bad debt.
+  /// @dev Disabling a market as collateral leaves positions that rely on it unhealthy and unliquidatable. The balance
+  /// stops counting as collateral, is excluded from the seizable set so liquidation reverts with `ZeroRepay`, and stays
+  /// freely withdrawable by its owner. The remaining debt is then liable to be cleared as bad debt against
+  /// `earningsAccumulator`. Do not enable this flag on a market with outstanding collateral-backed debt without first
+  /// winding that exposure down.
   /// @param market address of the market to change collateral eligibility for.
   /// @param nonCollateral true to make the market ineligible as collateral.
   function setNonCollateral(Market market, bool nonCollateral) external onlyRole(DEFAULT_ADMIN_ROLE) {
