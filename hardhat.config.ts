@@ -36,6 +36,10 @@ const hardhatConfig: Config = {
         ...compiler,
         settings: { ...compiler.settings, optimizer: { ...compiler.settings.optimizer, runs: 70 } },
       },
+      "contracts/periphery/Previewer.sol": {
+        ...compiler,
+        settings: { ...compiler.settings, optimizer: { ...compiler.settings.optimizer, runs: 70 } },
+      },
     },
   },
   networks: {
@@ -547,6 +551,7 @@ declare module "hardhat/types/config" {
 
   export interface MarketConfig {
     frozen?: boolean;
+    nonCollateral?: boolean;
     adjustFactor: number;
     priceFeed?: "double" | { wrapper: string; fn: string; baseUnit: bigint };
     penaltyRatePerDay: number;

@@ -6,6 +6,7 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts-v4/proxy/ERC1967/ERC1967Proxy.sol";
 import { Pool, Limit, Rates, Leverage, DebtPreviewer } from "../contracts/periphery/DebtPreviewer.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
+import { MockPriceFeed } from "../contracts/mocks/MockPriceFeed.sol";
 import { Market, ERC20, IPermit2, DebtManager, IBalancerVault } from "../contracts/periphery/DebtManager.sol";
 import { Auditor, IPriceFeed, InsufficientAccountLiquidity } from "../contracts/Auditor.sol";
 
@@ -30,6 +31,7 @@ contract DebtPreviewerTest is ForkTest {
   function setUp() external {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 99_811_375);
     auditor = Auditor(deployment("Auditor"));
+    upgrade(address(auditor), address(new Auditor(auditor.priceDecimals())));
     IPermit2 permit2 = IPermit2(deployment("Permit2"));
     marketOP = Market(deployment("MarketOP"));
     marketWETH = Market(deployment("MarketWETH"));
@@ -72,14 +74,149 @@ contract DebtPreviewerTest is ForkTest {
     maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
   }
 
+  function testLeveragePreviewsWithNonCollateralMarket() external {
+    debtManager.leverage(marketUSDC, 10_000e6, 2e18);
+
+    vm.prank(deployment("TimelockController"));
+    auditor.setNonCollateral(marketUSDC, true);
+
+    // previews stay callable and report no leverage capacity instead of reverting
+    Limit memory limit = debtPreviewer.previewLeverage(marketUSDC, marketUSDC, address(this), 0, 2e18, 1e18);
+    assertEq(limit.maxRatio, 1e18);
+    assertApproxEqAbs(uint256(limit.principal), 10_000e6, 3);
+    assertEq(limit.maxWithdraw, uint256(limit.principal));
+
+    // `leverageRates` is a pure rate calculation and also serves deleverage previews
+    Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketUSDC, address(this), 0, 2e18, 1e17, 0, 0);
+    assertEq(rates.deposit, uint256(1e17).mulWadDown(2e18));
+    assertGt(rates.borrow, 0);
+  }
+
+  function testLeverageWithNonCollateralMarket() external {
+    debtManager.leverage(marketUSDC, 10_000e6, 2e18);
+
+    vm.prank(deployment("TimelockController"));
+    auditor.setNonCollateral(marketUSDC, true);
+
+    // position data stays readable, with zero leverage capacity and freely withdrawable principal
+    Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketUSDC, address(this), 1e18);
+    assertApproxEqAbs(uint256(leverage.principal), 10_000e6, 3);
+    assertApproxEqAbs(leverage.deposit, 20_000e6, 3);
+    assertApproxEqAbs(leverage.borrow, 10_000e6, 1);
+    assertApproxEqAbs(leverage.ratio, 2e18, 3e10);
+    assertEq(leverage.maxRatio, 1e18);
+    assertEq(leverage.maxWithdraw, uint256(leverage.principal));
+    assertEq(leverage.minDeposit, 0);
+  }
+
+  function testMinDepositWithNonCollateralMarket() external {
+    debtManager.leverage(marketUSDC, 10_000e6, 2e18);
+
+    vm.prank(deployment("TimelockController"));
+    auditor.setNonCollateral(marketUSDC, true);
+
+    marketUSDC.withdraw(15_000e6, address(this), address(this));
+
+    Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketUSDC, address(this), 1e18);
+    assertLt(leverage.principal, 0);
+    assertEq(leverage.minDeposit, 0);
+    assertEq(leverage.maxRatio, 1e18);
+    assertEq(leverage.maxWithdraw, 0);
+  }
+
+  function testPreviewDeleverageWithNonCollateralMarket() external {
+    debtManager.leverage(marketUSDC, 100_000e6, 4e18);
+
+    vm.prank(deployment("TimelockController"));
+    auditor.setNonCollateral(marketUSDC, true);
+
+    Limit memory limit = debtPreviewer.previewDeleverage(marketUSDC, marketUSDC, address(this), 10_000e6, 2e18, 1e18);
+    assertEq(limit.ratio, 1e18);
+    assertEq(limit.maxRatio, 1e18);
+    assertEq(limit.borrow, 0);
+    assertApproxEqAbs(limit.maxWithdraw, 100_000e6, 5);
+
+    debtManager.deleverage(marketUSDC, 10_000e6, 1e18);
+    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), limit.deposit, 2);
+    assertEq(floatingBorrowAssets(marketUSDC, address(this)), limit.borrow);
+  }
+
+  function testPreviewsUnderwaterAccountAfterNonCollateral() external {
+    marketUSDC.deposit(20_000e6, address(this));
+    marketWETH.deposit(1 ether, address(this));
+    auditor.enterMarket(marketWETH);
+    marketOP.borrow(4_000e18, address(this), address(this));
+
+    vm.prank(deployment("TimelockController"));
+    auditor.setNonCollateral(marketUSDC, true);
+
+    // the OP debt is no longer covered: previews saturate instead of reverting with underflow
+    Leverage memory leverage = debtPreviewer.leverage(marketWETH, marketWETH, address(this), 1e18);
+    assertApproxEqAbs(uint256(leverage.principal), 1 ether, 1);
+    assertEq(leverage.maxRatio, 1e18);
+    assertEq(leverage.maxWithdraw, 0);
+
+    Limit memory limit = debtPreviewer.previewDeleverage(marketWETH, marketWETH, address(this), 0, 1e18, 1e18);
+    assertEq(limit.maxRatio, 1e18);
+    assertEq(limit.maxWithdraw, 0);
+
+    limit = debtPreviewer.previewLeverage(marketWETH, marketWETH, address(this), 0, 2e18, 1e18);
+    assertEq(limit.maxRatio, 1e18);
+    assertEq(limit.maxWithdraw, 0);
+  }
+
+  function testPreviewsUnderwaterAccountByPrice() external {
+    marketUSDC.deposit(20_000e6, address(this));
+    debtManager.leverage(marketWETH, 1 ether, 2e18);
+    marketOP.borrow(4_000e18, address(this), address(this));
+
+    (, , , , IPriceFeed opPriceFeed, ) = auditor.markets(marketOP);
+    MockPriceFeed newPriceFeed = new MockPriceFeed(opPriceFeed.decimals(), opPriceFeed.latestAnswer() * 10);
+    vm.prank(deployment("TimelockController"));
+    auditor.setPriceFeed(marketOP, newPriceFeed);
+
+    // underwater by market conditions, without any collateral toggle: previews saturate instead of reverting
+    Leverage memory leverage = debtPreviewer.leverage(marketWETH, marketWETH, address(this), 1e18);
+    assertApproxEqAbs(uint256(leverage.principal), 1 ether, 2);
+    assertEq(leverage.maxRatio, 1e18);
+    assertEq(leverage.maxWithdraw, 0);
+
+    Limit memory limit = debtPreviewer.previewDeleverage(marketWETH, marketWETH, address(this), 0, 1e18, 1e18);
+    assertEq(limit.ratio, 1e18);
+    assertEq(limit.maxWithdraw, 0);
+    assertApproxEqAbs(limit.borrow, 0, 1);
+
+    // the auditor still blocks the withdraw leg of an underwater deleverage on a collateral market
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
+    debtManager.deleverage(marketWETH, 0, 1e18);
+  }
+
+  function testPreviewLeverageExcludesNonCollateralMarketBalances() external {
+    // account holds USDC collateral and debt while depositing on WETH
+    marketUSDC.deposit(10_000e6, address(this));
+    marketUSDC.borrow(2_000e6, address(this), address(this));
+    marketWETH.deposit(5 ether, address(this));
+    auditor.enterMarket(marketWETH);
+
+    Leverage memory before = debtPreviewer.leverage(marketWETH, marketWETH, address(this), 1e18);
+
+    vm.prank(deployment("TimelockController"));
+    auditor.setNonCollateral(marketUSDC, true);
+
+    // once USDC is non-collateral its balance must be excluded from maxRatio and maxWithdraw
+    Leverage memory leverage = debtPreviewer.leverage(marketWETH, marketWETH, address(this), 1e18);
+    assertLt(leverage.maxRatio, before.maxRatio);
+    assertLt(leverage.maxWithdraw, before.maxWithdraw);
+  }
+
   function testPreviewLeverage() external {
     uint256 ratio = 2e18;
     uint256 principal = 10_000e6;
     debtManager.leverage(marketUSDC, principal, ratio);
 
     Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketUSDC, address(this), 1e18);
-    (uint256 collateralAdjustFactor, , , , ) = auditor.markets(marketUSDC);
-    (uint256 debtAdjustFactor, , , , ) = auditor.markets(marketUSDC);
+    (uint256 collateralAdjustFactor, , , , , ) = auditor.markets(marketUSDC);
+    (uint256 debtAdjustFactor, , , , , ) = auditor.markets(marketUSDC);
     assertApproxEqAbs(uint256(leverage.principal), principal, 2e18);
     assertApproxEqAbs(leverage.deposit, principal.mulWadDown(ratio), 1);
     assertApproxEqAbs(leverage.ratio, ratio, 0.0003e18);
@@ -92,8 +229,8 @@ contract DebtPreviewerTest is ForkTest {
 
   function testPreviewEmptyLeverage() external view {
     Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketUSDC, address(this), 1e18);
-    (uint256 collateralAdjustFactor, , , , ) = auditor.markets(marketUSDC);
-    (uint256 debtAdjustFactor, , , , ) = auditor.markets(marketUSDC);
+    (uint256 collateralAdjustFactor, , , , , ) = auditor.markets(marketUSDC);
+    (uint256 debtAdjustFactor, , , , , ) = auditor.markets(marketUSDC);
 
     assertEq(leverage.principal, 0);
     assertEq(leverage.deposit, 0);
@@ -104,7 +241,7 @@ contract DebtPreviewerTest is ForkTest {
 
   function testPreviewLeverageSameAsset() external {
     Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketUSDC, address(this), 1e18);
-    (uint256 adjustFactor, , , , ) = auditor.markets(marketUSDC);
+    (uint256 adjustFactor, , , , , ) = auditor.markets(marketUSDC);
     uint256 principal = 1_000e6;
     uint256 ratio = leverage.maxRatio - 0.0001e18;
 
@@ -431,8 +568,8 @@ contract DebtPreviewerTest is ForkTest {
   }
 
   function crossPrincipal(Market marketDeposit, Market marketBorrow, address account) internal view returns (int256) {
-    (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketDeposit);
-    (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketBorrow);
+    (, , , , IPriceFeed priceFeedIn, ) = debtManager.auditor().markets(marketDeposit);
+    (, , , , IPriceFeed priceFeedOut, ) = debtManager.auditor().markets(marketBorrow);
 
     uint256 collateral = marketDeposit.maxWithdraw(account);
     uint256 debt = floatingBorrowAssets(marketBorrow, account)

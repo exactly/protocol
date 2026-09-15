@@ -50,12 +50,18 @@ contract IntegrationPreviewer {
     int256 debtDelta
   ) public view returns (uint256) {
     (uint256 adjustedCollateral, uint256 adjustedDebt) = auditor.accountLiquidity(account, market, 0);
-    (uint256 adjustFactor, uint256 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
-    uint256 price = auditor.assetPrice(priceFeed);
-    uint256 absAdjustedCollateralDelta = collateralDelta.abs().mulDiv(price, 10 ** decimals).mulWad(adjustFactor);
-    if (collateralDelta < 0) adjustedCollateral -= absAdjustedCollateralDelta;
-    else adjustedCollateral += absAdjustedCollateralDelta;
-    uint256 absAdjustedDebtDelta = debtDelta.abs().mulDivUp(price, 10 ** decimals).divWadUp(adjustFactor);
+    (uint256 adjustFactor, uint256 decimals, , , IPriceFeed priceFeed, bool nonCollateral) = auditor.markets(market);
+    if (!nonCollateral) {
+      uint256 absAdjustedCollateralDelta = collateralDelta
+        .abs()
+        .mulDiv(auditor.assetPrice(priceFeed), 10 ** decimals)
+        .mulWad(adjustFactor);
+      if (collateralDelta < 0) adjustedCollateral -= absAdjustedCollateralDelta;
+      else adjustedCollateral += absAdjustedCollateralDelta;
+    }
+    uint256 absAdjustedDebtDelta = debtDelta.abs().mulDivUp(auditor.assetPrice(priceFeed), 10 ** decimals).divWadUp(
+      adjustFactor
+    );
     if (debtDelta < 0) adjustedDebt -= absAdjustedDebtDelta;
     else adjustedDebt += absAdjustedDebtDelta;
     if (adjustedDebt == 0) return type(uint256).max;
@@ -73,7 +79,7 @@ contract IntegrationPreviewer {
   /// @return maxAssets The maximum extra underlying assets that can be borrowed safely.
   function borrowLimit(address account, Market market, uint256 targetHealthFactor) external view returns (uint256) {
     (uint256 adjustedCollateral, uint256 adjustedDebt) = auditor.accountLiquidity(account, market, 0);
-    (uint256 adjustFactor, uint256 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
+    (uint256 adjustFactor, uint256 decimals, , , IPriceFeed priceFeed, ) = auditor.markets(market);
     uint256 maxAdjustedDebt = adjustedCollateral.divWad(targetHealthFactor);
     if (adjustedDebt >= maxAdjustedDebt) return 0;
     uint256 maxExtraDebt = maxAdjustedDebt - adjustedDebt;

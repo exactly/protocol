@@ -63,7 +63,7 @@ contract RewardsControllerTest is Test {
       0.42e18
     );
     vm.label(address(marketUSDC), "MarketUSDC");
-    auditor.enableMarket(marketUSDC, new MockPriceFeed(18, 1e18), 0.8e18);
+    auditor.enableMarket(marketUSDC, new MockPriceFeed(18, 1e18), 0.8e18, false);
 
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
@@ -79,7 +79,7 @@ contract RewardsControllerTest is Test {
       0.42e18
     );
     vm.label(address(marketWETH), "MarketWETH");
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18, false);
 
     marketWBTC = Market(address(new ERC1967Proxy(address(new Market(wbtc, auditor)), "")));
     marketWBTC.initialize(
@@ -95,7 +95,7 @@ contract RewardsControllerTest is Test {
       0.42e18
     );
     vm.label(address(marketWBTC), "MarketWBTC");
-    auditor.enableMarket(marketWBTC, new MockPriceFeed(18, 20_000e18), 0.9e18);
+    auditor.enableMarket(marketWBTC, new MockPriceFeed(18, 20_000e18), 0.9e18, false);
 
     rewardsController = RewardsController(address(new ERC1967Proxy(address(new RewardsController()), "")));
     rewardsController.initialize();
@@ -1798,7 +1798,7 @@ contract RewardsControllerTest is Test {
       0.0046e18,
       0.42e18
     );
-    auditor.enableMarket(market, new MockPriceFeed(18, 1e18), 0.8e18);
+    auditor.enableMarket(market, new MockPriceFeed(18, 1e18), 0.8e18, false);
 
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
     configs[0] = RewardsController.Config({
@@ -1904,7 +1904,7 @@ contract RewardsControllerTest is Test {
     marketWBTC.deposit(100e8, BOB);
     auditor.enterMarket(marketUSDC);
     marketWBTC.borrow(20e8, address(this), address(this));
-    (, , , , IPriceFeed wbtcPriceFeed) = auditor.markets(marketWBTC);
+    (, , , , IPriceFeed wbtcPriceFeed, ) = auditor.markets(marketWBTC);
     MockPriceFeed(address(wbtcPriceFeed)).setPrice(50_000e18);
 
     vm.warp(4 weeks);
@@ -1933,7 +1933,7 @@ contract RewardsControllerTest is Test {
     marketUSDC.depositAtMaturity(FixedLib.INTERVAL, 30_000e6, 30_000e6, BOB);
 
     vm.warp(4 weeks);
-    (, , , , IPriceFeed wbtcPriceFeed) = auditor.markets(marketWBTC);
+    (, , , , IPriceFeed wbtcPriceFeed, ) = auditor.markets(marketWBTC);
     MockPriceFeed(address(wbtcPriceFeed)).setPrice(10);
     vm.prank(ALICE);
     marketWETH.liquidate(address(this), type(uint256).max, marketWBTC);
@@ -1998,7 +1998,7 @@ contract RewardsControllerTest is Test {
     marketUSDC.borrow(500_000e6, address(this), address(this));
 
     vm.warp(4 weeks);
-    (, , , , IPriceFeed wbtcPriceFeed) = auditor.markets(marketWBTC);
+    (, , , , IPriceFeed wbtcPriceFeed, ) = auditor.markets(marketWBTC);
     MockPriceFeed(address(wbtcPriceFeed)).setPrice(100e18);
     vm.prank(ALICE);
     marketUSDC.liquidate(address(this), type(uint256).max, marketWBTC);
@@ -2015,7 +2015,7 @@ contract RewardsControllerTest is Test {
     marketUSDC.borrowAtMaturity(FixedLib.INTERVAL, 100_000e6, 200_000e6, address(this), address(this));
 
     vm.warp(4 weeks);
-    (, , , , IPriceFeed wbtcPriceFeed) = auditor.markets(marketWBTC);
+    (, , , , IPriceFeed wbtcPriceFeed, ) = auditor.markets(marketWBTC);
     MockPriceFeed(address(wbtcPriceFeed)).setPrice(100e18);
     vm.prank(ALICE);
     marketUSDC.liquidate(address(this), type(uint256).max, marketWBTC);

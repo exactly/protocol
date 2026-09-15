@@ -185,14 +185,27 @@ const func: DeployFunction = async ({
       await (await market.deposit(fiveUSDAssets, DEAD_ADDRESS)).wait();
     }
     const adjustFactor = parseUnits(String(config.adjustFactor));
+    const nonCollateral = config.nonCollateral ?? false;
+    const supportsNonCollateral = auditor.interface.hasFunction("setNonCollateral");
+    if (config.nonCollateral !== undefined && !supportsNonCollateral) {
+      throw new Error(`${marketName}: nonCollateral is configured but the auditor deployment predates it`);
+    }
     if (!(await auditor.allMarkets()).includes(market.target as string)) {
-      await executeOrPropose(auditor, "enableMarket", [market.target, priceFeed, adjustFactor]);
+      await executeOrPropose(auditor, "enableMarket", [
+        market.target,
+        priceFeed,
+        adjustFactor,
+        ...(supportsNonCollateral ? [nonCollateral] : []),
+      ]);
     } else {
       if ((await auditor.markets(market.target)).priceFeed.toLowerCase() !== priceFeed.toLowerCase()) {
         await executeOrPropose(auditor, "setPriceFeed", [market.target, priceFeed]);
       }
       if ((await auditor.markets(market.target)).adjustFactor !== adjustFactor) {
         await executeOrPropose(auditor, "setAdjustFactor", [market.target, adjustFactor]);
+      }
+      if (supportsNonCollateral && (await auditor.markets(market.target)).nonCollateral !== nonCollateral) {
+        await executeOrPropose(auditor, "setNonCollateral", [market.target, nonCollateral]);
       }
     }
 

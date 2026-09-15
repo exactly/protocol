@@ -68,8 +68,8 @@ contract InstallmentsRouterTest is Test {
     );
     vm.label(address(marketWETH), "marketWETH");
 
-    auditor.enableMarket(market, new MockPriceFeed(18, 1e18), 0.8e18);
-    auditor.enableMarket(marketWETH, new MockPriceFeed(18, 1e18), 0.8e18);
+    auditor.enableMarket(market, new MockPriceFeed(18, 1e18), 0.8e18, false);
+    auditor.enableMarket(marketWETH, new MockPriceFeed(18, 1e18), 0.8e18, false);
 
     router = new InstallmentsRouter(auditor, marketWETH);
 

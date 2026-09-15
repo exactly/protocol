@@ -51,7 +51,7 @@ contract DebtRollerTest is Test {
     vm.label(address(exaUSDC), "exaUSDC");
     vm.label(address(usdc), "usdc");
 
-    auditor.enableMarket(exaUSDC, new MockPriceFeed(18, 1e18), 0.8e18);
+    auditor.enableMarket(exaUSDC, new MockPriceFeed(18, 1e18), 0.8e18, false);
 
     mockBalancerVault = new MockBalancerVault();
     vm.label(address(mockBalancerVault), "mockBalancerVault");
