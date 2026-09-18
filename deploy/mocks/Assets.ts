@@ -4,7 +4,7 @@ import type { MarketConfig } from "hardhat/types/config";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { IPriceFeed, MockERC20, MockPriceFeed } from "../../types";
 
-const { parseUnits, formatUnits, getContract, getSigner } = ethers;
+const { parseUnits, formatUnits, getContract, getContractAt, getSigner } = ethers;
 const {
   config: { priceDecimals, finance },
   live,
@@ -16,7 +16,7 @@ export const mockPrices = Object.fromEntries(
     .map((symbol) => [symbol, parseUnits(env[`${symbol}_PRICE`] as string, priceDecimals)]),
 );
 
-const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAccounts }) => {
+const func: DeployFunction = async ({ deployments: { deploy, get, log }, getNamedAccounts }) => {
   const { deployer } = await getNamedAccounts();
   const signer = await getSigner(deployer);
   for (const [symbol, { priceFeed }] of [
@@ -55,7 +55,10 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
     await deploy(`PriceFeed${symbol}${priceFeed ? (priceFeed === "double" ? "One" : "Main") : ""}`, {
       skipIfAlreadyDeployed: true,
       contract: "MockPriceFeed",
-      args: [priceDecimals, parseUnits({ WBTC: "63000", WETH: "1000", OP: "3" }[symbol] ?? "1", priceDecimals)],
+      args: [
+        priceDecimals,
+        parseUnits({ WBTC: "63000", WETH: "1000", OP: "3", wARS: "0.00062634" }[symbol] ?? "1", priceDecimals),
+      ],
       from: deployer,
       log: true,
     });
@@ -77,10 +80,12 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
 
     if (newlyDeployed) {
       const asset = await getContract<MockERC20>(symbol);
-      const oracle = await getContract<IPriceFeed>(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
+      const { address: priceFeedAddress } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
+      const oracle = (await getContractAt("IPriceFeed", priceFeedAddress)) as unknown as IPriceFeed;
       const fiveUSDAssets =
         (5n * 10n ** BigInt(priceDecimals) * 10n ** (await asset.decimals())) / (await oracle.latestAnswer());
-      await (await asset.mint(deployer, fiveUSDAssets)).wait();
+      // double the seed deposit, live feeds can move before markets are seeded
+      await (await asset.mint(deployer, 2n * fiveUSDAssets)).wait();
     }
   }
 };

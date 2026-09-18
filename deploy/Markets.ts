@@ -142,9 +142,6 @@ const func: DeployFunction = async ({
       }),
     );
 
-    if ((await market.isFrozen()) !== !!config.frozen) {
-      await executeOrPropose(market, "setFrozen", [config.frozen]);
-    }
     if ((await market.maxFuturePools()) !== BigInt(config.futurePools)) {
       await executeOrPropose(market, "setMaxFuturePools", [config.futurePools]);
     }
@@ -181,8 +178,12 @@ const func: DeployFunction = async ({
     if ((await market.totalSupply()) === 0n && live) {
       const fiveUSDAssets =
         (5n * 10n ** 18n * 10n ** (await market.decimals())) / (await auditor.assetPrice(priceFeed));
+      if (await market.isFrozen()) await executeOrPropose(market, "setFrozen", [false]);
       await (await asset.approve(market.target, fiveUSDAssets)).wait();
       await (await market.deposit(fiveUSDAssets, DEAD_ADDRESS)).wait();
+    }
+    if ((await market.isFrozen()) !== !!config.frozen) {
+      await executeOrPropose(market, "setFrozen", [!!config.frozen]);
     }
     const adjustFactor = parseUnits(String(config.adjustFactor));
     const nonCollateral = config.nonCollateral ?? false;
