@@ -21,6 +21,17 @@ const func: DeployFunction = async ({ ethers, network, deployments: { deploy, ge
           log: true,
         }),
       );
+    } else if (priceFeed === "inverse") {
+      await tenderlify(
+        "PriceFeedInverse",
+        await deploy(`PriceFeed${symbol}`, {
+          skipIfAlreadyDeployed,
+          contract: "PriceFeedInverse",
+          args: [(await get(`PriceFeed${symbol}Inverted`)).address],
+          from: deployer,
+          log: true,
+        }),
+      );
     } else if (priceFeed.wrapper) {
       const { address, abi } = await get(priceFeed.wrapper);
       await tenderlify(
