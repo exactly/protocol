@@ -1,5 +1,5 @@
 ---
-"@exactly/protocol": minor
+"@exactly/protocol": patch
 ---
 
 ✨ auditor: support non-collateral markets
