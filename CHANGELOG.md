@@ -1,5 +1,11 @@
 # @exactly/protocol
 
+## 0.2.25
+
+### Patch Changes
+
+- [#815](https://github.com/exactly/protocol/pull/815) [`6c022f3`](https://github.com/exactly/protocol/commit/6c022f3b046ccbef0b35e2aa3cd32955e66ddf91) Thanks [@patitonar](https://github.com/patitonar)! - ✨ auditor: support non-collateral markets
+
 ## 0.2.24
 
 ### Patch Changes
