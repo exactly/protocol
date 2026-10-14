@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import { FixedPointMathLib } from "solady/src/utils/FixedPointMathLib.sol";
 import { SafeCastLib } from "solady/src/utils/SafeCastLib.sol";
+
 import { IPriceFeed } from "./utils/IPriceFeed.sol";
 
 contract PriceFeedInverse is IPriceFeed {
