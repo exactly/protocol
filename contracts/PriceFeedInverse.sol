@@ -9,11 +9,11 @@ contract PriceFeedInverse is IPriceFeed {
   using FixedPointMathLib for uint256;
   using SafeCastLib for int256;
 
-  /// @notice Price feed whose answer is inverted.
+  /// @notice Source price feed whose answer is inverted.
   IPriceFeed public immutable priceFeed;
-  /// @notice Number of decimals that the answer of this price feed has, same as the inverted feed's.
+  /// @notice Number of decimals that the answer of this price feed has, same as the source feed's.
   uint8 public immutable decimals;
-  /// @notice Base unit of the inverted feed's answer.
+  /// @notice Base unit of the source feed's answer.
   uint256 public immutable baseUnit;
 
   constructor(IPriceFeed priceFeed_) {
@@ -22,7 +22,7 @@ contract PriceFeedInverse is IPriceFeed {
     baseUnit = 10 ** decimals;
   }
 
-  /// @notice Returns the inverse of the price feed's latest answer.
+  /// @notice Returns the inverse of the source feed's latest answer.
   /// @dev Rounds up, the conservative direction for debt-only markets, so the inverse can't truncate to zero.
   /// Reverts on a zero or negative answer.
   function latestAnswer() external view returns (int256) {
