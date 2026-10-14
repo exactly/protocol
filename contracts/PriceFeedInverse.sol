@@ -13,19 +13,19 @@ contract PriceFeedInverse is IPriceFeed {
   IPriceFeed public immutable priceFeed;
   /// @notice Number of decimals that the answer of this price feed has, same as the source feed's.
   uint8 public immutable decimals;
-  /// @notice Base unit of the source feed's answer.
-  uint256 public immutable baseUnit;
+  /// @notice Square of the source feed's base unit, used as the numerator to invert its answer.
+  uint256 public immutable baseUnitSquared;
 
   constructor(IPriceFeed priceFeed_) {
     priceFeed = priceFeed_;
     decimals = priceFeed_.decimals();
-    baseUnit = 10 ** decimals;
+    baseUnitSquared = 10 ** (2 * uint256(decimals));
   }
 
   /// @notice Returns the inverse of the source feed's latest answer.
   /// @dev Rounds up, the conservative direction for debt-only markets, so the inverse can't truncate to zero.
   /// Reverts on a zero or negative answer.
   function latestAnswer() external view returns (int256) {
-    return int256(baseUnit.mulDivUp(baseUnit, priceFeed.latestAnswer().toUint256()));
+    return int256(baseUnitSquared.divUp(priceFeed.latestAnswer().toUint256()));
   }
 }

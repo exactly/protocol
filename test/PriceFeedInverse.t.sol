@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import { Test } from "forge-std/Test.sol";
+import { Test, stdError } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "solady/src/utils/FixedPointMathLib.sol";
 import { SafeCastLib } from "solady/src/utils/SafeCastLib.sol";
 import { Auditor } from "../contracts/Auditor.sol";
@@ -19,10 +19,16 @@ contract PriceFeedInverseTest is Test {
     priceFeedInverse = new PriceFeedInverse(usdArsPriceFeed);
   }
 
-  function test_constructor_setsPriceFeedDecimalsAndBaseUnit() external view {
+  function test_constructor_setsPriceFeedDecimalsAndBaseUnitSquared() external view {
     assertEq(address(priceFeedInverse.priceFeed()), address(usdArsPriceFeed));
     assertEq(priceFeedInverse.decimals(), 8);
-    assertEq(priceFeedInverse.baseUnit(), 1e8);
+    assertEq(priceFeedInverse.baseUnitSquared(), 1e16);
+  }
+
+  function test_constructor_reverts_whenBaseUnitSquaredOverflows() external {
+    MockPriceFeed priceFeed = new MockPriceFeed(39, 1);
+    vm.expectRevert(stdError.arithmeticError);
+    new PriceFeedInverse(priceFeed);
   }
 
   function test_latestAnswer_returnsInverse() external {
@@ -52,7 +58,7 @@ contract PriceFeedInverseTest is Test {
 
   function test_latestAnswer_reverts_whenAnswerIsZero() external {
     usdArsPriceFeed.setPrice(0);
-    vm.expectRevert(FixedPointMathLib.MulDivFailed.selector);
+    vm.expectRevert(FixedPointMathLib.DivFailed.selector);
     priceFeedInverse.latestAnswer();
   }
 
