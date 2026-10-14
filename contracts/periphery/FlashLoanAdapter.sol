@@ -24,8 +24,12 @@ contract FlashLoanAdapter is IFlashLoaner {
   /// @param tokens The tokens to borrow.
   /// @param amounts The amounts to borrow.
   /// @param data Additional data to pass to the recipient.
-  // solhint-disable-next-line gas-calldata-parameters
-  function flashLoan(address recipient, IERC20[] memory tokens, uint256[] memory amounts, bytes memory data) external {
+  function flashLoan(
+    address recipient,
+    IERC20[] calldata tokens,
+    uint256[] calldata amounts,
+    bytes calldata data
+  ) external {
     if (tokens.length != 1 || amounts.length != 1) revert InvalidLength();
     morpho.flashLoan(address(tokens[0]), amounts[0], abi.encode(recipient, tokens, amounts, data));
   }
