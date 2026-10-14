@@ -31,23 +31,24 @@ contract FlashLoanAdapter is IFlashLoaner {
     bytes calldata data
   ) external {
     if (tokens.length != 1 || amounts.length != 1) revert InvalidLength();
-    morpho.flashLoan(address(tokens[0]), amounts[0], abi.encode(recipient, tokens, amounts, data));
+    morpho.flashLoan(address(tokens[0]), amounts[0], abi.encode(recipient, tokens[0], data));
   }
 
   /// @notice Receives a flash loan from Morpho, forwards it to the recipient and approves the repayment.
-  /// @param payload The payload containing the recipient, tokens, amounts, and data.
-  function onMorphoFlashLoan(uint256, bytes calldata payload) external {
+  /// @param assets The amount of assets that was flash loaned.
+  /// @param payload The payload containing the recipient, token, and data.
+  function onMorphoFlashLoan(uint256 assets, bytes calldata payload) external {
     if (msg.sender != address(morpho)) revert UnauthorizedMorpho();
-    (address recipient, IERC20[] memory tokens, uint256[] memory amounts, bytes memory data) = abi.decode(
-      payload,
-      (address, IERC20[], uint256[], bytes)
-    );
-    address token = address(tokens[0]);
+    (address recipient, IERC20 token, bytes memory data) = abi.decode(payload, (address, IERC20, bytes));
+    IERC20[] memory tokens = new IERC20[](1);
+    tokens[0] = token;
+    uint256[] memory amounts = new uint256[](1);
+    amounts[0] = assets;
 
-    token.safeTransfer(recipient, amounts[0]);
+    address(token).safeTransfer(recipient, assets);
     IFlashLoanRecipient(recipient).receiveFlashLoan(tokens, amounts, new uint256[](1), data);
 
-    token.safeApprove(address(morpho), amounts[0]);
+    address(token).safeApprove(address(morpho), assets);
   }
 
   /// @notice Returns the amount of `token` available to be flash loaned.

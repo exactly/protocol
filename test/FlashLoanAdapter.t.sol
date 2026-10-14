@@ -69,7 +69,7 @@ contract FlashLoanAdapterTest is ForkTest {
 
     vm.expectCall(
       address(morpho),
-      abi.encodeCall(IMorpho.flashLoan, (address(usdc), amount, abi.encode(address(consumer), tokens, amounts, data)))
+      abi.encodeCall(IMorpho.flashLoan, (address(usdc), amount, abi.encode(address(consumer), usdc, data)))
     );
     vm.expectCall(
       address(consumer),
