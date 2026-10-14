@@ -42,7 +42,7 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
         from: deployer,
         log: true,
       });
-    } else if (priceFeed) {
+    } else if (typeof priceFeed === "object") {
       await deploy(priceFeed.wrapper, {
         skipIfAlreadyDeployed: true,
         contract: "MockStETH",
@@ -52,7 +52,9 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
       });
     }
 
-    await deploy(`PriceFeed${symbol}${priceFeed ? (priceFeed === "double" ? "One" : "Main") : ""}`, {
+    const sourceSuffix =
+      priceFeed === "double" ? "One" : priceFeed === "inverse" ? "Inverted" : priceFeed ? "Main" : "";
+    await deploy(`PriceFeed${symbol}${sourceSuffix}`, {
       skipIfAlreadyDeployed: true,
       contract: "MockPriceFeed",
       args: [priceDecimals, parseUnits({ WBTC: "63000", WETH: "1000", OP: "3" }[symbol] ?? "1", priceDecimals)],

@@ -553,7 +553,7 @@ declare module "hardhat/types/config" {
     frozen?: boolean;
     nonCollateral?: boolean;
     adjustFactor: number;
-    priceFeed?: "double" | { wrapper: string; fn: string; baseUnit: bigint };
+    priceFeed?: "double" | "inverse" | { wrapper: string; fn: string; baseUnit: bigint };
     penaltyRatePerDay: number;
     treasuryFeeRate: number;
     backupFeeRate: number;
