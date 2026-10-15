@@ -411,6 +411,22 @@ const hardhatConfig: Config = {
           growthSpeed: 1.25,
         },
       },
+      wARS: {
+        networks: ["base"],
+        nonCollateral: true,
+        adjustFactor: 0.91,
+        futurePools: 7,
+        interestRateModel: {
+          minRate: 25e-2,
+          naturalRate: 32e-2,
+          maxUtilization: 1.45,
+          growthSpeed: 0.417238978,
+          spreadFactor: 0.1,
+          maturitySpeed: 0.75,
+          timePreference: 0.12,
+        },
+        overrides: { base: { priceFeed: "inverse" } },
+      },
     },
     periphery: {
       optimism: {
