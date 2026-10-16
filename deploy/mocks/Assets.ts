@@ -52,8 +52,7 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
       });
     }
 
-    const sourceSuffix =
-      priceFeed === "double" ? "One" : priceFeed === "inverse" ? "Inverted" : priceFeed ? "Main" : "";
+    const sourceSuffix = priceFeed === "double" ? "One" : priceFeed ? "Main" : "";
     await deploy(`PriceFeed${symbol}${sourceSuffix}`, {
       skipIfAlreadyDeployed: true,
       contract: "MockPriceFeed",
