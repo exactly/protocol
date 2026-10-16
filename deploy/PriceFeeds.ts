@@ -27,7 +27,7 @@ const func: DeployFunction = async ({ ethers, network, deployments: { deploy, ge
         await deploy(`PriceFeed${symbol}`, {
           skipIfAlreadyDeployed,
           contract: "PriceFeedInverse",
-          args: [(await get(`PriceFeed${symbol}Inverted`)).address],
+          args: [(await get(`PriceFeed${symbol}Main`)).address],
           from: deployer,
           log: true,
         }),
