@@ -17,7 +17,17 @@ const func: DeployFunction = async ({
     },
     live,
   },
-  ethers: { MaxUint256, ZeroAddress, parseUnits, getContractOrNull, getContract, getSigner, keccak256, toUtf8Bytes },
+  ethers: {
+    MaxUint256,
+    ZeroAddress,
+    parseUnits,
+    getContractOrNull,
+    getContract,
+    getContractAt,
+    getSigner,
+    keccak256,
+    toUtf8Bytes,
+  },
   deployments: { deploy, get, getOrNull },
   getNamedAccounts,
 }) => {
@@ -186,12 +196,14 @@ const func: DeployFunction = async ({
     }
     const adjustFactor = parseUnits(String(config.adjustFactor));
     const nonCollateral = config.nonCollateral ?? false;
-    const supportsNonCollateral = auditor.interface.hasFunction("setNonCollateral");
+    const { abi } = await get("Auditor_Implementation");
+    const nextAuditor = (await getContractAt(abi, auditor.target)) as unknown as Auditor;
+    const supportsNonCollateral = nextAuditor.interface.hasFunction("setNonCollateral");
     if (config.nonCollateral !== undefined && !supportsNonCollateral) {
       throw new Error(`${marketName}: nonCollateral is configured but the auditor deployment predates it`);
     }
     if (!(await auditor.allMarkets()).includes(market.target as string)) {
-      await executeOrPropose(auditor, "enableMarket", [
+      await executeOrPropose(nextAuditor, "enableMarket", [
         market.target,
         priceFeed,
         adjustFactor,
@@ -204,7 +216,7 @@ const func: DeployFunction = async ({
       if ((await auditor.markets(market.target)).adjustFactor !== adjustFactor) {
         await executeOrPropose(auditor, "setAdjustFactor", [market.target, adjustFactor]);
       }
-      if (supportsNonCollateral && (await auditor.markets(market.target)).nonCollateral !== nonCollateral) {
+      if (supportsNonCollateral && ((await auditor.markets(market.target)).nonCollateral ?? false) !== nonCollateral) {
         await executeOrPropose(auditor, "setNonCollateral", [market.target, nonCollateral]);
       }
     }
