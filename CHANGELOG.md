@@ -1,5 +1,17 @@
 # @exactly/protocol
 
+## 0.2.25
+
+### Patch Changes
+
+- [#817](https://github.com/exactly/protocol/pull/817) [`371e41a`](https://github.com/exactly/protocol/commit/371e41a5e2f3429301ecd7dd547bd36da38385de) Thanks [@patitonar](https://github.com/patitonar)! - ✨ adapter: use morpho flash loans
+
+- [#815](https://github.com/exactly/protocol/pull/815) [`6c022f3`](https://github.com/exactly/protocol/commit/6c022f3b046ccbef0b35e2aa3cd32955e66ddf91) Thanks [@patitonar](https://github.com/patitonar)! - ✨ auditor: support non-collateral markets
+
+- [`13d9997`](https://github.com/exactly/protocol/commit/13d99979c08697becaf7a593209d46bdd9dace00) Thanks [@cruzdanilo](https://github.com/cruzdanilo)! - 🚀 base: upgrade auditor and debt roller, deploy wARS and flash loaner
+
+- [#821](https://github.com/exactly/protocol/pull/821) [`2e0b944`](https://github.com/exactly/protocol/commit/2e0b9442ffa3799a453ef0f76ca092e6c2094bc7) Thanks [@patitonar](https://github.com/patitonar)! - ✨ price-feeds: add inverse feed
+
 ## 0.2.24
 
 ### Patch Changes
