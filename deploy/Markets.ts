@@ -210,13 +210,23 @@ const func: DeployFunction = async ({
         ...(supportsNonCollateral ? [nonCollateral] : []),
       ]);
     } else {
-      if ((await auditor.markets(market.target)).priceFeed.toLowerCase() !== priceFeed.toLowerCase()) {
+      const current = await (
+        await getContractAt(
+          ["function markets(address) view returns (uint128 adjustFactor, uint8, uint8, bool, address priceFeed)"],
+          auditor.target,
+        )
+      ).markets(market.target);
+      if ((current.priceFeed as string).toLowerCase() !== priceFeed.toLowerCase()) {
         await executeOrPropose(auditor, "setPriceFeed", [market.target, priceFeed]);
       }
-      if ((await auditor.markets(market.target)).adjustFactor !== adjustFactor) {
+      if (current.adjustFactor !== adjustFactor) {
         await executeOrPropose(auditor, "setAdjustFactor", [market.target, adjustFactor]);
       }
-      if (supportsNonCollateral && ((await auditor.markets(market.target)).nonCollateral ?? false) !== nonCollateral) {
+      const currentNonCollateral = await nextAuditor.markets(market.target).then(
+        (m) => m.nonCollateral,
+        () => false,
+      );
+      if (supportsNonCollateral && currentNonCollateral !== nonCollateral) {
         await executeOrPropose(auditor, "setNonCollateral", [market.target, nonCollateral]);
       }
     }
