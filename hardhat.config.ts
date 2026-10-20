@@ -11,13 +11,10 @@ import "hardhat-ignore-warnings";
 import "solidity-coverage";
 import "hardhat-tracer";
 import { env } from "process";
-import { setup } from "@tenderly/hardhat-tenderly";
 import { boolean, string } from "hardhat/internal/core/params/argumentTypes";
 import { task, extendConfig } from "hardhat/config";
 import { defaultHdAccountsConfigParams } from "hardhat/internal/core/config/default-config";
 import type { HardhatUserConfig as Config } from "hardhat/types";
-
-setup({ automaticVerifications: false });
 
 const compiler = {
   version: "0.8.26",
@@ -455,7 +452,6 @@ const hardhatConfig: Config = {
   },
   mocha: { timeout: 66_666 },
   paths: { artifacts: "artifacts/hardhat" },
-  tenderly: { project: "exactly", username: "exactly", privateVerification: false },
   typechain: { outDir: "types", target: "ethers-v6" },
   contractSizer: { runOnCompile: true, strict: true, only: ["^contracts/"], except: ["mocks"] },
   gasReporter: { currency: "USD", gasPrice: 100, enabled: !!JSON.parse(env.REPORT_GAS ?? "false") },
