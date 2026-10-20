@@ -51,15 +51,6 @@ importers:
       '@openzeppelin/upgrades-core':
         specifier: ^1.37.0
         version: 1.38.0
-      '@safe-global/api-kit':
-        specifier: ^2.4.5
-        version: 2.4.6(encoding@0.1.13)(typescript@5.6.2)
-      '@safe-global/protocol-kit':
-        specifier: ^4.1.0
-        version: 4.1.1(typescript@5.6.2)
-      '@safe-global/safe-core-sdk-types':
-        specifier: ^5.1.0
-        version: 5.1.0(typescript@5.6.2)
       '@tenderly/hardhat-tenderly':
         specifier: ^2.3.0
         version: 2.3.2(@types/node@22.7.1)(encoding@0.1.13)(hardhat@2.28.6(ts-node@10.9.2(@types/node@22.7.1)(typescript@5.6.2))(typescript@5.6.2))
@@ -742,21 +733,6 @@ packages:
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
 
-  '@safe-global/api-kit@2.4.6':
-    resolution: {integrity: sha512-57lXrqXnmdUdQ12ssWSVDZhpIY2HcJzDvR4w6edT8xebEaduKx2UpwRJ8U2WVEBrx5K9PYuLAPsPHs+/r0yuGg==}
-
-  '@safe-global/protocol-kit@4.1.1':
-    resolution: {integrity: sha512-11Jui1gIpCOV1sUn5HlT+hVn/+gJnKjik0V0aUPDKIL2zajwc+jReZK43CH5GyOHKOF7gCs2yprMHOrQuKkkqw==}
-
-  '@safe-global/safe-core-sdk-types@5.1.0':
-    resolution: {integrity: sha512-UzXR4zWmVzux25FcIm4H049QhZZpVpIBL5HE+V0p5gHpArZROL+t24fZmsKUf403CtBxIJM5zZSVQL0nFJi+IQ==}
-
-  '@safe-global/safe-deployments@1.37.10':
-    resolution: {integrity: sha512-lcxX9CV+xdcLs4dF6Cx18zDww5JyqaX6RdcvU0o/34IgJ4Wjo3J/RNzJAoMhurCAfTGr+0vyJ9V13Qo50AR6JA==}
-
-  '@safe-global/safe-modules-deployments@2.2.1':
-    resolution: {integrity: sha512-H0XpusyXVcsTuRsQSq0FoBKqRfhZH87/1DrFEmXXPXmI3fJkvxq3KpTaTTqzcqoIe/J+erwVZQUYNfL68EcvAQ==}
-
   '@scure/base@1.1.9':
     resolution: {integrity: sha512-8YKhl8GHiNI/pU2VMaofa2Tor7PJRAjwQLBBuilkJ9L5+13yVbC7JO/wS7piioAvPSwR3JKM1IJ/u4xQzbcXKg==}
 
@@ -1019,17 +995,6 @@ packages:
 
   abitype@1.0.0:
     resolution: {integrity: sha512-NMeMah//6bJ56H5XRj8QCV4AwuW6hB6zqz2LnhhLdcWVQOsXki6/Pn3APeqxCma62nXIcmZWdu1DlHWS74umVQ==}
-    peerDependencies:
-      typescript: '>=5.0.4'
-      zod: ^3 >=3.22.0
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-      zod:
-        optional: true
-
-  abitype@1.0.6:
-    resolution: {integrity: sha512-MMSqYh4+C/aVqI2RQaWqbvI4Kxo5cQV40WQ4QFtDnNzCkqChm8MuENhElmynZlO0qUy/ObkEUaXtKqYnx1Kp3A==}
     peerDependencies:
       typescript: '>=5.0.4'
       zod: ^3 >=3.22.0
@@ -4720,48 +4685,6 @@ snapshots:
 
   '@rtsao/scc@1.1.0': {}
 
-  '@safe-global/api-kit@2.4.6(encoding@0.1.13)(typescript@5.6.2)':
-    dependencies:
-      '@safe-global/protocol-kit': 4.1.1(typescript@5.6.2)
-      '@safe-global/safe-core-sdk-types': 5.1.0(typescript@5.6.2)
-      ethers: 6.13.2
-      node-fetch: 2.7.0(encoding@0.1.13)
-    transitivePeerDependencies:
-      - bufferutil
-      - encoding
-      - typescript
-      - utf-8-validate
-      - zod
-
-  '@safe-global/protocol-kit@4.1.1(typescript@5.6.2)':
-    dependencies:
-      '@noble/hashes': 1.5.0
-      '@safe-global/safe-core-sdk-types': 5.1.0(typescript@5.6.2)
-      '@safe-global/safe-deployments': 1.37.10
-      '@safe-global/safe-modules-deployments': 2.2.1
-      abitype: 1.0.6(typescript@5.6.2)
-      ethereumjs-util: 7.1.5
-      ethers: 6.13.2
-      semver: 7.6.3
-    transitivePeerDependencies:
-      - bufferutil
-      - typescript
-      - utf-8-validate
-      - zod
-
-  '@safe-global/safe-core-sdk-types@5.1.0(typescript@5.6.2)':
-    dependencies:
-      abitype: 1.0.6(typescript@5.6.2)
-    transitivePeerDependencies:
-      - typescript
-      - zod
-
-  '@safe-global/safe-deployments@1.37.10':
-    dependencies:
-      semver: 7.6.3
-
-  '@safe-global/safe-modules-deployments@2.2.1': {}
-
   '@scure/base@1.1.9': {}
 
   '@scure/base@1.2.6': {}
@@ -5122,10 +5045,6 @@ snapshots:
   abbrev@1.0.9: {}
 
   abitype@1.0.0(typescript@5.6.2):
-    optionalDependencies:
-      typescript: 5.6.2
-
-  abitype@1.0.6(typescript@5.6.2):
     optionalDependencies:
       typescript: 5.6.2
 
