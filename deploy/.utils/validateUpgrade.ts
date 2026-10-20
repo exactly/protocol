@@ -9,7 +9,6 @@ import { UnknownSignerError } from "hardhat-deploy/dist/src/errors";
 import type { DeployResult } from "hardhat-deploy/types";
 import type { ValidationError } from "@openzeppelin/upgrades-core/dist/validate/run";
 import timelockPropose from "./timelockPropose";
-import tenderlify from "./tenderlify";
 
 const {
   ethers: { getContractAt, getContractFactory },
@@ -49,11 +48,6 @@ export default async (name: string, opts?: DeployOptions, deploy?: DeployCallbac
 
     await manifest.write(d);
   });
-
-  await Promise.all([
-    tenderlify("TransparentUpgradeableProxy", await get(`${name}_Proxy`)),
-    ...(implementation ? [tenderlify(contractName, await get(`${name}_Implementation`))] : []),
-  ]);
 };
 
 async function tryDeploy(deploy: DeployCallback, name: string, opts?: DeployOptions) {
