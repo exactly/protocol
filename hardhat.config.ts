@@ -427,6 +427,41 @@ const hardhatConfig: Config = {
         },
         overrides: { base: { priceFeed: "inverse" } },
       },
+      AAPLc: {
+        networks: ["base"],
+        adjustFactor: 0.828,
+        reserveFactor: 1,
+        futurePools: 0,
+        maxSupply: 580,
+      },
+      AMZNc: {
+        networks: ["base"],
+        adjustFactor: 0.81,
+        reserveFactor: 1,
+        futurePools: 0,
+        maxSupply: 800,
+      },
+      GOOGLc: {
+        networks: ["base"],
+        adjustFactor: 0.828,
+        reserveFactor: 1,
+        futurePools: 0,
+        maxSupply: 620,
+      },
+      METAc: {
+        networks: ["base"],
+        adjustFactor: 0.792,
+        reserveFactor: 1,
+        futurePools: 0,
+        maxSupply: 310,
+      },
+      NVDAc: {
+        networks: ["base"],
+        adjustFactor: 0.783,
+        reserveFactor: 1,
+        futurePools: 0,
+        maxSupply: 940,
+      },
     },
     periphery: {
       optimism: {
