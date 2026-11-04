@@ -2,7 +2,6 @@ import type { DeployFunction } from "hardhat-deploy/types";
 import type { ProxyAdmin, TimelockController } from "../types";
 import timelockPropose from "./.utils/timelockPropose";
 import renounceRole from "./.utils/renounceRole";
-import tenderlify from "./.utils/tenderlify";
 import { keccak256, toUtf8Bytes } from "ethers";
 
 const func: DeployFunction = async ({
@@ -15,20 +14,14 @@ const func: DeployFunction = async ({
 }) => {
   const { deployer, multisig } = await getNamedAccounts();
 
-  const { address: timelockAddress } = await tenderlify(
-    "TimelockController",
-    await deploy("TimelockController", {
-      skipIfAlreadyDeployed: true,
-      args: [timelockDelay, [multisig, deployer], [multisig], ZeroAddress],
-      from: deployer,
-      log: true,
-    }),
-  );
+  const { address: timelockAddress } = await deploy("TimelockController", {
+    skipIfAlreadyDeployed: true,
+    args: [timelockDelay, [multisig, deployer], [multisig], ZeroAddress],
+    from: deployer,
+    log: true,
+  });
 
-  await tenderlify(
-    "ProxyAdmin",
-    await deploy("ProxyAdmin", { skipIfAlreadyDeployed: true, from: deployer, log: true }),
-  );
+  await deploy("ProxyAdmin", { skipIfAlreadyDeployed: true, from: deployer, log: true });
 
   const timelock = await getContract<TimelockController>("TimelockController", await getSigner(deployer));
   if ((await timelock.getMinDelay()) !== BigInt(timelockDelay)) {

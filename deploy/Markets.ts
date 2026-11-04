@@ -6,7 +6,6 @@ import DEAD_ADDRESS from "./.utils/DEAD_ADDRESS";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
-import tenderlify from "./.utils/tenderlify";
 import grantRole from "./.utils/grantRole";
 
 const func: DeployFunction = async ({
@@ -114,33 +113,30 @@ const func: DeployFunction = async ({
       );
     }
 
-    const { address: interestRateModel } = await tenderlify(
-      "InterestRateModel",
-      await deploy(`InterestRateModel${assetSymbol}`, {
-        skipIfAlreadyDeployed: !JSON.parse(
-          env[`DEPLOY_IRM_${assetSymbol}`] ?? ((await market.interestRateModel()) === ZeroAddress ? "true" : "false"),
-        ),
-        contract: "InterestRateModel",
-        args: [
-          {
-            minRate: parseUnits(String(config.interestRateModel.minRate)),
-            naturalRate: parseUnits(String(config.interestRateModel.naturalRate)),
-            maxUtilization: parseUnits(String(config.interestRateModel.maxUtilization)),
-            naturalUtilization: parseUnits(String(config.interestRateModel.naturalUtilization)),
-            growthSpeed: parseUnits(String(config.interestRateModel.growthSpeed)),
-            sigmoidSpeed: parseUnits(String(config.interestRateModel.sigmoidSpeed)),
-            spreadFactor: parseUnits(String(config.interestRateModel.spreadFactor)),
-            maturitySpeed: parseUnits(String(config.interestRateModel.maturitySpeed)),
-            timePreference: parseUnits(String(config.interestRateModel.timePreference)),
-            fixedAllocation: parseUnits(String(config.interestRateModel.fixedAllocation)),
-            maxRate: parseUnits(String(config.interestRateModel.maxRate)),
-          },
-          market.target,
-        ],
-        from: deployer,
-        log: true,
-      }),
-    );
+    const { address: interestRateModel } = await deploy(`InterestRateModel${assetSymbol}`, {
+      skipIfAlreadyDeployed: !JSON.parse(
+        env[`DEPLOY_IRM_${assetSymbol}`] ?? ((await market.interestRateModel()) === ZeroAddress ? "true" : "false"),
+      ),
+      contract: "InterestRateModel",
+      args: [
+        {
+          minRate: parseUnits(String(config.interestRateModel.minRate)),
+          naturalRate: parseUnits(String(config.interestRateModel.naturalRate)),
+          maxUtilization: parseUnits(String(config.interestRateModel.maxUtilization)),
+          naturalUtilization: parseUnits(String(config.interestRateModel.naturalUtilization)),
+          growthSpeed: parseUnits(String(config.interestRateModel.growthSpeed)),
+          sigmoidSpeed: parseUnits(String(config.interestRateModel.sigmoidSpeed)),
+          spreadFactor: parseUnits(String(config.interestRateModel.spreadFactor)),
+          maturitySpeed: parseUnits(String(config.interestRateModel.maturitySpeed)),
+          timePreference: parseUnits(String(config.interestRateModel.timePreference)),
+          fixedAllocation: parseUnits(String(config.interestRateModel.fixedAllocation)),
+          maxRate: parseUnits(String(config.interestRateModel.maxRate)),
+        },
+        market.target,
+      ],
+      from: deployer,
+      log: true,
+    });
 
     if ((await market.isFrozen()) !== !!config.frozen) {
       await executeOrPropose(market, "setFrozen", [config.frozen]);
