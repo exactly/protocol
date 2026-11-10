@@ -26,9 +26,23 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
       .map((asset) => [asset, {}] as [string, MarketConfig]),
   ]) {
     const decimals =
-      { "USDC.e": 6, USDC: 6, WBTC: 8, cbBTC: 8, cbXRP: 6, AAPLc: 8, GOOGLc: 8, NVDAc: 8, METAc: 8, AMZNc: 8 }[
-        symbol
-      ] ?? 18;
+      {
+        "USDC.e": 6,
+        USDC: 6,
+        WBTC: 8,
+        cbBTC: 8,
+        cbXRP: 6,
+        AAPLc: 8,
+        GOOGLc: 8,
+        NVDAc: 8,
+        METAc: 8,
+        AMZNc: 8,
+        MSFTc: 8,
+        MSTRc: 8,
+        SNDKc: 8,
+        SPCXc: 8,
+        TSLAc: 8,
+      }[symbol] ?? 18;
     const { newlyDeployed } = await deploy(symbol, {
       skipIfAlreadyDeployed: true,
       contract: symbol === "WETH" ? "MockWETH" : "MockERC20",

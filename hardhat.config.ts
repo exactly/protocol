@@ -461,6 +461,41 @@ const hardhatConfig: Config = {
         futurePools: 0,
         maxSupply: 940,
       },
+      MSFTc: {
+        networks: ["base"],
+        adjustFactor: 0.83,
+        reserveFactor: 1,
+        futurePools: 0,
+        maxSupply: 97,
+      },
+      MSTRc: {
+        networks: ["base"],
+        adjustFactor: 0.67,
+        reserveFactor: 1,
+        futurePools: 0,
+        maxSupply: 531,
+      },
+      SNDKc: {
+        networks: ["base"],
+        adjustFactor: 0.55,
+        reserveFactor: 1,
+        futurePools: 0,
+        maxSupply: 61,
+      },
+      SPCXc: {
+        networks: ["base"],
+        adjustFactor: 0.58,
+        reserveFactor: 1,
+        futurePools: 0,
+        maxSupply: 340,
+      },
+      TSLAc: {
+        networks: ["base"],
+        adjustFactor: 0.72,
+        reserveFactor: 1,
+        futurePools: 0,
+        maxSupply: 127,
+      },
     },
     periphery: {
       optimism: {
