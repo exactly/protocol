@@ -425,7 +425,6 @@ const hardhatConfig: Config = {
           maturitySpeed: 0.75,
           timePreference: 0.12,
         },
-        overrides: { base: { priceFeed: "inverse" } },
       },
       AAPLc: {
         networks: ["base"],
